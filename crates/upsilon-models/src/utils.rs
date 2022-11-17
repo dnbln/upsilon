@@ -29,6 +29,18 @@ macro_rules! str_newtype {
                 self.0.fmt(f)
             }
         }
+
+        impl std::cmp::PartialEq<str> for $name {
+            fn eq(&self, other: &str) -> bool {
+                self.0.as_str() == other
+            }
+        }
+
+        impl std::cmp::PartialEq<&str> for $name {
+            fn eq(&self, other: &&str) -> bool {
+                self.0.as_str() == *other
+            }
+        }
     };
 }
 

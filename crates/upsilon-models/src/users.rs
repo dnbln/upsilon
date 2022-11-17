@@ -2,7 +2,6 @@ pub mod emails;
 pub mod password;
 
 use crate::assets::ImageAssetId;
-use crate::email::Email;
 use crate::users::emails::{UserEmails};
 use crate::users::password::HashedPassword;
 

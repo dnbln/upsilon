@@ -7,7 +7,8 @@ use upsilon_data::{
     async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor,
     DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster,
 };
-use upsilon_models::users::{User, UserId};
+use upsilon_models::email::Email;
+use upsilon_models::users::{User, UserId, Username};
 
 #[derive(Debug, thiserror::Error)]
 pub enum InMemoryError {
@@ -113,10 +114,23 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .ok_or(InMemoryError::UserNotFound)
     }
 
+    async fn query_user_by_username_email(
+        &self,
+        username_email: &str,
+    ) -> Result<Option<User>, Self::Error> {
+        let lock = self.store().users.lock().await;
+
+        let user = lock
+            .values()
+            .find(|user| user.username == username_email || user.emails.contains(username_email));
+
+        Ok(user.map(|user| user.clone()))
+    }
+
     async fn set_user_name(
         &self,
         user_id: UserId,
-        user_name: upsilon_models::users::Username,
+        user_name: Username,
     ) -> Result<(), Self::Error> {
         let mut lock = self.store().users.lock().await;
 

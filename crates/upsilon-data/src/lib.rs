@@ -5,8 +5,6 @@ pub extern crate upsilon_models;
 
 pub use async_trait::async_trait;
 
-pub use upsilon_models::users::{User, UserId, Username};
-
 pub trait CommonDataClientErrorExtractor {
     fn into_common_error(self) -> CommonDataClientError;
 }
@@ -78,7 +76,7 @@ macro_rules! query_impl_trait {
                 impl<'a> $crate::DataClientQueryMaster for $query_master_name <'a> {
                     $(
                         #[allow(unused_parens)]
-                        async fn $name (&self, $($param_name: $crate:: $param_ty,)*) -> Result<($($ret_ty)?), $crate::CommonDataClientError> {
+                        async fn $name (&self, $($param_name: $param_ty,)*) -> Result<($($ret_ty)?), $crate::CommonDataClientError> {
                             self.0.$name($($param_name,)*).await.map_err(|e| e.into_common_error())
                         }
                     )*
@@ -89,9 +87,10 @@ macro_rules! query_impl_trait {
 }
 
 query_impl_trait!(
-    async fn create_user(user: User);
-    async fn query_user(user_id: UserId) -> User;
-    async fn set_user_name(user_id: UserId, user_name: Username);
+    async fn create_user(user: upsilon_models::users::User);
+    async fn query_user(user_id: upsilon_models::users::UserId) -> upsilon_models::users::User;
+    async fn query_user_by_username_email(username_email: &str) -> Option<upsilon_models::users::User>;
+    async fn set_user_name(user_id: upsilon_models::users::UserId, user_name: upsilon_models::users::Username);
 );
 
 pub struct DataClientMasterHolder(Box<dyn DataClientMaster>);

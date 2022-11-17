@@ -44,6 +44,7 @@ api_fairing!(
     routes::repos::get_branch_top,
     routes::repos::get_branch_history,
     routes::users::create_user,
+    routes::users::login_user,
 );
 
 pub struct ApiConfigurator;

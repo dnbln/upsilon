@@ -1,5 +1,5 @@
-use std::ops::Index;
 use crate::email::Email;
+use std::ops::Index;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct EmailIndex(usize);
@@ -64,6 +64,13 @@ impl UserEmails {
 
     pub fn primary_email(&self) -> &Email {
         &self[self.primary_email]
+    }
+
+    pub fn contains<T: ?Sized>(&self, email: &T) -> bool
+    where
+        Email: PartialEq<T>,
+    {
+        self.emails.iter().any(|it| *it == *email)
     }
 }
 
