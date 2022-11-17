@@ -1,0 +1,21 @@
+[package]
+name = "upsilon-id"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+chrono = { version = "0.4.23", features = ["serde"] }
+
+[dependencies.uuid]
+version = "1.2.2"
+features = [
+    "v7",
+    "v4",
+    "std",
+    "fast-rng",
+    "serde",
+    "macro-diagnostics",
+]

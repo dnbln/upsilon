@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/product.schema.json",
+  "title": "Upsilon configuration",
+  "description": "Upsilon configuration file format",
+  "type": "object",
+  "properties": {
+    "vcs": {
+      "description": "The VCS configuration",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/definitions/non-empty-string",
+          "description": "The path where to store the repositories"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "web": {
+      "description": "Information about the server",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "Information about the API backend",
+          "type": "object",
+          "properties": {
+            "origin": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The origin of the API backend"
+            }
+          },
+          "required": [
+            "origin"
+          ],
+          "additionalProperties": false
+        },
+        "web-interface": {
+          "description": "Information about the web interface",
+          "type": "object",
+          "properties": {
+            "origin": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The origin of the web interface"
+            }
+          },
+          "required": [
+            "origin"
+          ],
+          "additionalProperties": false
+        },
+        "docs": {
+          "description": "Information about the docs interface",
+          "type": "object",
+          "properties": {
+            "origin": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The origin of the docs interface"
+            }
+          },
+          "required": [
+            "origin"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "api"
+      ],
+      "additionalProperties": false
+    },
+    "data-backend": {
+      "oneOf": [
+        {
+          "description": "Configuration for the data backend (Postgres)",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "postgres"
+            },
+            "host": {
+              "type": "string",
+              "description": "The host where to reach the database"
+            },
+            "port": {
+              "$ref": "#/definitions/port",
+              "description": "Port the server listens on"
+            },
+            "user": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The user that should be used to access the database"
+            },
+            "password": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The password of the user that should be used to access the database"
+            }
+          },
+          "required": [
+            "type",
+            "host",
+            "port",
+            "user",
+            "password"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Configuration for the data backend (In-memory)",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "in-memory"
+            },
+            "save": {
+              "type": "boolean",
+              "description": "Whether to save the data in-memory to disk"
+            },
+            "path": {
+              "$ref": "#/definitions/non-empty-string",
+              "description": "The path where to store the data"
+            }
+          },
+          "required": [
+            "type",
+            "save"
+          ],
+          "if": {
+            "properties": {
+              "save": { "const": true }
+            }
+          },
+          "then": {
+            "required": [
+              "path"
+            ]
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "vcs",
+    "web",
+    "data-backend"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "port": {
+      "type": "integer",
+      "minimum": 0,
+      "exclusiveMaximum": 65536
+    },
+    "non-empty-string": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
