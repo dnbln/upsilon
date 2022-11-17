@@ -2,7 +2,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
 use std::path::PathBuf;
-use upsilon_data::{DataClient, DataClientMaster, DataClientMasterHolder};
+use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
 
 #[derive(Deserialize, Debug)]

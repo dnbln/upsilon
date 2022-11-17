@@ -1824,6 +1824,7 @@ version = "0.1.0"
 dependencies = [
  "rocket",
  "serde",
+ "thiserror",
  "upsilon-core",
  "upsilon-data",
  "upsilon-models",

@@ -267,6 +267,25 @@ impl<'r> Tree<'r> {
     {
         Ok(self.tree.walk(mode, callback)?)
     }
+
+    pub fn try_walk<C, T, E>(&self, mode: TreeWalkMode, mut callback: C) -> Result<StdResult<(), E>>
+    where
+        C: FnMut(&str, &TreeEntry<'_>) -> StdResult<T, E>,
+        T: Into<TreeWalkResult>,
+    {
+        let mut all_result = Ok(());
+        self.walk(mode, |path, entry| {
+            match callback(path, entry) {
+                Ok(r) => r.into(),
+                Err(e) => {
+                    all_result = Err(e);
+                    TreeWalkResult::Abort
+                }
+            }
+        })?;
+
+        Ok(all_result)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -278,7 +297,8 @@ pub enum Error {
     Unknown,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub use std::result::Result as StdResult;
+pub type Result<T> = StdResult<T, Error>;
 
 pub fn init_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
     Ok(Repository {

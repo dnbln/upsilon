@@ -8,6 +8,8 @@ use rocket::{
 
 mod routes;
 
+mod error;
+
 pub struct ApiFairing<const V: usize>;
 
 macro_rules! api_fairing {
@@ -36,11 +38,11 @@ macro_rules! api_fairing {
 api_fairing!(
     @version 1,
     routes::get_api_root,
-    routes::create_repo,
-    routes::get_repo,
-    routes::get_commit,
-    routes::get_branch_top,
-    routes::get_branch_history,
+    routes::repos::create_repo,
+    routes::repos::get_repo,
+    routes::repos::get_commit,
+    routes::repos::get_branch_top,
+    routes::repos::get_branch_history,
     routes::users::create_user,
 );
 
