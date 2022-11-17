@@ -2,13 +2,14 @@ use rocket::State;
 use std::fmt::Write;
 use upsilon_vcs::{TreeWalkResult, UpsilonVcsConfig};
 
+pub mod users;
+
 #[get("/")]
 pub async fn get_api_root() -> &'static str {
     "Hello world"
 }
 
-#[post("/users")]
-pub async fn create_user() {}
+
 
 #[post("/repos/<repo>")]
 pub async fn create_repo(repo: String, vcs_config: &State<UpsilonVcsConfig>) -> String {

@@ -1,8 +1,10 @@
 pub mod emails;
+pub mod password;
 
 use crate::assets::ImageAssetId;
 use crate::email::Email;
 use crate::users::emails::{UserEmails};
+use crate::users::password::HashedPassword;
 
 
 upsilon_id::id_ty!(
@@ -11,32 +13,17 @@ upsilon_id::id_ty!(
     pub struct UserId;
 );
 
-crate::utils::str_newtype!(Name);
 crate::utils::str_newtype!(Username);
+crate::utils::str_newtype!(Name);
 
 
 #[derive(Debug, Clone)]
 pub struct User {
     pub id: UserId,
     pub username: Username,
+    pub password: HashedPassword,
     pub name: Option<Name>,
 
     pub emails: UserEmails,
     pub avatar: Option<ImageAssetId>,
-}
-
-impl User {
-    pub fn new(username: Username, primary_email: Email) -> User {
-        let id = UserId::new();
-
-        dbg!(id);
-
-        User {
-            id,
-            username,
-            emails: UserEmails::new(primary_email),
-            avatar: None,
-            name: None,
-        }
-    }
 }

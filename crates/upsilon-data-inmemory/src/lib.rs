@@ -1,7 +1,12 @@
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use upsilon_data::{async_trait, queryer_and_master_impl_trait, DataClient, DataClientQueryImpl, DataClientQueryer, CommonDataClientErrorExtractor, CommonDataClientError, DataClientQueryMaster};
+use upsilon_data::{
+    async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor,
+    DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster,
+};
 use upsilon_models::users::{User, UserId};
 
 #[derive(Debug, thiserror::Error)]
@@ -14,15 +19,35 @@ pub enum InMemoryError {
 
 impl CommonDataClientErrorExtractor for InMemoryError {
     fn into_common_error(self) -> CommonDataClientError {
-        CommonDataClientError::Other(Box::new(self))
+        match self {
+            InMemoryError::UserNotFound => CommonDataClientError::UserNotFound,
+            InMemoryError::UserAlreadyExists => CommonDataClientError::UserAlreadyExists,
+            _ => CommonDataClientError::Other(Box::new(self)),
+        }
     }
 }
 
-#[derive(Clone, serde::Deserialize)]
-pub struct InMemoryStorageConfiguration {}
+#[derive(Clone, Debug)]
+pub enum InMemoryStorageSaveStrategy {
+    Save { path: PathBuf },
+    DontSave,
+}
+
+#[derive(Clone, Debug)]
+pub struct InMemoryStorageConfiguration {
+    pub save_strategy: InMemoryStorageSaveStrategy,
+}
 
 pub struct InMemoryDataStore {
     users: Arc<Mutex<BTreeMap<UserId, User>>>,
+}
+
+impl InMemoryDataStore {
+    fn new() -> Self {
+        Self {
+            users: Arc::new(Mutex::new(BTreeMap::new())),
+        }
+    }
 }
 
 pub struct InMemoryDataClient(InMemoryStorageConfiguration, Box<InMemoryDataStore>);
@@ -33,17 +58,26 @@ impl DataClient for InMemoryDataClient {
     type Error = InMemoryError;
     type QueryImpl<'a> = InMemoryQueryImpl<'a>;
 
-    async fn init_client(config: &Self::InnerConfiguration) -> Self::Result<Self>
+    async fn init_client(config: Self::InnerConfiguration) -> Self::Result<Self>
     where
         Self: Sized,
     {
-        Ok(Self(config.clone(), Box::new(InMemoryDataStore {
-            users: Arc::new(Mutex::new(BTreeMap::new())),
-        })))
+        Ok(Self(config, Box::new(InMemoryDataStore::new())))
     }
 
     fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a> {
         InMemoryQueryImpl(self)
+    }
+}
+
+#[async_trait]
+impl DataClientMaster for InMemoryDataClient {
+    fn query_master<'a>(&'a self) -> Box<dyn DataClientQueryMaster + 'a> {
+        self.data_client_query_impl().as_query_master()
+    }
+
+    async fn on_shutdown(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
     }
 }
 
@@ -91,13 +125,9 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .ok_or(InMemoryError::UserNotFound)
     }
 
-    fn as_queryer<'q>(&'q self) -> Box<dyn DataClientQueryer + 'q> {
-        Box::new(InMemoryQueryer(self))
-    }
-
-    fn as_query_master<'q>(&'q self) -> Box<dyn DataClientQueryMaster + 'q> {
+    fn as_query_master(self) -> Box<dyn DataClientQueryMaster + 'a> {
         Box::new(InMemoryQueryMaster(self))
     }
 }
 
-queryer_and_master_impl_trait!(InMemoryQueryer, InMemoryQueryMaster, InMemoryQueryImpl);
+query_master_impl_trait!(InMemoryQueryMaster, InMemoryQueryImpl);

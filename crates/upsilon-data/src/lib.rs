@@ -11,25 +11,40 @@ pub trait CommonDataClientErrorExtractor {
     fn into_common_error(self) -> CommonDataClientError;
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum CommonDataClientError {
-    Other(Box<dyn std::error::Error>),
+    #[error("User not found")]
+    UserNotFound,
+    #[error("User already exists")]
+    UserAlreadyExists,
+    #[error("{0}")]
+    Other(#[from] Box<dyn std::error::Error>),
 }
 
 #[async_trait]
 pub trait DataClient {
-    type InnerConfiguration: for<'d> serde::Deserialize<'d>;
+    type InnerConfiguration;
     type Error: std::error::Error + CommonDataClientErrorExtractor;
     type Result<T>: std::ops::Try<
         Output = T,
         Residual = Result<std::convert::Infallible, Self::Error>,
     > = Result<T, Self::Error>;
 
-    type QueryImpl<'a>: DataClientQueryImpl<'a, Error = Self::Error> where Self: 'a;
+    type QueryImpl<'a>: DataClientQueryImpl<'a, Error = Self::Error>
+    where
+        Self: 'a;
 
-    async fn init_client(config: &Self::InnerConfiguration) -> Self::Result<Self>
+    async fn init_client(config: Self::InnerConfiguration) -> Self::Result<Self>
     where
         Self: Sized;
     fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a>;
+}
+
+#[async_trait]
+pub trait DataClientMaster: Send + Sync {
+    fn query_master<'a>(&'a self) -> Box<dyn DataClientQueryMaster + 'a>;
+
+    async fn on_shutdown(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 macro_rules! query_impl_trait {
@@ -43,20 +58,11 @@ macro_rules! query_impl_trait {
                 async fn $name (&self, $($param_name: $param_ty,)*) -> Result<($($ret_ty)?), Self::Error>;
             )*
 
-            fn as_queryer<'q>(&'q self) -> Box<dyn $crate::DataClientQueryer + 'q>;
-            fn as_query_master<'q>(&'q self) -> Box<dyn $crate::DataClientQueryMaster + 'q>;
+            fn as_query_master(self) -> Box<dyn $crate::DataClientQueryMaster + 'a>;
         }
 
         #[async_trait]
-        pub trait DataClientQueryer {
-            $(
-                #[allow(unused_parens)]
-                async fn $name (&self, $($param_name: $param_ty,)*) -> Result<($($ret_ty)?), Box<dyn std::error::Error>>;
-            )*
-        }
-
-        #[async_trait]
-        pub trait DataClientQueryMaster {
+        pub trait DataClientQueryMaster: Send + Sync {
             $(
                 #[allow(unused_parens)]
                 async fn $name (&self, $($param_name: $param_ty,)*) -> Result<($($ret_ty)?), CommonDataClientError>;
@@ -64,22 +70,9 @@ macro_rules! query_impl_trait {
         }
 
         #[macro_export]
-        macro_rules! queryer_and_master_impl_trait {
-            ($queryer_name:ident, $query_master_name:ident, $query_impl:ident) => {
-                pub struct $queryer_name<'a>(&'a $query_impl <'a>);
-
-                #[async_trait]
-                impl<'a> $crate::DataClientQueryer for $queryer_name <'a> {
-                    $(
-                        #[allow(unused_parens)]
-                        async fn $name (&self, $($param_name: $crate:: $param_ty,)*) -> Result<($($ret_ty)?), Box<dyn std::error::Error>> {
-                            self.0.$name($($param_name,)*).await
-                                .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
-                        }
-                    )*
-                }
-
-                pub struct $query_master_name<'a>(&'a $query_impl <'a>);
+        macro_rules! query_master_impl_trait {
+            ($query_master_name:ident, $query_impl:ident) => {
+                pub struct $query_master_name<'a>($query_impl <'a>);
 
                 #[async_trait]
                 impl<'a> $crate::DataClientQueryMaster for $query_master_name <'a> {
@@ -100,3 +93,19 @@ query_impl_trait!(
     async fn query_user(user_id: UserId) -> User;
     async fn set_user_name(user_id: UserId, user_name: Username);
 );
+
+pub struct DataClientMasterHolder(Box<dyn DataClientMaster>);
+
+impl DataClientMasterHolder {
+    pub fn new<T: DataClient + DataClientMaster + 'static>(client: T) -> Self {
+        Self(Box::new(client))
+    }
+
+    pub fn query_master<'a>(&'a self) -> Box<dyn DataClientQueryMaster + 'a> {
+        self.0.query_master()
+    }
+
+    pub async fn on_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.0.on_shutdown().await
+    }
+}

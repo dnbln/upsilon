@@ -7,5 +7,10 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-upsilon-id = { path = "../upsilon-id" }
 thiserror = "1"
+rust-argon2 = "1"
+bcrypt = "0.13"
+
+upsilon-core = { path = "../upsilon-core" }
+upsilon-id = { path = "../upsilon-id" }
+upsilon-stdx = { path = "../upsilon-stdx" }

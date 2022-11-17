@@ -73,80 +73,57 @@
     },
     "data-backend": {
       "oneOf": [
-        {
-          "description": "Configuration for the data backend (Postgres)",
+        { "$ref": "#/definitions/postgres-data-backend" },
+        { "$ref": "#/definitions/inmemory-data-backend" }
+      ]
+    },
+    "users": {
+      "description": "Configuration about users",
+      "type": "object",
+      "properties": {
+        "register": {
+          "description": "Configuration about user registration",
           "type": "object",
           "properties": {
-            "type": {
-              "type": "string",
-              "const": "postgres"
-            },
-            "host": {
-              "type": "string",
-              "description": "The host where to reach the database"
-            },
-            "port": {
-              "$ref": "#/definitions/port",
-              "description": "Port the server listens on"
-            },
-            "user": {
-              "$ref": "#/definitions/non-empty-string",
-              "description": "The user that should be used to access the database"
-            },
-            "password": {
-              "$ref": "#/definitions/non-empty-string",
-              "description": "The password of the user that should be used to access the database"
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether user registration is enabled"
             }
           },
           "required": [
-            "type",
-            "host",
-            "port",
-            "user",
-            "password"
+            "enabled"
           ],
           "additionalProperties": false
         },
-        {
-          "description": "Configuration for the data backend (In-memory)",
+        "auth": {
+          "description": "Configuration about user authentication",
           "type": "object",
           "properties": {
-            "type": {
-              "type": "string",
-              "const": "in-memory"
-            },
-            "save": {
-              "type": "boolean",
-              "description": "Whether to save the data in-memory to disk"
-            },
-            "path": {
-              "$ref": "#/definitions/non-empty-string",
-              "description": "The path where to store the data"
+            "password": {
+              "oneOf": [
+                { "$ref": "#/definitions/argon2-password-auth" },
+                { "$ref": "#/definitions/bcrypt-password-auth" }
+              ]
             }
           },
           "required": [
-            "type",
-            "save"
+            "password"
           ],
-          "if": {
-            "properties": {
-              "save": { "const": true }
-            }
-          },
-          "then": {
-            "required": [
-              "path"
-            ]
-          },
           "additionalProperties": false
         }
-      ]
+      },
+      "required": [
+        "auth",
+        "register"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
     "vcs",
     "web",
-    "data-backend"
+    "data-backend",
+    "users"
   ],
   "additionalProperties": false,
   "definitions": {
@@ -158,6 +135,128 @@
     "non-empty-string": {
       "type": "string",
       "minLength": 1
+    },
+    "postgres-data-backend": {
+      "description": "Configuration for the data backend (Postgres)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "postgres"
+        },
+        "host": {
+          "type": "string",
+          "description": "The host where to reach the database"
+        },
+        "port": {
+          "$ref": "#/definitions/port",
+          "description": "Port the server listens on"
+        },
+        "user": {
+          "$ref": "#/definitions/non-empty-string",
+          "description": "The user that should be used to access the database"
+        },
+        "password": {
+          "$ref": "#/definitions/non-empty-string",
+          "description": "The password of the user that should be used to access the database"
+        }
+      },
+      "required": [
+        "type",
+        "host",
+        "port",
+        "user",
+        "password"
+      ],
+      "additionalProperties": false
+    },
+    "inmemory-data-backend": {
+      "description": "Configuration for the data backend (In-memory)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "in-memory"
+        },
+        "save": {
+          "type": "boolean",
+          "description": "Whether to save the data in-memory to disk"
+        },
+        "path": {
+          "$ref": "#/definitions/non-empty-string",
+          "description": "The path where to store the data"
+        }
+      },
+      "required": [
+        "type",
+        "save"
+      ],
+      "if": {
+        "properties": {
+          "save": { "const": true }
+        }
+      },
+      "then": {
+        "required": [
+          "path"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "argon2-password-auth": {
+      "description": "Configuration about password authentication (Argon2)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "argon2"
+        },
+        "passes": {
+          "type": "integer",
+          "description": "The number of passes to use for Argon2",
+          "minimum": 2,
+          "exclusiveMaximum": 12,
+          "default": 6
+        },
+        "mem-cost": {
+          "type": "integer",
+          "description": "The memory cost to use for Argon2",
+          "minimum": 1024,
+          "default": 4096,
+          "maximum": 65536
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "bcrypt-password-auth": {
+      "description": "Configuration about password authentication (BCrypt)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "bcrypt"
+        },
+        "cost": {
+          "type": "integer",
+          "description": "The cost of the BCrypt algorithm",
+          "minimum": 4,
+          "exclusiveMaximum": 32,
+          "default": 11
+        },
+        "mem-cost": {
+          "type": "integer",
+          "minimum": 1024,
+          "default": 4096,
+          "maximum": 65536
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
     }
   }
 }

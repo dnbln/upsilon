@@ -6,6 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = {version = "0.5.0-rc.2", features = ["json"]}
-serde = {version = "1.0", features = ["derive"]}
-upsilon-vcs = { path="../upsilon-vcs" }
+rocket = { version = "0.5.0-rc.2", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+upsilon-core = { path = "../upsilon-core" }
+upsilon-data = { path = "../upsilon-data" }
+upsilon-models = { path = "../upsilon-models" }
+upsilon-vcs = { path = "../upsilon-vcs" }

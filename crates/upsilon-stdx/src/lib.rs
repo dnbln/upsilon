@@ -1,3 +1,6 @@
+#![feature(const_trait_impl)]
+#![feature(const_mut_refs)]
+
 mod also {
     //! Kotlin-like `also` expressions.
 
@@ -112,12 +115,13 @@ mod with {
     /// # use upsilon_stdx::With;
     /// assert_eq!(2, 1.with(|it| it + 1));
     /// ```
+    #[const_trait]
     pub trait With: Sized {
         /// Convert this object with a closure
         #[inline(always)]
         fn with<F, T>(self, f: F) -> T
         where
-            F: FnOnce(Self) -> T,
+            F: ~const FnOnce(Self) -> T,
         {
             f(self)
         }
@@ -132,12 +136,13 @@ mod with {
     /// assert_eq!(String::from("aaa"),
     ///            "aaa".with_ref(|it| it.to_string()));
     /// ```
+    #[const_trait]
     pub trait WithRef {
         /// Convert a reference with a closure
         #[inline(always)]
         fn with_ref<F, T>(&self, f: F) -> T
         where
-            F: FnOnce(&Self) -> T,
+            F: ~const FnOnce(&Self) -> T,
         {
             f(self)
         }
@@ -160,12 +165,13 @@ mod with {
     ///             }));
     /// assert_eq!(P(1), p);
     /// ```
+    #[const_trait]
     pub trait WithRefMut {
         /// Convert a mutable reference with a closure
         #[inline(always)]
         fn with_ref_mut<F, T>(&mut self, f: F) -> T
         where
-            F: FnOnce(&mut Self) -> T,
+            F: ~const FnOnce(&mut Self) -> T,
         {
             f(self)
         }

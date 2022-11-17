@@ -9,3 +9,4 @@ edition = "2021"
 serde = { version = "1.0", features = ["derive"] }
 async-trait = "0.1"
 upsilon-models = { path = "../upsilon-models" }
+thiserror = "1"
