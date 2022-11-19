@@ -1,21 +1,24 @@
-use crate::error::ApiResult;
-use rocket::http::uri::fmt::Path;
-use rocket::http::uri::Segments;
-use rocket::request::{FromParam, FromSegments};
-use rocket::serde::json::Json;
-use rocket::{tokio, State};
+mod repo_lookup_path;
+
 use std::fmt::Write;
 use std::path::PathBuf;
+
+use rocket::serde::json::Json;
+use rocket::{tokio, State};
+
 use upsilon_data::{CommonDataClientError, DataClientMasterHolder, DataQueryMaster};
-use upsilon_models::namespace::{NamespaceId, PlainNamespaceFragment};
+use upsilon_models::namespace::NamespaceId;
 use upsilon_models::organization::{
-    Organization, OrganizationId, OrganizationName, OrganizationNameRef, Team, TeamId, TeamName,
-    TeamNameRef,
+    Organization, OrganizationId, OrganizationName, Team, TeamId, TeamName,
 };
-use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace};
-use upsilon_models::users::{NameRef, User, UserId, Username};
+use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
+use upsilon_models::users::{User, UserId, Username};
 use upsilon_vcs::{TreeWalkResult, UpsilonVcsConfig};
 
+use crate::error::ApiResult;
+use crate::routes::repos::repo_lookup_path::RepoLookupPath;
+
+#[v1]
 #[post("/repos/<repo>")]
 pub async fn create_repo(
     repo: String,
@@ -48,6 +51,7 @@ pub async fn create_repo(
     Ok(repo_name.to_string())
 }
 
+#[v1]
 #[get("/repos/<repo>")]
 pub async fn get_repo(
     repo: RepoLookupPath,
@@ -63,6 +67,7 @@ pub async fn get_repo(
     Ok(resolved_path.display().to_string())
 }
 
+#[v1]
 #[get("/repos/<repo>/branch/<branch>/top")]
 pub async fn get_branch_top(
     repo: RepoLookupPath,
@@ -93,6 +98,7 @@ pub async fn get_branch_top(
     Ok(cm.displayable_message().to_string())
 }
 
+#[v1]
 #[get("/repos/<repo>/branch/<branch>/history")]
 pub async fn get_branch_history(
     repo: RepoLookupPath,
@@ -124,6 +130,7 @@ pub async fn get_branch_history(
     Ok(history)
 }
 
+#[v1]
 #[get("/repos/<repo>/commit/<commit>")]
 pub async fn get_commit(
     repo: RepoLookupPath,
@@ -205,50 +212,7 @@ impl From<ResolvedRepoNamespace> for RepoNsPath {
     }
 }
 
-pub struct RepoLookupPath {
-    path: Vec<PlainNamespaceFragment>,
-}
-
-#[derive(Debug)]
-pub enum NsLookupPathError {
-    Empty,
-    TooManySegments,
-}
-
-impl<'r> FromSegments<'r> for RepoLookupPath {
-    type Error = NsLookupPathError;
-
-    fn from_segments(segments: Segments<'r, Path>) -> Result<Self, Self::Error> {
-        if segments.is_empty() {
-            return Err(NsLookupPathError::Empty);
-        }
-
-        if segments.len() > 3 {
-            return Err(NsLookupPathError::TooManySegments);
-        }
-
-        Ok(Self {
-            path: segments
-                .into_iter()
-                .map(|it| PlainNamespaceFragment::from(it))
-                .collect(),
-        })
-    }
-}
-
-impl<'r> FromParam<'r> for RepoLookupPath {
-    type Error = NsLookupPathError;
-
-    fn from_param(param: &'r str) -> Result<Self, Self::Error> {
-        let path = param
-            .split('.')
-            .map(|p| PlainNamespaceFragment::from(p))
-            .collect();
-
-        Ok(Self { path })
-    }
-}
-
+#[v1]
 #[get("/repos/ns/lookup/<repo_ns..>")]
 pub async fn get_repo_ns_path(
     repo_ns: RepoLookupPath,
@@ -323,14 +287,14 @@ pub async fn resolve<'a>(
     let mut namespace = TempResolvedRepoNamespace::GlobalNamespace;
 
     // get the namespace
-    for i in 0..(repo_ns.path.len() - 1) {
-        let fragment = &repo_ns.path[i];
+    for i in 0..(repo_ns.len() - 1) {
+        let fragment = &repo_ns[i];
 
         namespace = match namespace {
             TempResolvedRepoNamespace::GlobalNamespace => {
                 match qm.query_organization_by_name(fragment).await? {
                     Some(org) => TempResolvedRepoNamespace::Organization(org),
-                    None => match qm.query_user_by_username(&repo_ns.path[0]).await? {
+                    None => match qm.query_user_by_username(fragment).await? {
                         Some(user) => TempResolvedRepoNamespace::User(user),
                         None => return Ok(None),
                     },
@@ -347,7 +311,7 @@ pub async fn resolve<'a>(
         };
     }
 
-    let repo_name = &repo_ns.path[repo_ns.path.len() - 1];
+    let repo_name = repo_ns.last();
     let ns_id = match &namespace {
         TempResolvedRepoNamespace::GlobalNamespace => NamespaceId::GlobalNamespace,
         TempResolvedRepoNamespace::User(user) => NamespaceId::User(user.id),
@@ -361,3 +325,5 @@ pub async fn resolve<'a>(
 
     Ok(repo.map(|repo| namespace.resolved(repo)))
 }
+
+api_routes!(ReposApi);

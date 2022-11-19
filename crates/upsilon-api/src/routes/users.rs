@@ -15,6 +15,7 @@ pub struct CreateUserRequest {
     email: Email,
 }
 
+#[v1]
 #[post("/users", data = "<user>")]
 pub async fn create_user(
     user: Json<CreateUserRequest>,
@@ -56,6 +57,7 @@ pub struct LoginUserRequest {
     password: PlainPassword,
 }
 
+#[v1]
 #[post("/users/login", data = "<user>")]
 pub async fn login_user(
     user: Json<LoginUserRequest>,
@@ -83,3 +85,5 @@ pub async fn login_user(
 
     Ok("<token>".to_string())
 }
+
+api_routes!(UsersApi);

@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate rocket;
+#[macro_use(v1, api_routes)]
+extern crate upsilon_procx;
 
 use rocket::{
     fairing::{Fairing, Info, Kind},
@@ -13,7 +15,7 @@ mod error;
 pub struct ApiFairing<const V: usize>;
 
 macro_rules! api_fairing {
-    (@version $version:literal, $($route:expr),* $(,)?) => {
+    (@version $version:literal, $($routes:ty),* $(,)?) => {
         #[rocket::async_trait]
         impl Fairing for ApiFairing<$version> {
             fn info(&self) -> Info {
@@ -24,11 +26,17 @@ macro_rules! api_fairing {
             }
 
             async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
+                let mut joined = rocket::routes![];
+
+                $(
+                    joined.extend(
+                        <$routes as $crate::ApiRoutes <$version>>::get_routes()
+                    );
+                )*
+
                 Ok(rocket.mount(
                     concat!("/api/v", $version),
-                    routes![
-                        $($route,)*
-                    ],
+                    joined,
                 ))
             }
         }
@@ -37,16 +45,16 @@ macro_rules! api_fairing {
 
 api_fairing!(
     @version 1,
-    routes::get_api_root,
-    routes::repos::create_repo,
-    routes::repos::get_repo,
-    routes::repos::get_commit,
-    routes::repos::get_branch_top,
-    routes::repos::get_branch_history,
-    routes::repos::get_repo_ns_path,
-    routes::users::create_user,
-    routes::users::login_user,
+    routes::RootApi,
+    routes::repos::ReposApi,
+    routes::users::UsersApi,
 );
+
+pub trait ApiRoutes<const V: usize> {
+    fn get_routes() -> Vec<rocket::Route>;
+}
+
+pub(crate) use api_routes;
 
 pub struct ApiConfigurator;
 

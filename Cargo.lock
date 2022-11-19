@@ -850,6 +850,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "linkme"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab56277eeaacac09e1398bcefc113319c6c8d4fb464f11c54ba247cdb65776e"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "624b78e5a5f99b2c751812a14785a2c661f894a34bc3dd1f2ec3e3fffb4605e7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1822,12 +1842,14 @@ dependencies = [
 name = "upsilon-api"
 version = "0.1.0"
 dependencies = [
+ "linkme",
  "rocket",
  "serde",
  "thiserror",
  "upsilon-core",
  "upsilon-data",
  "upsilon-models",
+ "upsilon-procx",
  "upsilon-vcs",
 ]
 
