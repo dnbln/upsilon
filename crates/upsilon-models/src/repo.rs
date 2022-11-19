@@ -1,4 +1,4 @@
-use crate::namespace::{NamespaceId, PlainNamespaceFragment, PlainNamespaceFragmentRef};
+use crate::namespace::{NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef};
 
 upsilon_id::id_ty! {
     #[uuid]
@@ -17,6 +17,18 @@ crate::utils::str_newtype!(RepoDisplayName, RepoDisplayNameRef);
 
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct RepoNamespace(pub NamespaceId);
+
+impl RepoNamespace {
+    pub fn kind(&self) -> NamespaceKind {
+        self.0.kind()
+    }
+}
+
+impl PartialEq<NamespaceId> for RepoNamespace {
+    fn eq(&self, other: &NamespaceId) -> bool {
+        self.0 == *other
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Repo {

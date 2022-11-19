@@ -54,8 +54,6 @@ pub trait ApiRoutes<const V: usize> {
     fn get_routes() -> Vec<rocket::Route>;
 }
 
-pub(crate) use api_routes;
-
 pub struct ApiConfigurator;
 
 #[rocket::async_trait]

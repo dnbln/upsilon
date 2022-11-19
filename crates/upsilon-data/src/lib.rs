@@ -17,6 +17,8 @@ pub enum CommonDataClientError {
     UserAlreadyExists,
     #[error("Repo already exists")]
     RepoAlreadyExists,
+    #[error("Name conflict")]
+    NameConflict,
     #[error("{0}")]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }

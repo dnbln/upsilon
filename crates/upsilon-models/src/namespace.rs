@@ -9,12 +9,42 @@ pub enum NamespaceId {
     Team(OrganizationId, TeamId),
 }
 
+impl NamespaceId {
+    pub fn kind(&self) -> NamespaceKind {
+        match self {
+            Self::GlobalNamespace => NamespaceKind::GlobalNamespace,
+            Self::User(_) => NamespaceKind::User,
+            Self::Organization(_) => NamespaceKind::Organization,
+            Self::Team(_, _) => NamespaceKind::Team,
+        }
+    }
+}
+
+#[derive(Copy, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum NamespaceKind {
+    GlobalNamespace,
+    User,
+    Organization,
+    Team,
+}
+
 #[derive(Debug, Clone)]
 pub enum Namespace {
     GlobalNamespace,
     User(User),
     Organization(Organization),
     Team(Organization, Team),
+}
+
+impl Namespace {
+    pub fn kind(&self) -> NamespaceKind {
+        match self {
+            Self::GlobalNamespace => NamespaceKind::GlobalNamespace,
+            Self::User(_) => NamespaceKind::User,
+            Self::Organization(_) => NamespaceKind::Organization,
+            Self::Team(_, _) => NamespaceKind::Team,
+        }
+    }
 }
 
 impl Namespace {

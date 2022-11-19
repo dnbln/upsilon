@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use upsilon_data::{
     async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor,
     DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster,
 };
+use upsilon_models::namespace::{NamespaceId, NamespaceKind};
 use upsilon_models::organization::{
     Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName,
     OrganizationNameRef, Team, TeamDisplayName, TeamId, TeamName, TeamNameRef,
@@ -40,6 +41,7 @@ impl CommonDataClientErrorExtractor for InMemoryError {
         match self {
             InMemoryError::UserNotFound => CommonDataClientError::UserNotFound,
             InMemoryError::UserAlreadyExists => CommonDataClientError::UserAlreadyExists,
+            InMemoryError::NameConflict => CommonDataClientError::NameConflict,
             _ => CommonDataClientError::Other(Box::new(self)),
         }
     }
@@ -57,18 +59,18 @@ pub struct InMemoryStorageConfiguration {
 }
 
 struct InMemoryDataStore {
-    users: Arc<Mutex<BTreeMap<UserId, User>>>,
-    repos: Arc<Mutex<BTreeMap<RepoId, Repo>>>,
-    organizations: Arc<Mutex<BTreeMap<OrganizationId, Organization>>>,
+    users: Arc<RwLock<BTreeMap<UserId, User>>>,
+    repos: Arc<RwLock<BTreeMap<RepoId, Repo>>>,
+    organizations: Arc<RwLock<BTreeMap<OrganizationId, Organization>>>,
     organization_members:
-        Arc<Mutex<BTreeMap<OrganizationId, BTreeMap<UserId, OrganizationMember>>>>,
-    teams: Arc<Mutex<BTreeMap<TeamId, Team>>>,
+        Arc<RwLock<BTreeMap<OrganizationId, BTreeMap<UserId, OrganizationMember>>>>,
+    teams: Arc<RwLock<BTreeMap<TeamId, Team>>>,
 }
 
 impl InMemoryDataStore {
     fn new() -> Self {
-        fn new_map<K, V>() -> Arc<Mutex<BTreeMap<K, V>>> {
-            Arc::new(Mutex::new(BTreeMap::new()))
+        fn new_map<K, V>() -> Arc<RwLock<BTreeMap<K, V>>> {
+            Arc::new(RwLock::new(BTreeMap::new()))
         }
 
         Self {
@@ -120,33 +122,311 @@ impl<'a> InMemoryQueryImpl<'a> {
     }
 }
 
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[repr(u8)]
+enum RwGuardKind {
+    None = 0,
+    Read = 1,
+    Write = 2,
+}
+
+impl RwGuardKind {
+    fn promote(&mut self, other: Self) {
+        if *self < other {
+            *self = other;
+        }
+    }
+}
+
+enum OptRwGuard<'a, T> {
+    Read(RwLockReadGuard<'a, T>),
+    Write(RwLockWriteGuard<'a, T>),
+    None,
+}
+
+impl<'a, T> OptRwGuard<'a, T> {
+    async fn from(v: &'a RwLock<T>, kind: RwGuardKind) -> OptRwGuard<'a, T> {
+        match kind {
+            RwGuardKind::Read => Self::Read(v.read().await),
+            RwGuardKind::Write => Self::Write(v.write().await),
+            RwGuardKind::None => Self::None,
+        }
+    }
+
+    fn expect(&'a self, s: &str) -> &'a T {
+        match self {
+            OptRwGuard::Read(r) => r,
+            OptRwGuard::Write(w) => w,
+            OptRwGuard::None => {
+                panic!("OptRwGuard::expect called on OptRwGuard::None: {}", s)
+            }
+        }
+    }
+
+    fn expect_mut(&mut self, s: &str) -> &mut T {
+        match self {
+            OptRwGuard::Read(_r) => {
+                panic!("OptRwGuard::expect_mut called on OptRwGuard::Read: {}", s)
+            }
+            OptRwGuard::Write(w) => w,
+            OptRwGuard::None => {
+                panic!("OptRwGuard::expect_mut called on OptRwGuard::None: {}", s)
+            }
+        }
+    }
+}
+
+struct InMemoryNamespaceMutQueryLock<'a> {
+    users: OptRwGuard<'a, BTreeMap<UserId, User>>,
+    orgs: OptRwGuard<'a, BTreeMap<OrganizationId, Organization>>,
+    teams: OptRwGuard<'a, BTreeMap<TeamId, Team>>,
+    repos: OptRwGuard<'a, BTreeMap<RepoId, Repo>>,
+
+    namespace_kind: NamespaceKind,
+    configuration: RwGuardKinds,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct RwGuardKinds {
+    users: RwGuardKind,
+    orgs: RwGuardKind,
+    teams: RwGuardKind,
+    repos: RwGuardKind,
+}
+
+impl RwGuardKinds {
+    fn need_for_kind(kind: NamespaceKind) -> Self {
+        match kind {
+            NamespaceKind::GlobalNamespace => Self {
+                users: RwGuardKind::Read,
+                orgs: RwGuardKind::Read,
+                teams: RwGuardKind::None,
+                repos: RwGuardKind::Read,
+            },
+            NamespaceKind::User => Self {
+                users: RwGuardKind::Read,
+                orgs: RwGuardKind::None,
+                teams: RwGuardKind::None,
+                repos: RwGuardKind::Read,
+            },
+            NamespaceKind::Organization => Self {
+                users: RwGuardKind::None,
+                orgs: RwGuardKind::Read,
+                teams: RwGuardKind::Read,
+                repos: RwGuardKind::Read,
+            },
+            NamespaceKind::Team => Self {
+                users: RwGuardKind::None,
+                orgs: RwGuardKind::None,
+                teams: RwGuardKind::None,
+                repos: RwGuardKind::Read,
+            },
+        }
+    }
+
+    fn has_all_perms_for(&self, kind: NamespaceKind) -> bool {
+        let needed_guard_kinds = Self::need_for_kind(kind);
+
+        self.users >= needed_guard_kinds.users
+            && self.orgs >= needed_guard_kinds.orgs
+            && self.teams >= needed_guard_kinds.teams
+            && self.repos >= needed_guard_kinds.repos
+    }
+
+    fn assert_has_all_perms_for(&self, kind: NamespaceKind) {
+        if !self.has_all_perms_for(kind) {
+            panic!("RwGuardKinds::assert_has_all_perms_for: missing permissions for namespace kind: {:?}, have: {:?}", kind, self);
+        }
+    }
+
+    fn need_users(mut self, users: RwGuardKind) -> Self {
+        self.users.promote(users);
+        self
+    }
+
+    fn need_orgs(mut self, orgs: RwGuardKind) -> Self {
+        self.orgs.promote(orgs);
+        self
+    }
+
+    fn need_teams(mut self, teams: RwGuardKind) -> Self {
+        self.teams.promote(teams);
+        self
+    }
+
+    fn need_repos(mut self, repos: RwGuardKind) -> Self {
+        self.repos.promote(repos);
+        self
+    }
+}
+
+impl<'a> InMemoryNamespaceMutQueryLock<'a> {
+    async fn from_configuration(
+        store: &'a InMemoryDataStore,
+        namespace_kind: NamespaceKind,
+        configuration: RwGuardKinds,
+    ) -> InMemoryNamespaceMutQueryLock<'a> {
+        Self {
+            users: OptRwGuard::from(&store.users, configuration.users).await,
+            orgs: OptRwGuard::from(&store.organizations, configuration.orgs).await,
+            teams: OptRwGuard::from(&store.teams, configuration.teams).await,
+            repos: OptRwGuard::from(&store.repos, configuration.repos).await,
+            namespace_kind,
+            configuration,
+        }
+    }
+
+    async fn for_namespace_kind<F>(
+        store: &'a InMemoryDataStore,
+        namespace_kind: NamespaceKind,
+        patch: F,
+    ) -> InMemoryNamespaceMutQueryLock<'a>
+    where
+        F: FnOnce(RwGuardKinds) -> RwGuardKinds,
+    {
+        Self::from_configuration(
+            store,
+            namespace_kind,
+            patch(RwGuardKinds::need_for_kind(namespace_kind)),
+        )
+        .await
+    }
+
+    fn users(&self) -> &BTreeMap<UserId, User> {
+        self.users.expect("missing users lock")
+    }
+
+    fn orgs(&self) -> &BTreeMap<OrganizationId, Organization> {
+        self.orgs.expect("missing orgs lock")
+    }
+
+    fn teams(&self) -> &BTreeMap<TeamId, Team> {
+        self.teams.expect("missing teams lock")
+    }
+
+    fn repos(&self) -> &BTreeMap<RepoId, Repo> {
+        self.repos.expect("missing repos lock")
+    }
+
+    fn users_mut(&mut self) -> &mut BTreeMap<UserId, User> {
+        self.users.expect_mut("missing/wrong users lock")
+    }
+
+    fn orgs_mut(&mut self) -> &mut BTreeMap<OrganizationId, Organization> {
+        self.orgs.expect_mut("missing/wrong orgs lock")
+    }
+
+    fn teams_mut(&mut self) -> &mut BTreeMap<TeamId, Team> {
+        self.teams.expect_mut("missing/wrong teams lock")
+    }
+
+    fn repos_mut(&mut self) -> &mut BTreeMap<RepoId, Repo> {
+        self.repos.expect_mut("missing/wrong repos lock")
+    }
+
+    fn check_allows_name_in_namespace(
+        &self,
+        name: &str,
+        namespace: NamespaceId,
+    ) -> Result<(), InMemoryError> {
+        if !self.allows_name_in_namespace(name, namespace) {
+            return Err(InMemoryError::NameConflict);
+        }
+
+        Ok(())
+    }
+
+    fn allows_name_in_namespace(&self, name: &str, namespace: NamespaceId) -> bool {
+        if namespace.kind() != self.namespace_kind {
+            self.configuration
+                .assert_has_all_perms_for(namespace.kind());
+        }
+
+        match namespace {
+            NamespaceId::GlobalNamespace => {
+                if self.orgs().values().any(|it| it.name == name) {
+                    return false;
+                }
+
+                if self.users().values().any(|it| it.username == name) {
+                    return false;
+                }
+
+                if self
+                    .repos()
+                    .values()
+                    .any(|it| it.namespace == NamespaceId::GlobalNamespace && it.name == name)
+                {
+                    return false;
+                }
+            }
+            NamespaceId::User(user) => {
+                if self
+                    .repos()
+                    .values()
+                    .any(|it| it.namespace == NamespaceId::User(user) && it.name == name)
+                {
+                    return false;
+                }
+            }
+            NamespaceId::Organization(org) => {
+                if self
+                    .teams()
+                    .values()
+                    .any(|it| it.organization_id == org && it.name == name)
+                {
+                    return false;
+                }
+
+                if self
+                    .repos()
+                    .values()
+                    .any(|it| it.namespace == NamespaceId::Organization(org) && it.name == name)
+                {
+                    return false;
+                }
+            }
+            NamespaceId::Team(org, team) => {
+                if self
+                    .repos()
+                    .values()
+                    .any(|it| it.namespace == NamespaceId::Team(org, team) && it.name == name)
+                {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+}
+
 #[async_trait]
 impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     type Error = InMemoryError;
 
     async fn create_user(self: &Self, user: User) -> Result<(), Self::Error> {
-        let mut lock = self.store().users.lock().await;
-        let orgs_lock = self.store().organizations.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::GlobalNamespace,
+            |it| it.need_users(RwGuardKind::Write),
+        )
+        .await;
 
-        if lock.contains_key(&user.id) {
+        if ns_query_lock.users().contains_key(&user.id) {
             return Err(InMemoryError::UserAlreadyExists);
         }
 
-        if lock.values().any(|it| it.username == user.username) {
-            return Err(InMemoryError::NameConflict);
-        }
+        ns_query_lock
+            .check_allows_name_in_namespace(user.username.as_str(), NamespaceId::GlobalNamespace)?;
 
-        if orgs_lock.values().any(|it| it.name == user.username) {
-            return Err(InMemoryError::NameConflict);
-        }
-
-        lock.insert(user.id, user);
+        ns_query_lock.users_mut().insert(user.id, user);
 
         Ok(())
     }
 
     async fn query_user(&self, user_id: UserId) -> Result<User, Self::Error> {
-        let lock = self.store().users.lock().await;
+        let lock = self.store().users.read().await;
 
         lock.get(&user_id)
             .map(|user| user.clone())
@@ -157,7 +437,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         &self,
         username_email: &str,
     ) -> Result<Option<User>, Self::Error> {
-        let lock = self.store().users.lock().await;
+        let lock = self.store().users.read().await;
 
         let user = lock
             .values()
@@ -170,7 +450,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         &'self_ref self,
         username: UsernameRef<'self_ref>,
     ) -> Result<Option<User>, Self::Error> {
-        let lock = self.store().users.lock().await;
+        let lock = self.store().users.read().await;
 
         let user = lock.values().find(|user| user.username == username);
 
@@ -178,43 +458,44 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     }
 
     async fn set_user_name(&self, user_id: UserId, user_name: Username) -> Result<(), Self::Error> {
-        let mut lock = self.store().users.lock().await;
-        let orgs_lock = self.store().organizations.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::GlobalNamespace,
+            |it| it.need_users(RwGuardKind::Write),
+        )
+        .await;
 
-        if lock.values().any(|it| it.username == user_name) {
-            return Err(InMemoryError::NameConflict);
-        }
+        ns_query_lock
+            .check_allows_name_in_namespace(user_name.as_str(), NamespaceId::GlobalNamespace)?;
 
-        if orgs_lock.values().any(|it| it.name == user_name) {
-            return Err(InMemoryError::NameConflict);
-        }
-
-        lock.get_mut(&user_id)
+        ns_query_lock
+            .users_mut()
+            .get_mut(&user_id)
             .map(|user| user.username = user_name)
             .ok_or(InMemoryError::UserNotFound)
     }
 
     async fn create_repo(&self, repo: Repo) -> Result<(), Self::Error> {
-        let mut lock = self.store().repos.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            repo.namespace.kind(),
+            |it| it.need_repos(RwGuardKind::Write),
+        )
+        .await;
 
-        if lock.contains_key(&repo.id) {
+        if ns_query_lock.repos().contains_key(&repo.id) {
             return Err(InMemoryError::RepoAlreadyExists);
         }
 
-        if lock
-            .values()
-            .any(|it| it.namespace == repo.namespace && it.name == repo.name)
-        {
-            return Err(InMemoryError::RepoAlreadyExists);
-        }
+        ns_query_lock.check_allows_name_in_namespace(repo.name.as_str(), repo.namespace.0)?;
 
-        lock.insert(repo.id, repo);
+        ns_query_lock.repos_mut().insert(repo.id, repo);
 
         Ok(())
     }
 
     async fn query_repo(&self, repo_id: RepoId) -> Result<Repo, Self::Error> {
-        let lock = self.store().repos.lock().await;
+        let lock = self.store().repos.read().await;
 
         lock.get(&repo_id)
             .map(|repo| repo.clone())
@@ -226,7 +507,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         repo_name: RepoNameRef<'self_ref>,
         repo_namespace: &RepoNamespace,
     ) -> Result<Option<Repo>, Self::Error> {
-        let lock = self.store().repos.lock().await;
+        let lock = self.store().repos.read().await;
 
         let repo = lock
             .values()
@@ -236,26 +517,45 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     }
 
     async fn set_repo_name(&self, repo_id: RepoId, repo_name: RepoName) -> Result<(), Self::Error> {
-        let mut lock = self.store().repos.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::GlobalNamespace,
+            |it| {
+                it.need_users(RwGuardKind::Read)
+                    .need_orgs(RwGuardKind::Read)
+                    .need_teams(RwGuardKind::Read)
+                    .need_repos(RwGuardKind::Write)
+            },
+        )
+        .await;
 
-        lock.get_mut(&repo_id)
+        let repo_ns = ns_query_lock
+            .repos()
+            .get(&repo_id)
+            .map(|repo| repo.namespace)
+            .ok_or(InMemoryError::RepoNotFound)?;
+
+        ns_query_lock.check_allows_name_in_namespace(repo_name.as_str(), repo_ns.0)?;
+
+        ns_query_lock
+            .repos_mut()
+            .get_mut(&repo_id)
             .map(|repo| repo.name = repo_name)
             .ok_or(InMemoryError::RepoNotFound)
     }
 
     async fn create_organization(&self, org: Organization) -> Result<(), Self::Error> {
-        let users_lock = self.store().users.lock().await;
-        let mut lock = self.store().organizations.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::GlobalNamespace,
+            |it| it.need_orgs(RwGuardKind::Write),
+        )
+        .await;
 
-        if users_lock.values().any(|it| it.username == org.name) {
-            return Err(InMemoryError::NameConflict);
-        }
+        ns_query_lock
+            .check_allows_name_in_namespace(org.name.as_str(), NamespaceId::GlobalNamespace)?;
 
-        if lock.values().any(|it| it.name == org.name) {
-            return Err(InMemoryError::NameConflict);
-        }
-
-        lock.insert(org.id, org);
+        ns_query_lock.orgs_mut().insert(org.id, org);
 
         Ok(())
     }
@@ -264,7 +564,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         &self,
         org_id: OrganizationId,
     ) -> Result<Organization, Self::Error> {
-        let lock = self.store().organizations.lock().await;
+        let lock = self.store().organizations.read().await;
 
         lock.get(&org_id)
             .map(|org| org.clone())
@@ -275,7 +575,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         &'self_ref self,
         org_name: OrganizationNameRef<'self_ref>,
     ) -> Result<Option<Organization>, Self::Error> {
-        let lock = self.store().organizations.lock().await;
+        let lock = self.store().organizations.read().await;
 
         let org = lock.values().find(|org| org.name == org_name);
 
@@ -287,9 +587,19 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         org_id: OrganizationId,
         org_name: OrganizationName,
     ) -> Result<(), Self::Error> {
-        let mut lock = self.store().organizations.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::GlobalNamespace,
+            |it| it.need_orgs(RwGuardKind::Write),
+        )
+        .await;
 
-        lock.get_mut(&org_id)
+        ns_query_lock
+            .check_allows_name_in_namespace(org_name.as_str(), NamespaceId::GlobalNamespace)?;
+
+        ns_query_lock
+            .orgs_mut()
+            .get_mut(&org_id)
             .map(|org| org.name = org_name)
             .ok_or(InMemoryError::OrganizationNotFound)
     }
@@ -299,7 +609,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         org_id: OrganizationId,
         org_display_name: Option<OrganizationDisplayName>,
     ) -> Result<(), Self::Error> {
-        let mut lock = self.store().organizations.lock().await;
+        let mut lock = self.store().organizations.write().await;
 
         lock.get_mut(&org_id)
             .map(|org| org.display_name = org_display_name)
@@ -311,7 +621,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         org_id: OrganizationId,
         user_id: UserId,
     ) -> Result<Option<OrganizationMember>, Self::Error> {
-        let lock = self.store().organization_members.lock().await;
+        let lock = self.store().organization_members.read().await;
 
         Ok(lock
             .get(&org_id)
@@ -323,7 +633,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         &self,
         org_id: OrganizationId,
     ) -> Result<Vec<OrganizationMember>, Self::Error> {
-        let lock = self.store().organization_members.lock().await;
+        let lock = self.store().organization_members.read().await;
 
         lock.get(&org_id)
             .map(|members| members.values().cloned().collect())
@@ -331,15 +641,25 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     }
 
     async fn create_team(&self, team: Team) -> Result<(), Self::Error> {
-        let mut lock = self.store().teams.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::Organization,
+            |it| it.need_teams(RwGuardKind::Write),
+        )
+        .await;
 
-        lock.insert(team.id, team);
+        ns_query_lock.check_allows_name_in_namespace(
+            team.name.as_str(),
+            NamespaceId::Organization(team.organization_id),
+        )?;
+
+        ns_query_lock.teams_mut().insert(team.id, team);
 
         Ok(())
     }
 
     async fn query_team(&self, team_id: TeamId) -> Result<Team, Self::Error> {
-        let lock = self.store().teams.lock().await;
+        let lock = self.store().teams.read().await;
 
         lock.get(&team_id)
             .map(|team| team.clone())
@@ -351,7 +671,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         org_id: OrganizationId,
         team_name: TeamNameRef<'self_ref>,
     ) -> Result<Option<Team>, Self::Error> {
-        let lock = self.store().teams.lock().await;
+        let lock = self.store().teams.read().await;
 
         let team = lock
             .values()
@@ -361,9 +681,27 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     }
 
     async fn set_team_name(&self, team_id: TeamId, team_name: TeamName) -> Result<(), Self::Error> {
-        let mut lock = self.store().teams.lock().await;
+        let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
+            self.store(),
+            NamespaceKind::Organization,
+            |it| it.need_teams(RwGuardKind::Write),
+        )
+        .await;
 
-        lock.get_mut(&team_id)
+        let org_id = ns_query_lock
+            .teams()
+            .get(&team_id)
+            .map(|team| team.organization_id)
+            .ok_or(InMemoryError::TeamNotFound)?;
+
+        ns_query_lock.check_allows_name_in_namespace(
+            team_name.as_str(),
+            NamespaceId::Organization(org_id),
+        )?;
+
+        ns_query_lock
+            .teams_mut()
+            .get_mut(&team_id)
             .map(|team| team.name = team_name)
             .ok_or(InMemoryError::TeamNotFound)
     }
@@ -373,7 +711,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         team_id: TeamId,
         team_display_name: Option<TeamDisplayName>,
     ) -> Result<(), Self::Error> {
-        let mut lock = self.store().teams.lock().await;
+        let mut lock = self.store().teams.write().await;
 
         lock.get_mut(&team_id)
             .map(|team| team.display_name = team_display_name)
@@ -385,7 +723,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         team_id: TeamId,
     ) -> Result<(Organization, Team), Self::Error> {
         let team = {
-            let lock = self.store().teams.lock().await;
+            let lock = self.store().teams.read().await;
 
             lock.get(&team_id)
                 .map(|team| team.clone())
@@ -395,7 +733,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let org_id = team.organization_id;
 
         let org = {
-            let lock = self.store().organizations.lock().await;
+            let lock = self.store().organizations.read().await;
 
             lock.get(&org_id)
                 .map(|org| org.clone())

@@ -19,21 +19,23 @@ use crate::error::ApiResult;
 use crate::routes::repos::repo_lookup_path::RepoLookupPath;
 
 #[v1]
-#[post("/repos/<repo>")]
+#[post("/repos/<repo_path>")]
 pub async fn create_repo(
-    repo: String,
+    repo_path: RepoLookupPath,
     vcs_config: &State<UpsilonVcsConfig>,
     data: &State<DataClientMasterHolder>,
 ) -> ApiResult<String> {
-    let path = vcs_config.repo_dir(&repo);
-
     let qm = data.query_master();
+
+    let namespace = resolve_namespace(&qm, &repo_path).await?;
 
     let repo = Repo::new(
         RepoId::new(),
-        RepoName::from(repo),
-        RepoNamespace(NamespaceId::GlobalNamespace),
+        RepoName::from(repo_path.repo_name()),
+        RepoNamespace(namespace.namespace_id()),
     );
+
+    let path = vcs_config.repo_dir(repo_path.repo_name().as_str());
 
     let repo_name = repo.name.clone();
 
@@ -181,26 +183,26 @@ pub enum RepoNsPath {
     },
 }
 
-impl From<ResolvedRepoNamespace> for RepoNsPath {
-    fn from(ns: ResolvedRepoNamespace) -> Self {
+impl From<ResolvedRepoAndNamespace> for RepoNsPath {
+    fn from(ns: ResolvedRepoAndNamespace) -> Self {
         match ns {
-            ResolvedRepoNamespace::GlobalNamespace(repo) => RepoNsPath::GlobalNamespace {
+            ResolvedRepoAndNamespace::GlobalNamespace(repo) => RepoNsPath::GlobalNamespace {
                 repo: repo.name,
                 repo_id: repo.id,
             },
-            ResolvedRepoNamespace::User(user, repo) => RepoNsPath::User {
+            ResolvedRepoAndNamespace::User(user, repo) => RepoNsPath::User {
                 user: user.id,
                 username: user.username,
                 repo: repo.name,
                 repo_id: repo.id,
             },
-            ResolvedRepoNamespace::Organization(org, repo) => RepoNsPath::Organization {
+            ResolvedRepoAndNamespace::Organization(org, repo) => RepoNsPath::Organization {
                 organization: org.id,
                 organization_name: org.name,
                 repo: repo.name,
                 repo_id: repo.id,
             },
-            ResolvedRepoNamespace::Team(org, team, repo) => RepoNsPath::Team {
+            ResolvedRepoAndNamespace::Team(org, team, repo) => RepoNsPath::Team {
                 organization: org.id,
                 organization_name: org.name,
                 team: team.id,
@@ -225,28 +227,28 @@ pub async fn get_repo_ns_path(
     Ok(repo.map(|it| Json(RepoNsPath::from(it))))
 }
 
-pub enum ResolvedRepoNamespace {
+pub enum ResolvedRepoAndNamespace {
     GlobalNamespace(Repo),
     User(User, Repo),
     Organization(Organization, Repo),
     Team(Organization, Team, Repo),
 }
 
-impl ResolvedRepoNamespace {
+impl ResolvedRepoAndNamespace {
     pub fn path(&self) -> PathBuf {
         match self {
-            ResolvedRepoNamespace::GlobalNamespace(repo) => PathBuf::from(repo.name.as_str()),
-            ResolvedRepoNamespace::User(user, repo) => {
+            ResolvedRepoAndNamespace::GlobalNamespace(repo) => PathBuf::from(repo.name.as_str()),
+            ResolvedRepoAndNamespace::User(user, repo) => {
                 let mut path = PathBuf::from(user.username.as_str());
                 path.push(repo.name.as_str());
                 path
             }
-            ResolvedRepoNamespace::Organization(org, repo) => {
+            ResolvedRepoAndNamespace::Organization(org, repo) => {
                 let mut path = PathBuf::from(org.name.as_str());
                 path.push(repo.name.as_str());
                 path
             }
-            ResolvedRepoNamespace::Team(org, team, repo) => {
+            ResolvedRepoAndNamespace::Team(org, team, repo) => {
                 let mut path = PathBuf::from(org.name.as_str());
                 path.push(team.name.as_str());
                 path.push(repo.name.as_str());
@@ -256,67 +258,87 @@ impl ResolvedRepoNamespace {
     }
 }
 
-pub async fn resolve<'a>(
-    qm: &'a DataQueryMaster<'a>,
-    repo_ns: &'a RepoLookupPath,
-) -> ApiResult<Option<ResolvedRepoNamespace>> {
-    enum TempResolvedRepoNamespace {
-        GlobalNamespace,
-        User(User),
-        Organization(Organization),
-        Team(Organization, Team),
-    }
+pub enum ResolvedRepoNamespace {
+    GlobalNamespace,
+    User(User),
+    Organization(Organization),
+    Team(Organization, Team),
+}
 
-    impl TempResolvedRepoNamespace {
-        fn resolved(self, repo: Repo) -> ResolvedRepoNamespace {
-            match self {
-                TempResolvedRepoNamespace::GlobalNamespace => {
-                    ResolvedRepoNamespace::GlobalNamespace(repo)
-                }
-                TempResolvedRepoNamespace::User(user) => ResolvedRepoNamespace::User(user, repo),
-                TempResolvedRepoNamespace::Organization(org) => {
-                    ResolvedRepoNamespace::Organization(org, repo)
-                }
-                TempResolvedRepoNamespace::Team(org, team) => {
-                    ResolvedRepoNamespace::Team(org, team, repo)
-                }
+impl ResolvedRepoNamespace {
+    fn resolved(self, repo: Repo) -> ResolvedRepoAndNamespace {
+        match self {
+            ResolvedRepoNamespace::GlobalNamespace => {
+                ResolvedRepoAndNamespace::GlobalNamespace(repo)
+            }
+            ResolvedRepoNamespace::User(user) => ResolvedRepoAndNamespace::User(user, repo),
+            ResolvedRepoNamespace::Organization(org) => {
+                ResolvedRepoAndNamespace::Organization(org, repo)
+            }
+            ResolvedRepoNamespace::Team(org, team) => {
+                ResolvedRepoAndNamespace::Team(org, team, repo)
             }
         }
     }
 
-    let mut namespace = TempResolvedRepoNamespace::GlobalNamespace;
+    fn namespace_id(&self) -> NamespaceId {
+        match self {
+            ResolvedRepoNamespace::GlobalNamespace => NamespaceId::GlobalNamespace,
+            ResolvedRepoNamespace::User(user) => NamespaceId::User(user.id),
+            ResolvedRepoNamespace::Organization(org) => NamespaceId::Organization(org.id),
+            ResolvedRepoNamespace::Team(org, team) => NamespaceId::Team(org.id, team.id),
+        }
+    }
+}
+
+pub async fn resolve_namespace<'a>(
+    qm: &'a DataQueryMaster<'a>,
+    repo_ns: &'a RepoLookupPath,
+) -> ApiResult<ResolvedRepoNamespace> {
+    let mut namespace = ResolvedRepoNamespace::GlobalNamespace;
 
     // get the namespace
     for i in 0..(repo_ns.len() - 1) {
         let fragment = &repo_ns[i];
 
         namespace = match namespace {
-            TempResolvedRepoNamespace::GlobalNamespace => {
+            ResolvedRepoNamespace::GlobalNamespace => {
                 match qm.query_organization_by_name(fragment).await? {
-                    Some(org) => TempResolvedRepoNamespace::Organization(org),
+                    Some(org) => ResolvedRepoNamespace::Organization(org),
                     None => match qm.query_user_by_username(fragment).await? {
-                        Some(user) => TempResolvedRepoNamespace::User(user),
-                        None => return Ok(None),
+                        Some(user) => ResolvedRepoNamespace::User(user),
+                        None => return Err(crate::error::Error::ResolveImpossible),
                     },
                 }
             }
-            TempResolvedRepoNamespace::User(_) => Err(crate::error::Error::ResolveImpossible)?,
-            TempResolvedRepoNamespace::Organization(org) => {
+            ResolvedRepoNamespace::User(_) => return Err(crate::error::Error::ResolveImpossible),
+            ResolvedRepoNamespace::Organization(org) => {
                 match qm.query_team_by_name(org.id, fragment).await? {
-                    Some(team) => TempResolvedRepoNamespace::Team(org, team),
-                    None => Err(crate::error::Error::ResolveImpossible)?,
+                    Some(team) => ResolvedRepoNamespace::Team(org, team),
+                    None => return Err(crate::error::Error::ResolveImpossible),
                 }
             }
-            TempResolvedRepoNamespace::Team(_, _) => Err(crate::error::Error::ResolveImpossible)?,
+            ResolvedRepoNamespace::Team(_, _) => {
+                return Err(crate::error::Error::ResolveImpossible)
+            }
         };
     }
 
+    Ok(namespace)
+}
+
+pub async fn resolve<'a>(
+    qm: &'a DataQueryMaster<'a>,
+    repo_ns: &'a RepoLookupPath,
+) -> ApiResult<Option<ResolvedRepoAndNamespace>> {
+    let namespace = resolve_namespace(qm, repo_ns).await?;
+
     let repo_name = repo_ns.last();
     let ns_id = match &namespace {
-        TempResolvedRepoNamespace::GlobalNamespace => NamespaceId::GlobalNamespace,
-        TempResolvedRepoNamespace::User(user) => NamespaceId::User(user.id),
-        TempResolvedRepoNamespace::Organization(org) => NamespaceId::Organization(org.id),
-        TempResolvedRepoNamespace::Team(org, team) => NamespaceId::Team(org.id, team.id),
+        ResolvedRepoNamespace::GlobalNamespace => NamespaceId::GlobalNamespace,
+        ResolvedRepoNamespace::User(user) => NamespaceId::User(user.id),
+        ResolvedRepoNamespace::Organization(org) => NamespaceId::Organization(org.id),
+        ResolvedRepoNamespace::Team(org, team) => NamespaceId::Team(org.id, team.id),
     };
 
     let repo = qm

@@ -5,6 +5,7 @@ use rocket::http::uri::Segments;
 use rocket::request::{FromParam, FromSegments};
 
 use upsilon_models::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
+use upsilon_models::repo::RepoNameRef;
 
 const LOOKUP_PATH_SEGMENT_SEPARATOR: char = '.';
 
@@ -40,6 +41,10 @@ impl RepoLookupPath {
 
     pub fn last(&self) -> PlainNamespaceFragmentRef {
         self.path[self.len() - 1].as_ref()
+    }
+
+    pub fn repo_name(&self) -> RepoNameRef {
+        RepoNameRef::from(self.last())
     }
 }
 

@@ -1,5 +1,7 @@
 #![feature(proc_macro_span)]
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, TokenStreamExt};
 use std::time::SystemTime;
@@ -14,7 +16,13 @@ pub fn private_context(item: proc_macro::TokenStream) -> proc_macro::TokenStream
     let nanos = duration.subsec_nanos();
     let pid = std::process::id();
 
-    let name = format_ident!("__private_context_{secs}_{nanos}_{pid}");
+    let hash = {
+        let mut hasher = DefaultHasher::new();
+        item.to_string().hash(&mut hasher);
+        hasher.finish()
+    };
+
+    let name = format_ident!("__private_context_{secs}_{nanos}_{pid}_{hash}");
     let ts = TokenStream::from(item);
 
     proc_macro::TokenStream::from(quote! {

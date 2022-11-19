@@ -148,7 +148,7 @@ impl Fairing for PostgresDataBackendFairing {
     }
 
     async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
-        todo!("Postgres data backend")
+        Ok(rocket)
     }
 }
 
