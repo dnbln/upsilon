@@ -2,6 +2,7 @@ pub mod emails;
 pub mod password;
 
 use crate::assets::ImageAssetId;
+use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
 use crate::users::emails::{UserEmails};
 use crate::users::password::HashedPassword;
 
@@ -12,8 +13,13 @@ upsilon_id::id_ty!(
     pub struct UserId;
 );
 
-crate::utils::str_newtype!(Username);
-crate::utils::str_newtype!(Name);
+crate::utils::str_newtype!(Username, UsernameRef);
+crate::utils::str_newtype! {
+    @conversions #[all]
+    Username, UsernameRef,
+    PlainNamespaceFragment, PlainNamespaceFragmentRef
+}
+crate::utils::str_newtype!(Name, NameRef);
 
 
 #[derive(Debug, Clone)]

@@ -245,12 +245,6 @@
           "minimum": 4,
           "exclusiveMaximum": 32,
           "default": 11
-        },
-        "mem-cost": {
-          "type": "integer",
-          "minimum": 1024,
-          "default": 4096,
-          "maximum": 65536
         }
       },
       "required": [

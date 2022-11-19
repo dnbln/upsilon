@@ -1850,6 +1850,7 @@ dependencies = [
  "serde",
  "thiserror",
  "upsilon-models",
+ "upsilon-procx",
 ]
 
 [[package]]
@@ -1887,6 +1888,15 @@ dependencies = [
  "upsilon-core",
  "upsilon-id",
  "upsilon-stdx",
+]
+
+[[package]]
+name = "upsilon-procx"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

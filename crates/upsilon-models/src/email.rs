@@ -1,1 +1,1 @@
-crate::utils::str_newtype!(Email);
+crate::utils::str_newtype!(Email, EmailRef);

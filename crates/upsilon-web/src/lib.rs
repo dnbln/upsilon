@@ -1,8 +1,12 @@
-use rocket::{fairing::{Fairing, Info, Kind}, Rocket, Build};
+use rocket::{
+    async_trait,
+    fairing::{Fairing, Info, Kind},
+    Build, Rocket,
+};
 
 pub struct WebFairing;
 
-#[rocket::async_trait]
+#[async_trait]
 impl Fairing for WebFairing {
     fn info(&self) -> Info {
         Info {

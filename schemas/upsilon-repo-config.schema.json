@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/product.schema.json",
+  "title": "Upsilon repo configuration",
+  "description": "Upsilon repo configuration file format",
+  "type": "object",
+  "properties": {
+    "display-name": {
+      "description": "The displayable name of the repo",
+      "type": "string"
+    },
+    "description": {
+      "description": "The description of the repo",
+      "type": "string"
+    },
+    "releases": {
+      "type": "array",
+      "description": "The releases of the repo",
+      "items": {
+        "$ref": "#/definitions/release"
+      }
+    }
+  },
+  "required": [ ],
+  "additionalProperties": false,
+  "definitions": {
+    "release": {
+      "type": "object",
+      "description": "A release of the repo",
+      "properties": {
+        "version": {
+          "$ref": "#/definitions/semver",
+          "description": "The version of the release"
+        },
+        "description": {
+          "oneOf": [
+            {
+              "description": "The description of the release",
+              "type": "string"
+            },
+            {
+              "description": "The description of the release",
+              "$ref": "#/definitions/release-description-from-file"
+            }
+          ]
+        },
+        "date": {
+          "description": "The date of the release",
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "release-description-from-file": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "description": "The path to the file containing the description of the release",
+          "type": "string",
+          "pattern": "^.*\\.md(#[.a-zA-Z0-9\\-]+)?$"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

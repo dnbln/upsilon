@@ -1,10 +1,10 @@
 macro_rules! str_newtype {
-    ($name:ident) => {
+    (#[no_as_str] $name:ident $(@derives [$($derive:path),* $(,)?])?) => {
         #[derive(
-            serde::Serialize, serde::Deserialize, Clone, Ord, PartialOrd, Eq, PartialEq, Hash,
+            serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Hash, $($($derive,)*)?
         )]
         #[serde(transparent)]
-        pub struct $name(String);
+        pub struct $name(pub(crate) String);
 
         impl From<String> for $name {
             fn from(s: String) -> Self {
@@ -41,6 +41,231 @@ macro_rules! str_newtype {
                 self.0.as_str() == *other
             }
         }
+    };
+    ($name:ident $(@derives [$($derive:path),* $(,)?])?) => {
+        crate::utils::str_newtype!(#[no_as_str] $name $(@derives [$($derive),*])?);
+
+        impl $name {
+            pub fn as_str(&self) -> &str {
+                self.0.as_str()
+            }
+        }
+    };
+
+    (@ref #[no_as_str] $name:ident $(@derives [$($derive:path),* $(,)?])?) => {
+        #[derive(
+            serde::Serialize, serde::Deserialize, Copy, Clone, Eq, PartialEq, Hash, $($($derive,)*)?
+        )]
+        #[serde(transparent)]
+        pub struct $name <'a>(pub(crate) &'a str);
+
+        impl<'a> From<&'a str> for $name <'a> {
+            fn from(s: &'a str) -> Self {
+                Self(s)
+            }
+        }
+
+        impl<'a> std::fmt::Debug for $name <'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl<'a> std::fmt::Display for $name <'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<str> for $name <'a> {
+            fn eq(&self, other: &str) -> bool {
+                self.0 == other
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<&str> for $name <'a> {
+            fn eq(&self, other: &&str) -> bool {
+                self.0 == *other
+            }
+        }
+    };
+
+    (@ref $name:ident $(@derives [$($derive:path),* $(,)?])?) => {
+        crate::utils::str_newtype!(@ref #[no_as_str] $name $(@derives [$($derive),*])?);
+
+        impl<'a> $name <'a> {
+            pub fn as_str(&'a self) -> &'a str {
+                self.0
+            }
+        }
+    };
+
+    ($name:ident, $name_ref:ident $(@derives [$($derive:path),* $(,)?])?) => {
+        crate::utils::str_newtype!($name $(@derives [$($derive,)*])?);
+        crate::utils::str_newtype!(@ref $name_ref $(@derives [$($derive,)*])?);
+
+        impl $name {
+            pub fn as_ref(&self) -> $name_ref {
+                $name_ref::from(self)
+            }
+        }
+
+        impl<'a> From<&'a $name> for $name_ref<'a> {
+            fn from(s: &'a $name) -> Self {
+                Self(&s.0)
+            }
+        }
+
+        impl<'a> From<$name_ref<'a>> for $name {
+            fn from(s: $name_ref<'a>) -> Self {
+                Self(s.0.to_string())
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name_ref<'a>> for $name {
+            fn eq(&self, other: &$name_ref<'a>) -> bool {
+                self.0.as_str() == other.0
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name> for $name_ref<'a> {
+            fn eq(&self, other: &$name) -> bool {
+                self.0 == other.0.as_str()
+            }
+        }
+    };
+
+    (#[no_as_str] $name:ident, $name_ref:ident $(@derives [$($derive:path),* $(,)?])?) => {
+        crate::utils::str_newtype!(#[no_as_str] $name $(@derives [$($derive,)*])?);
+        crate::utils::str_newtype!(@ref #[no_as_str] $name_ref $(@derives [$($derive,)*])?);
+
+        impl $name {
+            pub fn as_ref(&self) -> $name_ref {
+                $name_ref::from(self)
+            }
+        }
+
+        impl<'a> From<&'a $name> for $name_ref<'a> {
+            fn from(s: &'a $name) -> Self {
+                Self(&s.0)
+            }
+        }
+
+        impl<'a> From<$name_ref<'a>> for $name {
+            fn from(s: $name_ref<'a>) -> Self {
+                Self(s.0.to_string())
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name_ref<'a>> for $name {
+            fn eq(&self, other: &$name_ref<'a>) -> bool {
+                self.0.as_str() == other.0
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name> for $name_ref<'a> {
+            fn eq(&self, other: &$name) -> bool {
+                self.0 == other.0.as_str()
+            }
+        }
+    };
+
+    (@conversions #[owned to owned] $name1:ident, $name2:ident) => {
+        impl From<$name1> for $name2 {
+            fn from(s: $name1) -> Self {
+                Self::from(s.0)
+            }
+        }
+
+        impl From<$name2> for $name1 {
+            fn from(s: $name2) -> Self {
+                Self::from(s.0)
+            }
+        }
+    };
+
+    (@conversions #[ref to ref] $name1:ident, $name2:ident) => {
+        impl<'a> From<$name1<'a>> for $name2<'a> {
+            fn from(s: $name1<'a>) -> Self {
+                Self(&s.0)
+            }
+        }
+
+        impl<'a> From<$name2<'a>> for $name1<'a> {
+            fn from(s: $name2<'a>) -> Self {
+                Self(&s.0)
+            }
+        }
+    };
+
+    (@conversions #[owned to ref] $name1:ident, $name2:ident) => {
+        impl<'a> From<&'a $name1> for $name2<'a> {
+            fn from(s: &'a $name1) -> Self {
+                Self(&s.0)
+            }
+        }
+
+        impl<'a> From<$name2<'a>> for $name1 {
+            fn from(s: $name2<'a>) -> Self {
+                Self(s.0.to_string())
+            }
+        }
+    };
+
+    (@conversions #[all] $name1:ident, $name1_ref:ident, $name2:ident, $name2_ref:ident) => {
+        crate::utils::str_newtype!(@conversions #[owned to owned] $name1, $name2);
+        crate::utils::str_newtype!(@conversions #[ref to ref] $name1_ref, $name2_ref);
+        crate::utils::str_newtype!(@conversions #[owned to ref] $name1, $name2_ref);
+        crate::utils::str_newtype!(@conversions #[owned to ref] $name2, $name1_ref);
+    };
+
+    (@eq #[owned to owned] $name1:ident, $name2:ident) => {
+        impl std::cmp::PartialEq<$name2> for $name1 {
+            fn eq(&self, other: &$name2) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl std::cmp::PartialEq<$name1> for $name2 {
+            fn eq(&self, other: &$name1) -> bool {
+                self.0 == other.0
+            }
+        }
+    };
+
+    (@eq #[owned to ref] $name1:ident, $name2:ident) => {
+        impl<'a> std::cmp::PartialEq<$name2<'a>> for $name1 {
+            fn eq(&self, other: &$name2<'a>) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name1> for $name2<'a> {
+            fn eq(&self, other: &$name1) -> bool {
+                self.0 == other.0
+            }
+        }
+    };
+
+    (@eq #[ref to ref] $name1:ident, $name2:ident) => {
+        impl<'a> std::cmp::PartialEq<$name2<'a>> for $name1<'a> {
+            fn eq(&self, other: &$name2<'a>) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl<'a> std::cmp::PartialEq<$name1<'a>> for $name2<'a> {
+            fn eq(&self, other: &$name1<'a>) -> bool {
+                self.0 == other.0
+            }
+        }
+    };
+
+    (@eq #[all] $name1:ident, $name1_ref:ident, $name2:ident, $name2_ref:ident) => {
+        crate::utils::str_newtype!(@eq #[owned to owned] $name1, $name2);
+        crate::utils::str_newtype!(@eq #[owned to ref] $name1, $name2_ref);
+        crate::utils::str_newtype!(@eq #[owned to ref] $name2, $name1_ref);
+        crate::utils::str_newtype!(@eq #[ref to ref] $name1_ref, $name2_ref);
     };
 }
 

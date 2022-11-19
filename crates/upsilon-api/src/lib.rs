@@ -43,6 +43,7 @@ api_fairing!(
     routes::repos::get_commit,
     routes::repos::get_branch_top,
     routes::repos::get_branch_history,
+    routes::repos::get_repo_ns_path,
     routes::users::create_user,
     routes::users::login_user,
 );

@@ -10,6 +10,14 @@ pub enum Error {
     #[error("data backend error: {0}")]
     DataBackendError(#[from] upsilon_data::CommonDataClientError),
 
+    #[error("Repo not found")]
+    RepoNotFound,
+    #[error("Repo already exists")]
+    RepoAlreadyExists,
+
+    #[error("Resolve impossible")]
+    ResolveImpossible,
+
     #[error("Unauthorized")]
     Unauthorized,
     #[error("Forbidden")]
@@ -22,6 +30,11 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
             Error::IoError(_) => rocket::http::Status::InternalServerError,
             Error::VcsError(_) => rocket::http::Status::InternalServerError,
             Error::DataBackendError(_) => rocket::http::Status::InternalServerError,
+
+            Error::RepoNotFound => rocket::http::Status::NotFound,
+            Error::RepoAlreadyExists => rocket::http::Status::Conflict,
+            Error::ResolveImpossible => rocket::http::Status::Conflict,
+
             Error::Unauthorized => rocket::http::Status::Unauthorized,
             Error::Forbidden => rocket::http::Status::Forbidden,
         };

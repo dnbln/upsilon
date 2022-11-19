@@ -1,5 +1,6 @@
 use crate::email::Email;
-use crate::users::UserId;
+use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
+use crate::users::{UserId, Username, UsernameRef};
 upsilon_id::id_ty! {
     #[uuid]
     #[timestamped]
@@ -12,8 +13,26 @@ upsilon_id::id_ty! {
     pub struct TeamId;
 }
 
-crate::utils::str_newtype!(OrganizationName);
-crate::utils::str_newtype!(OrganizationDisplayName);
+crate::utils::str_newtype!(OrganizationName, OrganizationNameRef);
+crate::utils::str_newtype! {
+    @conversions #[all]
+    OrganizationName, OrganizationNameRef,
+    PlainNamespaceFragment, PlainNamespaceFragmentRef
+}
+crate::utils::str_newtype! {
+    @eq #[all]
+    OrganizationName, OrganizationNameRef,
+    Username, UsernameRef
+}
+
+crate::utils::str_newtype!(OrganizationDisplayName, OrganizationDisplayNameRef);
+crate::utils::str_newtype!(TeamName, TeamNameRef);
+crate::utils::str_newtype! {
+    @conversions #[all]
+    TeamName, TeamNameRef,
+    PlainNamespaceFragment, PlainNamespaceFragmentRef
+}
+crate::utils::str_newtype!(TeamDisplayName, TeamDisplayNameRef);
 
 #[derive(Debug, Clone)]
 pub struct Organization {
@@ -42,4 +61,19 @@ impl Organization {
     pub fn set_email(&mut self, email: Email) {
         self.email = Some(email);
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Team {
+    pub id: TeamId,
+    pub organization_id: OrganizationId,
+    pub name: TeamName,
+    pub display_name: Option<TeamDisplayName>,
+}
+
+#[derive(Debug, Clone)]
+pub struct OrganizationMember {
+    pub organization_id: OrganizationId,
+    pub user_id: UserId,
+    pub teams: Vec<TeamId>,
 }

@@ -306,6 +306,12 @@ pub fn init_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Re
     })
 }
 
+pub fn init_repo_absolute(_config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+    Ok(Repository {
+        repo: git2::Repository::init_bare(path)?,
+    })
+}
+
 pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
     Ok(Repository {
         repo: git2::Repository::open_bare(config.repo_dir(path))?,
