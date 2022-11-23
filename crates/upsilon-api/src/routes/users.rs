@@ -86,4 +86,4 @@ pub async fn login_user(
     Ok("<token>".to_string())
 }
 
-api_routes!(UsersApi);
+api_routes!();

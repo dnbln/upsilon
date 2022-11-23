@@ -348,4 +348,4 @@ pub async fn resolve<'a>(
     Ok(repo.map(|repo| namespace.resolved(repo)))
 }
 
-api_routes!(ReposApi);
+api_routes!();

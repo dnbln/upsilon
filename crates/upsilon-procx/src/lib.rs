@@ -1,9 +1,9 @@
 #![feature(proc_macro_span)]
 
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote, TokenStreamExt};
 use std::time::SystemTime;
 
 #[proc_macro]
@@ -34,20 +34,15 @@ pub fn private_context(item: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 mod api_routes;
 
-api_routes::api_version_macros! {(v1, 1)}
+api_routes::version_proc_macro_wrappers! {}
 
 // Only to be called from upsilon-api
 #[proc_macro]
 pub fn api_routes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let ident = syn::parse_macro_input!(item as syn::Ident);
+    api_routes::api_routes(item)
+}
 
-    let mut ts = TokenStream::new();
-
-    append_versions(&mut ts, &ident);
-
-    proc_macro::TokenStream::from(quote! {
-        pub struct #ident;
-
-        #ts
-    })
+#[proc_macro_attribute]
+pub fn api_configurator(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    api_routes::api_configurator(attr, item)
 }

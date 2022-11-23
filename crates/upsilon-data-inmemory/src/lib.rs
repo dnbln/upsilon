@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use upsilon_data::{
     async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor,
     DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster,

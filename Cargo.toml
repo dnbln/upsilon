@@ -1,19 +1,2 @@
-[package]
-name = "upsilon"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-rocket = {version = "0.5.0-rc.2", features = ["json"]}
-figment = {version = "0.10.8", features = ["yaml"]}
-serde = {version = "1.0", features = ["derive"]}
-upsilon-api = { path = "crates/upsilon-api" }
-upsilon-core = { path = "crates/upsilon-core" }
-upsilon-data = { path = "crates/upsilon-data" }
-upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
-upsilon-vcs = { path = "crates/upsilon-vcs" }
-
 [workspace]
 members = ["crates/*"]

@@ -7,4 +7,4 @@ pub async fn get_api_root() -> &'static str {
     "Hello world"
 }
 
-api_routes!(RootApi);
+api_routes!();
