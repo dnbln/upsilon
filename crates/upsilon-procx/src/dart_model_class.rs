@@ -3,7 +3,6 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, TokenStreamExt};
 use std::fmt;
 use std::fmt::Write;
-use std::path::PathBuf;
 use syn::{
     Data, DataEnum, DataStruct, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
 };
@@ -490,7 +489,7 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                         )
                     }
                     None => {
-                        write!(f, "(((Iterable<dynamic> iterable) => <dynamic>[")?;
+                        write!(f, "(_invokeWith({expr}, (Iterable<dynamic> iterable) => <dynamic>[")?;
 
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(
@@ -500,7 +499,7 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                             )?;
                         }
 
-                        write!(f, "])({expr}))")
+                        write!(f, "]))")
                     }
                 }
             }
@@ -587,7 +586,7 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                         write!(f, "{}", DartIterableEncode { ty: t, expr })
                     }
                     None => {
-                        write!(f, "(((Iterable<dynamic> iterable) => <dynamic>[")?;
+                        write!(f, "(_invokeWith({expr}, ((Iterable<dynamic> iterable) => <dynamic>[")?;
 
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(
@@ -597,7 +596,7 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                             )?;
                         }
 
-                        write!(f, "])({expr}))")
+                        write!(f, "])))")
                     }
                 }
             }
