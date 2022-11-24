@@ -21,7 +21,10 @@ pub enum InMemoryConfigSaveStrategy {
 }
 
 impl<'de> Deserialize<'de> for InMemoryConfigSaveStrategy {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         #[derive(Deserialize)]
         struct SaveStrategy {
             save: bool,
@@ -31,9 +34,20 @@ impl<'de> Deserialize<'de> for InMemoryConfigSaveStrategy {
         let s = SaveStrategy::deserialize(deserializer)?;
 
         match s {
-            SaveStrategy { save: true, path: Some(path) } => Ok(Self::Save { path }),
-            SaveStrategy { save: true, path: None } => Err(serde::de::Error::custom("Path is required when save is true")),
-            SaveStrategy { save: false, path: _ } => Ok(Self::DontSave),
+            SaveStrategy {
+                save: true,
+                path: Some(path),
+            } => Ok(Self::Save { path }),
+            SaveStrategy {
+                save: true,
+                path: None,
+            } => Err(serde::de::Error::custom(
+                "Path is required when save is true",
+            )),
+            SaveStrategy {
+                save: false,
+                path: _,
+            } => Ok(Self::DontSave),
         }
     }
 }

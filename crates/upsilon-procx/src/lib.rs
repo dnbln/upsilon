@@ -1,5 +1,7 @@
 #![feature(proc_macro_span)]
 
+extern crate core;
+
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::collections::hash_map::DefaultHasher;
@@ -45,4 +47,16 @@ pub fn api_routes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_attribute]
 pub fn api_configurator(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     api_routes::api_configurator(attr, item)
+}
+
+mod dart_model_class;
+
+#[proc_macro_derive(DartModelClass, attributes(serde))]
+pub fn derive_dart_model_class(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    dart_model_class::derive_dart_model_class(item)
+}
+
+#[proc_macro]
+pub fn dart_model_classes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    dart_model_class::dart_model_classes(item)
 }

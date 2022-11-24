@@ -1,15 +1,10 @@
 [package]
-name = "upsilon-procx"
+name = "upsilon-xtask"
 version = "0.1.0"
 edition = "2021"
-
-[lib]
-proc-macro = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syn = {version = "1", features = ["full"]}
-proc-macro2 = "1"
-quote = "1"
-itertools = "0.10.5"
+clap = { version = "4.0.26", features = ["derive"] }
+anyhow = "1.0.66"
