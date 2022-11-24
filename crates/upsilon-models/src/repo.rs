@@ -1,4 +1,6 @@
-use crate::namespace::{NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef};
+use crate::namespace::{
+    NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef,
+};
 
 upsilon_id::id_ty! {
     #[uuid]

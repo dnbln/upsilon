@@ -19,7 +19,8 @@ fn main() {
 ",
     );
 
-    for class in upsilon_api_models::__DART_MODEL_CLASSES.iter() {
+    for class in upsilon_procx::dart_model_classes_iter!(upsilon_api_models) {
+        let class: &fn() -> (&'static str, &'static str) = class;
         let (_name, dart_class_decl) = class();
 
         write!(&mut file_contents, "{}", dart_class_decl).unwrap();

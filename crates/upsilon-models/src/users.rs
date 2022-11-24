@@ -3,9 +3,8 @@ pub mod password;
 
 use crate::assets::ImageAssetId;
 use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
-use crate::users::emails::{UserEmails};
+use crate::users::emails::UserEmails;
 use crate::users::password::HashedPassword;
-
 
 upsilon_id::id_ty!(
     #[uuid]
@@ -20,7 +19,6 @@ crate::utils::str_newtype! {
     PlainNamespaceFragment, PlainNamespaceFragmentRef
 }
 crate::utils::str_newtype!(Name, NameRef);
-
 
 #[derive(Debug, Clone)]
 pub struct User {

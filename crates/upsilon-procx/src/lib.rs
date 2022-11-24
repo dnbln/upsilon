@@ -45,13 +45,16 @@ pub fn api_routes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn api_configurator(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn api_configurator(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     api_routes::api_configurator(attr, item)
 }
 
 mod dart_model_class;
 
-#[proc_macro_derive(DartModelClass, attributes(serde))]
+#[proc_macro_derive(DartModelClass, attributes(dart, dart_json))]
 pub fn derive_dart_model_class(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     dart_model_class::derive_dart_model_class(item)
 }
@@ -59,4 +62,9 @@ pub fn derive_dart_model_class(item: proc_macro::TokenStream) -> proc_macro::Tok
 #[proc_macro]
 pub fn dart_model_classes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     dart_model_class::dart_model_classes(item)
+}
+
+#[proc_macro]
+pub fn dart_model_classes_iter(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    dart_model_class::dart_model_classes_iter(item)
 }

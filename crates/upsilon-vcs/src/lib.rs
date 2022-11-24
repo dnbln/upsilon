@@ -274,13 +274,11 @@ impl<'r> Tree<'r> {
         T: Into<TreeWalkResult>,
     {
         let mut all_result = Ok(());
-        self.walk(mode, |path, entry| {
-            match callback(path, entry) {
-                Ok(r) => r.into(),
-                Err(e) => {
-                    all_result = Err(e);
-                    TreeWalkResult::Abort
-                }
+        self.walk(mode, |path, entry| match callback(path, entry) {
+            Ok(r) => r.into(),
+            Err(e) => {
+                all_result = Err(e);
+                TreeWalkResult::Abort
             }
         })?;
 
@@ -306,7 +304,10 @@ pub fn init_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Re
     })
 }
 
-pub fn init_repo_absolute(_config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+pub fn init_repo_absolute(
+    _config: &UpsilonVcsConfig,
+    path: impl AsRef<Path>,
+) -> Result<Repository> {
     Ok(Repository {
         repo: git2::Repository::init_bare(path)?,
     })

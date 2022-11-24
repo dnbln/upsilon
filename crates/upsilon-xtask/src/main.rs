@@ -1,12 +1,13 @@
 #![feature(try_blocks)]
 
-use std::path::PathBuf;
-use clap::Parser;
+use crate::cmd::cargo_cmd;
 use crate::result::XtaskResult;
+use clap::Parser;
+use std::path::PathBuf;
 
-mod result;
-mod gen_models;
 mod cmd;
+mod gen_models;
+mod result;
 mod ws;
 
 #[derive(Parser, Debug)]
@@ -14,9 +15,13 @@ enum App {
     #[clap(name = "gen-dart-models")]
     GenDartModels {
         #[arg(short, long)]
-        #[clap(default_value_os_t = ws::ws_path!("client-app/upsilon_client"))]
+        #[clap(default_value_os_t = ws::ws_path!("client-app" / "upsilon_client"))]
         target: PathBuf,
-    }
+    },
+    #[clap(name = "fmt")]
+    Fmt,
+    #[clap(name = "fmt-check")]
+    FmtCheck,
 }
 
 fn main() -> XtaskResult<()> {
@@ -25,7 +30,13 @@ fn main() -> XtaskResult<()> {
     match app {
         App::GenDartModels { target } => {
             gen_models::gen_models(target)?;
-        },
+        }
+        App::Fmt => {
+            cargo_cmd!("fmt", "--all")?;
+        }
+        App::FmtCheck => {
+            cargo_cmd!("fmt", "--all", "--check")?;
+        }
     }
 
     Ok(())

@@ -47,5 +47,5 @@ pub fn workspace_root() -> &'static Path {
 }
 
 pub(crate) use ws_path;
-pub(crate) use ws_path_str;
 pub(crate) use ws_path_join;
+pub(crate) use ws_path_str;

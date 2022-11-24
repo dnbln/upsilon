@@ -21,30 +21,88 @@ pub fn derive_dart_model_class(item: proc_macro::TokenStream) -> proc_macro::Tok
     proc_macro::TokenStream::from(dart_model_impl)
 }
 
-fn link(name: &Ident) -> TokenStream {
-    let name_str = name.to_string();
-    let fn_name = format_ident!("__dart_model_class_{}", name);
-
-    quote! {
-        #[::linkme::distributed_slice(__DART_MODEL_CLASSES)]
-        #[allow(non_snake_case)]
-        fn #fn_name() -> (&'static str, &'static str) {
-            (#name_str, #name::get_dart_model_class())
-        }
-    }
-}
-
 fn dart_model_struct(derive_input: &DeriveInput, s: &DataStruct) -> TokenStream {
     let struct_name = &derive_input.ident;
-    let struct_name_string = struct_name.to_string();
 
     let result_ts = match &s.fields {
         Fields::Named(named) => {
-            quote! {}
+            let mut constructor = String::new();
+            let mut fields = String::new();
+            let mut from_json = String::new();
+            let mut to_json = String::new();
+
+            named.named.iter().for_each(|it: &Field| {
+                let field_name = it.ident.as_ref().expect("Missing ident");
+                let dart_name = field_name.to_string();
+
+                constructor.push_str("this.");
+                constructor.push_str(&dart_name.to_string());
+                constructor.push_str(", ");
+
+                write!(&mut fields, "{} {dart_name};\n", &DartTyFmt(&it.ty)).unwrap();
+
+                write!(
+                    &mut from_json,
+                    "{},\n",
+                    DartTyDecode {
+                        ty: &it.ty,
+                        expr: &format!("json['{field_name}']")
+                    }
+                )
+                .unwrap();
+
+                write!(
+                    &mut to_json,
+                    "'{field_name}': {},\n",
+                    DartTyEncode {
+                        ty: &it.ty,
+                        expr: &format!("{dart_name}")
+                    }
+                )
+                .unwrap();
+            });
+
+            let constructor = constructor.trim_end_matches(", ");
+
+            let class = format!(
+                "\
+class {struct_name} {{
+    {struct_name}({constructor});
+
+{fields}
+
+    factory {struct_name}.fromJson(Map<String, dynamic> json) => {struct_name}(
+{from_json}
+    );
+
+    Map<String, dynamic> toJson() => {{
+{to_json}
+    }};
+}}
+",
+                fields = fields.indent(4),
+                from_json = from_json.indent(8),
+                to_json = to_json.indent(8),
+            );
+
+            let mut result = quote! {
+                impl #struct_name {
+                    pub fn get_dart_model_class() -> &'static str {
+                        #class
+                    }
+                }
+            };
+
+            result.append_all(link(struct_name));
+
+            result
         }
         Fields::Unnamed(tuple) => {
             const NAMES: &[&str] = &[
-                "first", "second", "third", "fourth",
+                "first",
+                "second",
+                // "third",
+                // "fourth",
                 // "fifth",
             ];
 
@@ -60,7 +118,7 @@ fn dart_model_struct(derive_input: &DeriveInput, s: &DataStruct) -> TokenStream 
             //
             //     factory X.fromJson(Iterable json) => X(
             //         json.elementAt(0) as String,
-            //         List<String>.from((json.elementAt(1) as Iterable).map((d) => stringFromJson(d))),
+            //         List<String>.from((json.elementAt(1) as Iterable).map((d) => d as String)),
             //     );
             //
             //     Iterable<dynamic> toJson() => [first, second];
@@ -91,7 +149,7 @@ fn dart_model_struct(derive_input: &DeriveInput, s: &DataStruct) -> TokenStream 
                         expr: &format!("json.elementAt({idx})")
                     }).unwrap();
 
-                    write!(&mut to_json, "{},\n", DartTyEncode {ty: &it.ty, expr: &format!("this.{dart_name}")}).unwrap();
+                    write!(&mut to_json, "{},\n", DartTyEncode {ty: &it.ty, expr: &format!("{dart_name}")}).unwrap();
                 })
             ;
 
@@ -136,6 +194,10 @@ class {struct_name} {{
     };
 
     result_ts
+}
+
+fn dart_model_enum(derive_input: &DeriveInput, s: &DataEnum) -> TokenStream {
+    quote! {}
 }
 
 trait Indent {
@@ -337,10 +399,11 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                         "\
 (((v) {{
     {inner_ty}? result;
-    if (v != null)
+    if (v != null) {{
         result = {inner_val};
-    else
+    }} else {{
         result = null;
+    }}
     return result;
 }})({expr}))",
                         inner_ty = DartTyFmt(inner_ty),
@@ -360,6 +423,8 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                             iterable_expr: expr
                         }
                     )
+                } else if let Some(standard_ty) = standard(&s.ident) {
+                    standard_ty.decode(expr).fmt(f)
                 } else {
                     write!(f, "{name}.fromJson({expr})", name = s.ident.to_string())
                 }
@@ -423,7 +488,7 @@ impl<'a> fmt::Display for DartIterableEncode<'a> {
 
         write!(
             f,
-            "({expr} as Iterable<dynamic>).map((v) => {ty_encode})",
+            "({expr}).map((v) => {ty_encode})",
             ty_encode = DartTyEncode { ty, expr: "v" }
         )
     }
@@ -452,11 +517,12 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                         f,
                         "\
 (((v) {{
-    dynamic? result;
-    if (v != null)
+    dynamic result;
+    if (v != null) {{
         result = {inner_val_encode};
-    else
+    }} else {{
         result = null;
+    }}
     return result;
 }})({expr}))",
                         inner_val_encode = DartTyEncode {
@@ -468,8 +534,10 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                     let inner_ty = vec_ty(&s.arguments);
 
                     write!(f, "{}", DartIterableEncode { ty: inner_ty, expr })
+                } else if let Some(standard_ty) = standard(&s.ident) {
+                    standard_ty.encode(expr).fmt(f)
                 } else {
-                    write!(f, "{name}.toJson({expr})", name = s.ident.to_string())
+                    write!(f, "({expr}).toJson()")
                 }
             }
             Type::Reference(r) => {
@@ -506,13 +574,103 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
     }
 }
 
-fn dart_model_enum(derive_input: &DeriveInput, s: &DataEnum) -> TokenStream {
-    quote! {}
+fn standard(name: &Ident) -> Option<StandardTy> {
+    let ty = match name.to_string().as_str() {
+        "i8" | "u8" | "i16" | "u16" | "i32" | "i64" | "i128" | "u128" | "isize" | "usize" => {
+            StandardTy::Int
+        }
+        "f32" | "f64" => StandardTy::Float,
+        "String" | "str" => StandardTy::String,
+        _ => return None,
+    };
+
+    Some(ty)
+}
+
+#[derive(Copy, Clone)]
+enum StandardTy {
+    Int,
+    Float,
+    String,
+}
+
+impl StandardTy {
+    fn decode(self, expr: &str) -> StandardTyDecode {
+        StandardTyDecode { ty: self, expr }
+    }
+
+    fn encode(self, expr: &str) -> StandardTyEncode {
+        StandardTyEncode { ty: self, expr }
+    }
+}
+
+struct StandardTyDecode<'a> {
+    ty: StandardTy,
+    expr: &'a str,
+}
+
+impl<'a> fmt::Display for StandardTyDecode<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { ty, expr } = *self;
+
+        match ty {
+            StandardTy::Int => {
+                write!(f, "(({expr}) as int)")
+            }
+            StandardTy::Float => {
+                write!(f, "(({expr}) as double)")
+            }
+            StandardTy::String => {
+                write!(f, "(({expr}) as String)")
+            }
+        }
+    }
+}
+
+struct StandardTyEncode<'a> {
+    ty: StandardTy,
+    expr: &'a str,
+}
+
+impl<'a> fmt::Display for StandardTyEncode<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { ty: _, expr } = *self; // type doesn't matter, always cast to `dynamic`
+
+        write!(f, "(({expr}) as dynamic)")
+    }
+}
+
+fn classes_holder_name() -> Ident {
+    format_ident!("____DART_MODEL_CLASSES_HOLDER")
+}
+
+fn link(name: &Ident) -> TokenStream {
+    let name_str = name.to_string();
+    let fn_name = format_ident!("__dart_model_class_{}", name);
+    let classes_holder = classes_holder_name();
+
+    quote! {
+        #[::linkme::distributed_slice(crate:: #classes_holder)]
+        #[allow(non_snake_case)]
+        fn #fn_name() -> (&'static str, &'static str) {
+            (#name_str, #name::get_dart_model_class())
+        }
+    }
 }
 
 pub fn dart_model_classes(_item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let classes_holder = classes_holder_name();
+
     proc_macro::TokenStream::from(quote! {
         #[::linkme::distributed_slice]
-        pub static __DART_MODEL_CLASSES: [fn() -> (&'static str, &'static str)] = [..];
+        pub static #classes_holder: [fn() -> (&'static str, &'static str)] = [..];
     })
+}
+
+pub fn dart_model_classes_iter(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let path = syn::parse_macro_input!(item as syn::Path);
+
+    let classes_holder = classes_holder_name();
+
+    proc_macro::TokenStream::from(quote! {(#path :: #classes_holder).iter()})
 }
