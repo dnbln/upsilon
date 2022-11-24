@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:built_value/built_value.dart';
 
 void main() async {
   runApp(const MyApp());
@@ -73,6 +71,12 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void _resetCounter() {
+    setState(() {
+      _counter = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -130,6 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
             '$_counter',
             style: Theme.of(context).textTheme.headline1,
           ),
+          CircularProgressIndicator(key: const Key("a"), value: _counter/100.0)
         ]),
       ),
       floatingActionButton: FloatingActionButton(
@@ -144,6 +149,7 @@ class _MyHomePageState extends State<MyHomePage> {
               GestureDetector(
                   onTap: () {
                     _launchUrl("https://flutter.dev");
+                    _resetCounter();
                   },
                   child: const Text("Aaa"))
             ]),

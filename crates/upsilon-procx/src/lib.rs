@@ -1,4 +1,5 @@
 #![feature(proc_macro_span)]
+#![feature(proc_macro_diagnostic)]
 
 extern crate core;
 

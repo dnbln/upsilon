@@ -3,6 +3,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, TokenStreamExt};
 use std::fmt;
 use std::fmt::Write;
+use std::path::PathBuf;
 use syn::{
     Data, DataEnum, DataStruct, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
 };
@@ -64,9 +65,20 @@ fn dart_model_struct(derive_input: &DeriveInput, s: &DataStruct) -> TokenStream 
 
             let constructor = constructor.trim_end_matches(", ");
 
+            let span = struct_name.span().unwrap().source();
+            let file = span.source_file();
+            debug_assert!(file.is_real());
+
+            let path = file.path();
+            let path = path.display();
+            let start = span.start();
+            let line = start.line;
+            let column = start.column;
+
             let class = format!(
                 "\
 class {struct_name} {{
+    // generated from struct {struct_name}, at {path} :{line}:{column}
     {struct_name}({constructor});
 
 {fields}
@@ -155,9 +167,21 @@ class {struct_name} {{
 
             let constructor = constructor.trim_end_matches(", ");
 
+            let span = struct_name.span().unwrap().source();
+            let file = span.source_file();
+            debug_assert!(file.is_real());
+
+            let path = file.path();
+            let path = path.display();
+            let start = span.start();
+            let line = start.line;
+            let column = start.column;
+
+
             let class = format!(
                 "\
 class {struct_name} {{
+    // generated from struct {struct_name}, at {path} :{line}:{column}
     {struct_name}({constructor});
 
 {fields}
@@ -189,7 +213,11 @@ class {struct_name} {{
             result
         }
         Fields::Unit => quote! {
-            impl
+            impl #struct_name {
+                pub fn get_dart_model_class() -> &'static str {
+                    ""
+                }
+            }
         },
     };
 
@@ -197,6 +225,12 @@ class {struct_name} {{
 }
 
 fn dart_model_enum(derive_input: &DeriveInput, s: &DataEnum) -> TokenStream {
+    s.enum_token
+        .span
+        .unwrap()
+        .error("derive(DartModelClass): Not (yet) supported for enums")
+        .emit();
+
     quote! {}
 }
 
@@ -397,7 +431,7 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                     write!(
                         f,
                         "\
-(((v) {{
+(_invokeWith({expr}, ((v) {{
     {inner_ty}? result;
     if (v != null) {{
         result = {inner_val};
@@ -405,7 +439,7 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
         result = null;
     }}
     return result;
-}})({expr}))",
+}})))",
                         inner_ty = DartTyFmt(inner_ty),
                         inner_val = DartTyDecode {
                             ty: inner_ty,
@@ -461,7 +495,7 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(
                                 f,
-                                "((v) => {elem_decode})(iterable.elementAt({index})), ",
+                                "_invokeWith(iterable.elementAt({index}), ((v) => {elem_decode})), ",
                                 elem_decode = DartTyDecode { ty: t, expr: "v" }
                             )?;
                         }
@@ -516,7 +550,7 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                     write!(
                         f,
                         "\
-(((v) {{
+(_invokeWith({expr}, ((v) {{
     dynamic result;
     if (v != null) {{
         result = {inner_val_encode};
@@ -524,7 +558,7 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
         result = null;
     }}
     return result;
-}})({expr}))",
+}})))",
                         inner_val_encode = DartTyEncode {
                             ty: inner_ty,
                             expr: "v"
@@ -558,7 +592,7 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(
                                 f,
-                                "((v) => {elem_decode})(iterable.elementAt({index})), ",
+                                "_invokeWith(iterable.elementAt({index}), ((v) => {elem_decode})), ",
                                 elem_decode = DartTyDecode { ty: t, expr: "v" }
                             )?;
                         }
@@ -661,9 +695,24 @@ fn link(name: &Ident) -> TokenStream {
 pub fn dart_model_classes(_item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let classes_holder = classes_holder_name();
 
+    let utils = r#"
+T _invokeWith<T, V>(V v, T Function(V) f) => f(v);
+
+
+"#;
+
     proc_macro::TokenStream::from(quote! {
         #[::linkme::distributed_slice]
         pub static #classes_holder: [fn() -> (&'static str, &'static str)] = [..];
+
+        mod ____dart_model_class_holder_root_check {
+            use crate::#classes_holder;
+        }
+
+        #[::linkme::distributed_slice(#classes_holder)]
+        fn ____dart_model_class_holder_utils() -> (&'static str, &'static str) {
+            ("____DART_MODEL_CLASS_HOLDER_UTILS", #utils)
+        }
     })
 }
 
