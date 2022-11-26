@@ -134,7 +134,8 @@ class _MyHomePageState extends State<MyHomePage> {
             '$_counter',
             style: Theme.of(context).textTheme.headline1,
           ),
-          CircularProgressIndicator(key: const Key("a"), value: _counter/100.0)
+          CircularProgressIndicator(
+              key: const Key("a"), value: _counter / 100.0)
         ]),
       ),
       floatingActionButton: FloatingActionButton(

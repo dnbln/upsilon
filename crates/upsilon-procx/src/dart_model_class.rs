@@ -176,7 +176,6 @@ class {struct_name} {{
             let line = start.line;
             let column = start.column;
 
-
             let class = format!(
                 "\
 class {struct_name} {{
@@ -211,13 +210,21 @@ class {struct_name} {{
 
             result
         }
-        Fields::Unit => quote! {
-            impl #struct_name {
-                pub fn get_dart_model_class() -> &'static str {
-                    ""
+        Fields::Unit => {
+            struct_name
+                .span()
+                .unwrap()
+                .error("derive(DartModelClass): Not (yet) supported for unit structs")
+                .emit();
+
+            quote! {
+                impl #struct_name {
+                    pub fn get_dart_model_class() -> &'static str {
+                        ""
+                    }
                 }
             }
-        },
+        }
     };
 
     result_ts
@@ -489,7 +496,10 @@ impl<'a> fmt::Display for DartTyDecode<'a> {
                         )
                     }
                     None => {
-                        write!(f, "(_invokeWith({expr}, (Iterable<dynamic> iterable) => <dynamic>[")?;
+                        write!(
+                            f,
+                            "(_invokeWith({expr}, (Iterable<dynamic> iterable) => <dynamic>["
+                        )?;
 
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(
@@ -586,7 +596,10 @@ impl<'a> fmt::Display for DartTyEncode<'a> {
                         write!(f, "{}", DartIterableEncode { ty: t, expr })
                     }
                     None => {
-                        write!(f, "(_invokeWith({expr}, ((Iterable<dynamic> iterable) => <dynamic>[")?;
+                        write!(
+                            f,
+                            "(_invokeWith({expr}, ((Iterable<dynamic> iterable) => <dynamic>["
+                        )?;
 
                         for (index, t) in t.elems.iter().enumerate() {
                             write!(

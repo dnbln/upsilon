@@ -1,0 +1,20 @@
+package users {
+    #[uuid]
+    newtype<UUID> struct UserID;
+    #[str]
+    newtype<string> struct Username;
+    #[str]
+    newtype<string> struct UserDisplayName;
+
+    struct User {
+        id: UserID,
+        username: Username,
+        name?: UserDisplayName,
+    }
+
+    struct UserSelf {
+        id: UserID,
+        username: Username,
+        name?: UserDisplayName,
+    }
+}

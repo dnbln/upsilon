@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package models.namespace;
+
+message NamespaceID {
+  oneof kind {
+    GlobalNamespaceID global = 1;
+    UserNamespaceID user = 2;
+    OrganizationNamespaceID organization = 3;
+    TeamNamespaceID team = 4;
+  }
+}
+
+message GlobalNamespaceID {}
+
+message UserNamespaceID {
+  bytes user_id = 1; // UUID
+}
+
+message OrganizationNamespaceID {
+  bytes organization_id = 1; // UUID
+}
+
+message TeamNamespaceID {
+  bytes organization_id = 1; // UUID
+  bytes team_id = 2; // UUID
+}

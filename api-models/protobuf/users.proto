@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package models.users;
+
+message User {
+  bytes id = 1;// UUID
+  string username = 2;
+  optional string name = 3;
+
+  optional string public_email = 4;
+  optional bytes avatar = 5; // UUID
+}
+
+message UserSelf {
+  bytes id = 1;// UUID
+  string username = 2;
+  optional string name = 3;
+
+  UserSelfEmails emails = 4;
+  optional bytes avatar = 5; // UUID
+}
+
+message UserSelfEmails {
+  repeated string emails = 1;
+  int32 primary_email = 2;
+  optional int32 public_email = 3;
+}

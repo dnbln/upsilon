@@ -1,8 +1,6 @@
 #![feature(proc_macro_span)]
 #![feature(proc_macro_diagnostic)]
 
-extern crate core;
-
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::collections::hash_map::DefaultHasher;

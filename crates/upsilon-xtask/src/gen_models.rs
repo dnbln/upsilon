@@ -18,7 +18,7 @@ pub fn gen_models(target: PathBuf) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
         "-p",
-        "upsilon-api-models",
+        "upsilon-api-models-protobuf",
         "--bin",
         "gen_models",
         "--",

@@ -25,7 +25,7 @@ fn main() {
 
     let mut file_contents = String::from(header);
 
-    for class in upsilon_procx::dart_model_classes_iter!(upsilon_api_models) {
+    for class in upsilon_procx::dart_model_classes_iter!(upsilon_api_models_protobuf) {
         let class: &fn() -> (&'static str, &'static str) = class;
         let (_name, dart_class_decl) = class();
 
