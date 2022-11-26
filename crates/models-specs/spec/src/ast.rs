@@ -20,6 +20,10 @@ impl Ident {
     pub(crate) fn new(v: String, span: Span) -> Self {
         Self(Spanned::new(v, span))
     }
+
+    pub(crate) fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 impl fmt::Display for Ident {

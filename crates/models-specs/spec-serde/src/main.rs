@@ -6,9 +6,9 @@ package users {
     #[uuid]
     newtype<UUID> struct UserID;
     #[str]
-    newtype<string> struct Username;
+    newtype<str> struct Username;
     #[str]
-    newtype<string> struct UserDisplayName;
+    newtype<str> struct UserDisplayName;
 
     struct User {
         id: UserID,

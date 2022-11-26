@@ -266,7 +266,78 @@ pub enum RefTargetHost {
     Struct(Rc<LowerStruct>),
     NewtypeStruct(Rc<LowerNewtypeStruct>),
     Enum(Rc<LowerEnum>),
+    BuiltinType(LowerBuiltinTy),
     Package(Rc<LowerPackage>),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum LowerBuiltinTy {
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    F32,
+    F64,
+    Char,
+    Str,
+    UUID,
+    Bytes,
+}
+
+impl LowerBuiltinTy {
+    pub fn name(&self) -> &'static str {
+        match self {
+            LowerBuiltinTy::Bool => "bool",
+            LowerBuiltinTy::I8 => "i8",
+            LowerBuiltinTy::I16 => "i16",
+            LowerBuiltinTy::I32 => "i32",
+            LowerBuiltinTy::I64 => "i64",
+            LowerBuiltinTy::I128 => "i128",
+            LowerBuiltinTy::U8 => "u8",
+            LowerBuiltinTy::U16 => "u16",
+            LowerBuiltinTy::U32 => "u32",
+            LowerBuiltinTy::U64 => "u64",
+            LowerBuiltinTy::U128 => "u128",
+            LowerBuiltinTy::F32 => "f32",
+            LowerBuiltinTy::F64 => "f64",
+            LowerBuiltinTy::Char => "char",
+            LowerBuiltinTy::Str => "str",
+            LowerBuiltinTy::UUID => "uuid",
+            LowerBuiltinTy::Bytes => "bytes",
+        }
+    }
+
+    pub fn for_name(s: &str) -> Option<Self> {
+        let builtin = match s {
+            "bool" | "boolean" => LowerBuiltinTy::Bool,
+            "i8" => LowerBuiltinTy::I8,
+            "i16" => LowerBuiltinTy::I16,
+            "i32" | "int" => LowerBuiltinTy::I32,
+            "i64" => LowerBuiltinTy::I64,
+            "i128" => LowerBuiltinTy::I128,
+            "u8" => LowerBuiltinTy::U8,
+            "u16" => LowerBuiltinTy::U16,
+            "u32" | "uint" => LowerBuiltinTy::U32,
+            "u64" => LowerBuiltinTy::U64,
+            "u128" => LowerBuiltinTy::U128,
+            "f32" | "float" => LowerBuiltinTy::F32,
+            "f64" | "double" => LowerBuiltinTy::F64,
+            "char" => LowerBuiltinTy::Char,
+            "str" | "string" | "String" => LowerBuiltinTy::Str,
+            "uuid" | "UUID" => LowerBuiltinTy::UUID,
+            "bytes" | "Bytes" => LowerBuiltinTy::Bytes,
+            _ => return None,
+        };
+
+        Some(builtin)
+    }
 }
 
 impl RefTargetHost {
@@ -276,6 +347,9 @@ impl RefTargetHost {
             RefTargetHost::NewtypeStruct(newtype_struct) => newtype_struct.name.span(),
             RefTargetHost::Enum(enum_) => enum_.name.span(),
             RefTargetHost::Package(package) => package.name.span(),
+            RefTargetHost::BuiltinType(_) => {
+                panic!("Builtin types don't have physical declarations")
+            }
         }
     }
 }
@@ -390,7 +464,7 @@ impl References {
         self.refs.insert(path, target);
     }
 
-    pub(crate) fn get<'a>(&'a self, path: &LowerPath) -> Option<&'a RefTargetHost> {
+    pub(crate) fn get(&self, path: &LowerPath) -> Option<&RefTargetHost> {
         self.refs.get(path)
     }
 }

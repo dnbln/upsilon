@@ -5,8 +5,8 @@ use std::rc::Rc;
 use crate::defs::Defs;
 use crate::diagnostics::{DiagnosticsHost, Label};
 use crate::lower::{
-    LowerEnum, LowerEnumVariant, LowerFile, LowerNewtypeStruct, LowerPackage, LowerPackageItem,
-    LowerPath, LowerStruct, LowerStructField, LowerTyRef, RefTargetHost,
+    LowerBuiltinTy, LowerEnum, LowerEnumVariant, LowerFile, LowerNewtypeStruct, LowerPackage,
+    LowerPackageItem, LowerPath, LowerStruct, LowerStructField, LowerTyRef, RefTargetHost,
 };
 use crate::span::{Span, SpanHosts, TextSize};
 
@@ -21,10 +21,9 @@ struct CompileContext {
 }
 
 fn tombstone_path(span_hosts: Rc<SpanHosts>) -> LowerPath {
-    let p = TextSize::new(0);
     LowerPath::Ident(Ident::new(
         "tombstone".to_string(),
-        Span::new(p, p, span_hosts),
+        Span::new(TextSize::ZERO, TextSize::ZERO, span_hosts),
     ))
 }
 
@@ -347,13 +346,19 @@ fn resolve_references_for_type(cx: &CompileContext, ty: &LowerTyRef, parent_path
             ty.path
                 .span()
                 .error("here")
-                .with_message("unknown type")
+                .with_message(format!("unknown type: {}", ty.path))
                 .emit();
 
             *cx.ref_resolve_successful.borrow_mut() = false;
         }
         Some(target) => {
             ty.path_ref.resolved_to(target.clone());
+        }
+    }
+
+    if let Some(generics) = &ty.generics {
+        for generic in &generics.ty_params {
+            resolve_references_for_type(cx, generic, parent_path);
         }
     }
 }
@@ -369,7 +374,13 @@ fn resolve_path(
                 RefTargetHost::Struct(_) | RefTargetHost::Enum(_) | RefTargetHost::NewtypeStruct(_),
             ) => find_package(cx, path.unwrap_parent()),
             Some(RefTargetHost::Package(_)) => Some(path),
-            None => None,
+            Some(RefTargetHost::BuiltinType(_)) | None => None,
+        }
+    }
+
+    if let LowerPath::Ident(ident) = &**path {
+        if let Some(builtin_ty) = LowerBuiltinTy::for_name(ident.as_str()) {
+            return Some(RefTargetHost::BuiltinType(builtin_ty));
         }
     }
 
