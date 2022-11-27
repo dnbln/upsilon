@@ -289,10 +289,10 @@ impl LowerEnum {
 }
 
 pub struct LowerEnumVariant {
-    pub(crate) attrs: Attrs,
-    pub(crate) name: Ident,
-    pub(crate) colon: ColonPunctToken,
-    pub(crate) ty: LowerTyRef,
+    pub attrs: Attrs,
+    pub name: Ident,
+    pub colon: ColonPunctToken,
+    pub ty: LowerTyRef,
 }
 
 impl LowerEnumVariant {

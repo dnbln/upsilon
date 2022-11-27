@@ -2,7 +2,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, TokenStreamExt};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use spec::ast::Ident;
 use spec::diagnostics::DiagnosticsHost;
 use spec::lower::*;
@@ -219,9 +219,65 @@ fn compile_newtype_struct(cx: &CompileCx, newtype_struct: &Rc<LowerNewtypeStruct
 }
 
 fn compile_struct(cx: &CompileCx, struct_: &Rc<LowerStruct>) -> TokenStream {
-    quote! {}
+    struct StructField<'a>(&'a CompileCx<'a>, &'a LowerStruct, &'a LowerStructField);
+
+    impl<'a> ToTokens for StructField<'a> {
+        fn to_tokens(&self, tokens: &mut TokenStream) {
+            let name = format_ident!("{}", self.2.name.as_str());
+            let ty = resolve_ty_path(
+                self.0,
+                &self.1.get_self_path().unwrap_parent(),
+                self.2.ty.path_resolved_to(),
+            );
+
+            tokens.append_all(quote! {
+                pub #name: #ty
+            });
+        }
+    }
+
+    let name = format_ident!("{}", struct_.name.as_str());
+    let fields = struct_
+        .fields
+        .iter()
+        .map(|field| StructField(cx, struct_, field));
+
+    quote! {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        pub struct #name {
+            #(#fields,)*
+        }
+    }
 }
 
 fn compile_enum(cx: &CompileCx, enum_: &Rc<LowerEnum>) -> TokenStream {
-    quote! {}
+    struct EnumVariant<'a>(&'a CompileCx<'a>, &'a LowerEnum, &'a LowerEnumVariant);
+
+    impl<'a> ToTokens for EnumVariant<'a> {
+        fn to_tokens(&self, tokens: &mut TokenStream) {
+            let name = format_ident!("{}", self.2.name.as_str());
+            let ty = resolve_ty_path(
+                self.0,
+                &self.1.get_self_path().unwrap_parent(),
+                self.2.ty.path_resolved_to(),
+            );
+
+            tokens.append_all(quote! {
+                #name(#ty)
+            });
+        }
+    }
+
+    let name = format_ident!("{}", enum_.name.as_str());
+    let variants = enum_
+        .variants
+        .iter()
+        .map(|variant| EnumVariant(cx, enum_, variant));
+
+    quote! {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        pub enum #name {
+            #(#variants,)*
+        }
+    }
 }
