@@ -1,7 +1,8 @@
 pub extern crate chrono;
 
-use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[serde(transparent)]

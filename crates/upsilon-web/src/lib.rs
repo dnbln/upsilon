@@ -1,8 +1,5 @@
-use rocket::{
-    async_trait,
-    fairing::{Fairing, Info, Kind},
-    Build, Rocket,
-};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::{async_trait, Build, Rocket};
 
 pub struct WebFairing;
 

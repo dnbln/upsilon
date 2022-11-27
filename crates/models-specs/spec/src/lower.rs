@@ -10,7 +10,7 @@ use crate::punct::*;
 use crate::span::{Span, SpanHosts, TextSize};
 
 pub struct LowerFile {
-    pub(crate) packages: Vec<Rc<LowerPackage>>,
+    pub packages: Vec<Rc<LowerPackage>>,
 
     pub(crate) span_hosts: Rc<SpanHosts>,
     pub(crate) references: Rc<RefCell<References>>,
@@ -32,26 +32,28 @@ impl LowerFile {
     }
 }
 
-pub struct LowerPackage {
-    pub(crate) package_kw: PackageKw,
-    pub(crate) name: Ident,
-    pub(crate) open_brace: OpenBracePunctToken,
-    pub(crate) package_items: Vec<LowerPackageItem>,
-    pub(crate) close_brace: CloseBracePunctToken,
+impl Drop for LowerFile {
+    fn drop(&mut self) {
+        // clear all refs
+        self.references.borrow_mut().refs.clear();
 
-    pub(crate) ref_host: RefHost,
-}
-
-pub struct RefHost {
-    pub(crate) references: Refs,
-}
-
-impl RefHost {
-    pub fn new(references: &Refs) -> RefHost {
-        RefHost {
-            references: Refs::clone(references),
+        for package in &self.packages {
+            package.clear_refs();
         }
+
+        // now all Rc's should point down in the AST,
+        // and there are no cycles.
+
+        // so dropping the file now should drop all the AST nodes.
     }
+}
+
+pub struct LowerPackage {
+    pub package_kw: PackageKw,
+    pub name: Ident,
+    pub open_brace: OpenBracePunctToken,
+    pub package_items: Vec<LowerPackageItem>,
+    pub close_brace: CloseBracePunctToken,
 }
 
 impl LowerPackage {
@@ -66,8 +68,26 @@ impl LowerPackage {
                 .map(|item| LowerPackageItem::lower(item, references))
                 .collect(),
             close_brace: package.close_brace,
-            ref_host: RefHost::new(references),
         })
+    }
+
+    fn clear_refs(&self) {
+        for item in &self.package_items {
+            match item {
+                LowerPackageItem::NewtypeStruct(newtype_struct) => {
+                    newtype_struct.clear_refs();
+                }
+                LowerPackageItem::Struct(struct_) => {
+                    struct_.clear_refs();
+                }
+                LowerPackageItem::Enum(enum_) => {
+                    enum_.clear_refs();
+                }
+                LowerPackageItem::Package(package) => {
+                    package.clear_refs();
+                }
+            }
+        }
     }
 }
 
@@ -96,16 +116,14 @@ impl LowerPackageItem {
 }
 
 pub struct LowerNewtypeStruct {
-    pub(crate) attrs: Attrs,
-    pub(crate) newtype_kw: NewtypeKw,
-    pub(crate) open_angle_bracket: OpenAngleBracketPunctToken,
-    pub(crate) raw_ty: LowerTyRef,
-    pub(crate) close_angle_bracket: CloseAngleBracketPunctToken,
-    pub(crate) struct_kw: StructKw,
-    pub(crate) name: Ident,
-    pub(crate) semicolon: SemicolonPunctToken,
-
-    pub(crate) ref_host: RefHost,
+    pub attrs: Attrs,
+    pub newtype_kw: NewtypeKw,
+    pub open_angle_bracket: OpenAngleBracketPunctToken,
+    pub raw_ty: LowerTyRef,
+    pub close_angle_bracket: CloseAngleBracketPunctToken,
+    pub struct_kw: StructKw,
+    pub name: Ident,
+    pub semicolon: SemicolonPunctToken,
 }
 
 impl LowerNewtypeStruct {
@@ -119,20 +137,21 @@ impl LowerNewtypeStruct {
             struct_kw: newtype_struct.struct_kw,
             name: newtype_struct.name,
             semicolon: newtype_struct.semicolon,
-            ref_host: RefHost::new(references),
         })
+    }
+
+    fn clear_refs(&self) {
+        self.raw_ty.clear_refs();
     }
 }
 
 pub struct LowerStruct {
-    pub(crate) attrs: Attrs,
-    pub(crate) struct_kw: StructKw,
-    pub(crate) name: Ident,
-    pub(crate) open_brace: OpenBracePunctToken,
-    pub(crate) fields: Vec<LowerStructField>,
-    pub(crate) close_brace: CloseBracePunctToken,
-
-    pub(crate) ref_host: RefHost,
+    pub attrs: Attrs,
+    pub struct_kw: StructKw,
+    pub name: Ident,
+    pub open_brace: OpenBracePunctToken,
+    pub fields: Vec<LowerStructField>,
+    pub close_brace: CloseBracePunctToken,
 }
 
 impl LowerStruct {
@@ -148,17 +167,22 @@ impl LowerStruct {
                 .map(|field| LowerStructField::lower(field, references))
                 .collect(),
             close_brace: struct_.close_brace,
-            ref_host: RefHost::new(references),
         })
+    }
+
+    fn clear_refs(&self) {
+        for field in &self.fields {
+            field.clear_refs();
+        }
     }
 }
 
 pub struct LowerStructField {
-    pub(crate) attrs: Attrs,
-    pub(crate) name: Ident,
-    pub(crate) qmark: Option<QMarkPunctToken>,
-    pub(crate) colon: ColonPunctToken,
-    pub(crate) ty: LowerTyRef,
+    pub attrs: Attrs,
+    pub name: Ident,
+    pub qmark: Option<QMarkPunctToken>,
+    pub colon: ColonPunctToken,
+    pub ty: LowerTyRef,
 }
 
 impl LowerStructField {
@@ -171,17 +195,19 @@ impl LowerStructField {
             ty: LowerTyRef::lower(struct_field.ty, references),
         }
     }
+
+    fn clear_refs(&self) {
+        self.ty.clear_refs();
+    }
 }
 
 pub struct LowerEnum {
-    pub(crate) attrs: Attrs,
-    pub(crate) enum_kw: EnumKw,
-    pub(crate) name: Ident,
-    pub(crate) open_brace: OpenBracePunctToken,
-    pub(crate) variants: Vec<LowerEnumVariant>,
-    pub(crate) close_brace: CloseBracePunctToken,
-
-    pub(crate) ref_host: RefHost,
+    pub attrs: Attrs,
+    pub enum_kw: EnumKw,
+    pub name: Ident,
+    pub open_brace: OpenBracePunctToken,
+    pub variants: Vec<LowerEnumVariant>,
+    pub close_brace: CloseBracePunctToken,
 }
 
 impl LowerEnum {
@@ -197,8 +223,13 @@ impl LowerEnum {
                 .map(|variant| LowerEnumVariant::lower(variant, references))
                 .collect(),
             close_brace: enum_.close_brace,
-            ref_host: RefHost::new(references),
         })
+    }
+
+    fn clear_refs(&self) {
+        for variant in &self.variants {
+            variant.clear_refs();
+        }
     }
 }
 
@@ -218,11 +249,15 @@ impl LowerEnumVariant {
             ty: LowerTyRef::lower(enum_variant.ty, references),
         }
     }
+
+    fn clear_refs(&self) {
+        self.ty.clear_refs();
+    }
 }
 
 pub struct LowerTyRef {
-    pub(crate) path: Rc<LowerPath>,
-    pub(crate) generics: Option<LowerTyGenerics>,
+    pub path: Rc<LowerPath>,
+    pub generics: Option<LowerTyGenerics>,
 
     pub(crate) path_ref: Ref,
 }
@@ -239,12 +274,29 @@ impl LowerTyRef {
                 .map(|generics| LowerTyGenerics::lower(generics, references)),
         }
     }
+
+    fn clear_refs(&self) {
+        *self.path_ref.resolved_to.borrow_mut() = None;
+
+        if let Some(generics) = &self.generics {
+            generics.clear_refs();
+        }
+    }
+
+    pub fn path_resolved_to(&self) -> RefTargetHost {
+        self.path_ref
+            .resolved_to
+            .borrow()
+            .as_ref()
+            .cloned()
+            .expect("path should have been resolved by now")
+    }
 }
 
 pub struct LowerTyGenerics {
-    pub(crate) open_angle_bracket: OpenAngleBracketPunctToken,
-    pub(crate) ty_params: Vec<LowerTyRef>,
-    pub(crate) close_angle_bracket: CloseAngleBracketPunctToken,
+    pub open_angle_bracket: OpenAngleBracketPunctToken,
+    pub ty_params: Vec<LowerTyRef>,
+    pub close_angle_bracket: CloseAngleBracketPunctToken,
 }
 
 impl LowerTyGenerics {
@@ -257,6 +309,12 @@ impl LowerTyGenerics {
                 .map(|ty| LowerTyRef::lower(ty, references))
                 .collect(),
             close_angle_bracket: ty_generics.close_angle_bracket,
+        }
+    }
+
+    fn clear_refs(&self) {
+        for ty in &self.ty_params {
+            ty.clear_refs();
         }
     }
 }
@@ -277,12 +335,10 @@ pub enum LowerBuiltinTy {
     I16,
     I32,
     I64,
-    I128,
     U8,
     U16,
     U32,
     U64,
-    U128,
     F32,
     F64,
     Char,
@@ -299,12 +355,10 @@ impl LowerBuiltinTy {
             LowerBuiltinTy::I16 => "i16",
             LowerBuiltinTy::I32 => "i32",
             LowerBuiltinTy::I64 => "i64",
-            LowerBuiltinTy::I128 => "i128",
             LowerBuiltinTy::U8 => "u8",
             LowerBuiltinTy::U16 => "u16",
             LowerBuiltinTy::U32 => "u32",
             LowerBuiltinTy::U64 => "u64",
-            LowerBuiltinTy::U128 => "u128",
             LowerBuiltinTy::F32 => "f32",
             LowerBuiltinTy::F64 => "f64",
             LowerBuiltinTy::Char => "char",
@@ -321,12 +375,10 @@ impl LowerBuiltinTy {
             "i16" => LowerBuiltinTy::I16,
             "i32" | "int" => LowerBuiltinTy::I32,
             "i64" => LowerBuiltinTy::I64,
-            "i128" => LowerBuiltinTy::I128,
             "u8" => LowerBuiltinTy::U8,
             "u16" => LowerBuiltinTy::U16,
             "u32" | "uint" => LowerBuiltinTy::U32,
             "u64" => LowerBuiltinTy::U64,
-            "u128" => LowerBuiltinTy::U128,
             "f32" | "float" => LowerBuiltinTy::F32,
             "f64" | "double" => LowerBuiltinTy::F64,
             "char" => LowerBuiltinTy::Char,
@@ -417,7 +469,7 @@ impl LowerPath {
     }
 }
 
-pub struct Ref {
+pub(crate) struct Ref {
     ref_kind: RefKind,
     references: Refs,
 
@@ -449,7 +501,7 @@ impl Ref {
     }
 }
 
-pub struct References {
+pub(crate) struct References {
     refs: BTreeMap<LowerPath, RefTargetHost>,
 }
 

@@ -1,8 +1,9 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use proc_macro::Span;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, TokenStreamExt};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 fn versioned_route_link(version: usize, f_name: &Ident) -> TokenStream {
     let routes_holder_name = versioned_api_routes_static_holder_name(version);

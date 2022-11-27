@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{TreeEntry, TreeIter};
-
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]

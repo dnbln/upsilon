@@ -1,23 +1,30 @@
-use crate::ast::Ident;
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
-use crate::defs::Defs;
+use crate::ast::Ident;
 use crate::diagnostics::{DiagnosticsHost, Label};
-use crate::lower::{
-    LowerBuiltinTy, LowerEnum, LowerEnumVariant, LowerFile, LowerNewtypeStruct, LowerPackage,
-    LowerPackageItem, LowerPath, LowerStruct, LowerStructField, LowerTyRef, RefTargetHost,
-};
+use crate::lower::*;
 use crate::span::{Span, SpanHosts, TextSize};
+use crate::Successful;
 
 struct CompileContext {
     span_hosts: Rc<SpanHosts>,
-    references: Rc<RefCell<crate::lower::References>>,
+    references: Rc<RefCell<References>>,
     file: Rc<LowerFile>,
 
     def_collection_successful: RefCell<bool>,
     ref_resolve_successful: RefCell<bool>,
+    compilation_successful: RefCell<bool>,
     current_package_scope: RefCell<Rc<LowerPath>>,
+}
+
+pub struct CompileCx<'a>(&'a CompileContext);
+
+impl<'a> CompileCx<'a> {
+    pub fn compilation_failed(&self) {
+        *self.0.compilation_successful.borrow_mut() = false;
+    }
 }
 
 fn tombstone_path(span_hosts: Rc<SpanHosts>) -> LowerPath {
@@ -27,32 +34,73 @@ fn tombstone_path(span_hosts: Rc<SpanHosts>) -> LowerPath {
     ))
 }
 
-pub(crate) fn compile(file: LowerFile, diagnostics: &DiagnosticsHost) -> Option<Defs> {
+fn resolve_refs_impl(
+    file: &Rc<LowerFile>,
+    diagnostics: &DiagnosticsHost,
+) -> (CompileContext, Successful) {
     let cx = CompileContext {
         span_hosts: Rc::clone(&file.span_hosts),
         references: Rc::clone(&file.references),
-        current_package_scope: RefCell::new(Rc::new(tombstone_path(Rc::clone(&file.span_hosts)))),
-        file: Rc::new(file),
+        file: Rc::clone(file),
 
         def_collection_successful: RefCell::new(true),
         ref_resolve_successful: RefCell::new(true),
+        compilation_successful: RefCell::new(true),
+
+        current_package_scope: RefCell::new(Rc::new(tombstone_path(Rc::clone(&file.span_hosts)))),
     };
 
-    collect_defs_for_file(&cx, &cx.file);
+    collect_defs_for_file(&cx, file);
 
     if !*cx.def_collection_successful.borrow() {
-        return None;
+        return (cx, Successful::No);
     }
 
     resolve_references_for_file(&cx, &cx.file);
 
     if !*cx.ref_resolve_successful.borrow() {
-        return None;
+        return (cx, Successful::No);
     }
 
-    let mut packages = vec![];
+    (cx, Successful::Yes)
+}
 
-    Some(Defs { packages })
+pub(crate) fn resolve_refs(file: &Rc<LowerFile>, diagnostics: &DiagnosticsHost) -> Successful {
+    resolve_refs_impl(file, diagnostics).1
+}
+
+pub trait Compiler {
+    fn compile_file(
+        &self,
+        cx: CompileCx,
+        file: &Rc<LowerFile>,
+        diagnostics: &DiagnosticsHost,
+        to: &Path,
+    );
+}
+
+pub(crate) fn compile<C>(
+    file: Rc<LowerFile>,
+    diagnostics: &DiagnosticsHost,
+    compiler: &C,
+    to_file: &Path,
+) -> Successful
+where
+    C: Compiler,
+{
+    let (cx, success) = resolve_refs_impl(&file, diagnostics);
+
+    if !*success {
+        return Successful::No;
+    }
+
+    compiler.compile_file(CompileCx(&cx), &file, diagnostics, to_file);
+
+    if !*cx.compilation_successful.borrow() {
+        return Successful::No;
+    }
+
+    Successful::Yes
 }
 
 fn collect_defs_for_file(cx: &CompileContext, file: &LowerFile) {
@@ -76,7 +124,7 @@ fn collect_defs_for_package(
     });
 
     {
-        duplicate_definition_check_or_register(
+        let _ = duplicate_definition_check_or_register(
             cx,
             self_path.as_ref(),
             RefTargetHost::Package(Rc::clone(package)),
@@ -110,7 +158,7 @@ fn collect_def_for_newtype_struct(
         newtype_struct.name.clone(),
     );
 
-    duplicate_definition_check_or_register(
+    let _ = duplicate_definition_check_or_register(
         cx,
         self_path,
         RefTargetHost::NewtypeStruct(Rc::clone(newtype_struct)),
@@ -124,7 +172,7 @@ fn collect_def_for_struct(cx: &CompileContext, struct_: &Rc<LowerStruct>, parent
         struct_.name.clone(),
     );
 
-    duplicate_definition_check_or_register(
+    let _ = duplicate_definition_check_or_register(
         cx,
         self_path,
         RefTargetHost::Struct(Rc::clone(struct_)),
@@ -138,13 +186,11 @@ fn collect_def_for_enum(cx: &CompileContext, enum_: &Rc<LowerEnum>, parent: Rc<L
         enum_.name.clone(),
     );
 
-    duplicate_definition_check_or_register(cx, self_path, RefTargetHost::Enum(Rc::clone(enum_)));
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Successful {
-    Yes,
-    No,
+    let _ = duplicate_definition_check_or_register(
+        cx,
+        self_path,
+        RefTargetHost::Enum(Rc::clone(enum_)),
+    );
 }
 
 pub trait LowerPathHolder {

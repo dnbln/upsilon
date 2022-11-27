@@ -5,11 +5,10 @@ use std::path::PathBuf;
 
 use rocket::serde::json::Json;
 use rocket::{tokio, State};
-
 use upsilon_data::{CommonDataClientError, DataClientMasterHolder, DataQueryMaster};
 use upsilon_models::namespace::NamespaceId;
 use upsilon_models::organization::{
-    Organization, OrganizationId, OrganizationName, Team, TeamId, TeamName,
+    Organization, OrganizationId, OrganizationName, Team, TeamId, TeamName
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
 use upsilon_models::users::{User, UserId, Username};

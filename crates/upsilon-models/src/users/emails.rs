@@ -1,5 +1,6 @@
-use crate::email::Email;
 use std::ops::Index;
+
+use crate::email::Email;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct EmailIndex(usize);

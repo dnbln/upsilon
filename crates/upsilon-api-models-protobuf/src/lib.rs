@@ -16,7 +16,12 @@ pub struct G {
 macro_rules! model_module {
     ($name:ident) => {
         pub mod $name {
-            include!(concat!(env!("OUT_DIR"), "/models.", stringify!($name), ".rs"));
+            include!(concat!(
+                env!("OUT_DIR"),
+                "/models.",
+                stringify!($name),
+                ".rs"
+            ));
         }
     };
 }

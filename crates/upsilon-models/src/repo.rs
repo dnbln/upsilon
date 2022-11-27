@@ -1,5 +1,5 @@
 use crate::namespace::{
-    NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef,
+    NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef
 };
 
 upsilon_id::id_ty! {

@@ -46,6 +46,4 @@ pub fn workspace_root() -> &'static Path {
     xtask_dir.parent().unwrap().parent().unwrap()
 }
 
-pub(crate) use ws_path;
-pub(crate) use ws_path_join;
-pub(crate) use ws_path_str;
+pub(crate) use {ws_path, ws_path_join, ws_path_str};

@@ -1,13 +1,11 @@
 use std::fmt;
+use std::rc::Rc;
+
 use crate::keywords::{EnumKw, NewtypeKw, PackageKw, StructKw};
 use crate::punct::{
-    CloseAngleBracketPunctToken, CloseBracePunctToken, CloseBracketPunctToken,
-    CloseParenPunctToken, ColonPunctToken, DotPunctToken, EqPunctToken, HashPunctToken,
-    OpenAngleBracketPunctToken, OpenBracePunctToken, OpenBracketPunctToken, OpenParenPunctToken,
-    QMarkPunctToken, SemicolonPunctToken,
+    CloseAngleBracketPunctToken, CloseBracePunctToken, CloseBracketPunctToken, CloseParenPunctToken, ColonPunctToken, DotPunctToken, EqPunctToken, HashPunctToken, OpenAngleBracketPunctToken, OpenBracePunctToken, OpenBracketPunctToken, OpenParenPunctToken, QMarkPunctToken, SemicolonPunctToken
 };
 use crate::span::{Span, SpanHosts, Spanned};
-use std::rc::Rc;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Ident(Spanned<String>);

@@ -1,9 +1,11 @@
 #![feature(try_blocks)]
 
+use std::path::PathBuf;
+
+use clap::Parser;
+
 use crate::cmd::cargo_cmd;
 use crate::result::XtaskResult;
-use clap::Parser;
-use std::path::PathBuf;
 
 mod cmd;
 mod gen_models;

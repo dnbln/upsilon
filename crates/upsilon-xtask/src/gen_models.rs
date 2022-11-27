@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use crate::cmd::{cargo_cmd, cmd, cmd_call};
 use crate::result::XtaskResult;
 use crate::ws::ws_path_join;
-use std::path::PathBuf;
 
 pub fn gen_models(target: PathBuf) -> XtaskResult<()> {
     let target_lib_dir = ws_path_join!(target / "lib");

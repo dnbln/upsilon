@@ -26,7 +26,12 @@ package users {
 
     let (parsed, diagnostics) =
         spec::parse(Some(PathBuf::from("aaa.modelspec")), s).expect("parse");
-    let _ = spec::compile(parsed, &diagnostics);
+    let (resolved, successful) = spec::resolve_refs(parsed, &diagnostics);
+
+    if !*successful {
+        diagnostics.emit();
+        panic!("failed to resolve");
+    }
 
     diagnostics.emit();
 }

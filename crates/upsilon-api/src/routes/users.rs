@@ -1,4 +1,3 @@
-use crate::error::{ApiResult, Error};
 use rocket::serde::json::Json;
 use rocket::State;
 use upsilon_core::config::UsersConfig;
@@ -7,6 +6,8 @@ use upsilon_models::email::Email;
 use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{User, UserId, Username};
+
+use crate::error::{ApiResult, Error};
 
 #[derive(serde::Deserialize)]
 pub struct CreateUserRequest {

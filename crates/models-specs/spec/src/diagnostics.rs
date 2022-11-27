@@ -1,11 +1,13 @@
-use crate::file_host::FileHost;
-use crate::span::Span;
-use codespan_reporting::files::SimpleFiles;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use codespan_reporting::term::DisplayStyle;
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::term::DisplayStyle;
+
+use crate::file_host::FileHost;
+use crate::span::Span;
 
 pub struct DiagnosticsHost {
     diagnostics: RefCell<Vec<Diagnostic>>,
@@ -16,7 +18,12 @@ pub struct DiagnosticsHost {
 impl Drop for DiagnosticsHost {
     fn drop(&mut self) {
         if !self.diagnostics.borrow().is_empty() {
-            eprintln!("Missed DiagnosticsHost.emit() call! Performing from Drop");
+            eprintln!(
+                "\
+Missed DiagnosticsHost.emit() call! Performing from Drop; \
+if you wanted to clear the diagnostics, call .clear() instead.\
+"
+            );
 
             self.emit();
         }

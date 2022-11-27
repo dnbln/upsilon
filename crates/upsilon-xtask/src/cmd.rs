@@ -119,7 +119,4 @@ impl std::error::Error for CmdError {
 }
 
 pub(crate) type CmdResult<T = ()> = Result<T, CmdError>;
-pub(crate) use cargo_cmd;
-pub(crate) use cmd;
-pub(crate) use cmd_call;
-pub(crate) use cmd_process;
+pub(crate) use {cargo_cmd, cmd, cmd_call, cmd_process};

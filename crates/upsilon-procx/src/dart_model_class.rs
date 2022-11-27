@@ -1,10 +1,11 @@
+use std::fmt;
+use std::fmt::Write;
+
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, TokenStreamExt};
-use std::fmt;
-use std::fmt::Write;
 use syn::{
-    Data, DataEnum, DataStruct, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
+    Data, DataEnum, DataStruct, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type
 };
 
 pub fn derive_dart_model_class(item: proc_macro::TokenStream) -> proc_macro::TokenStream {

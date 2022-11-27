@@ -3,7 +3,6 @@ use std::ops::Index;
 use rocket::http::uri::fmt::Path;
 use rocket::http::uri::Segments;
 use rocket::request::{FromParam, FromSegments};
-
 use upsilon_models::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
 use upsilon_models::repo::RepoNameRef;
 

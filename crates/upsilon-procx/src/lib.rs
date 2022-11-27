@@ -1,11 +1,12 @@
 #![feature(proc_macro_span)]
 #![feature(proc_macro_diagnostic)]
 
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::SystemTime;
+
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
 
 #[proc_macro]
 pub fn private_context(item: proc_macro::TokenStream) -> proc_macro::TokenStream {

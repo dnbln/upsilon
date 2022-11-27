@@ -2,15 +2,14 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use upsilon_data::{
-    async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor,
-    DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster,
+    async_trait, query_master_impl_trait, CommonDataClientError, CommonDataClientErrorExtractor, DataClient, DataClientMaster, DataClientQueryImpl, DataClientQueryMaster
 };
 use upsilon_models::namespace::{NamespaceId, NamespaceKind};
 use upsilon_models::organization::{
-    Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName,
-    OrganizationNameRef, Team, TeamDisplayName, TeamId, TeamName, TeamNameRef,
+    Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, OrganizationNameRef, Team, TeamDisplayName, TeamId, TeamName, TeamNameRef
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace};
 use upsilon_models::users::{User, UserId, Username, UsernameRef};

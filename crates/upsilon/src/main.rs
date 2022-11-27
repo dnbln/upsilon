@@ -2,7 +2,8 @@
 extern crate rocket;
 
 use figment::providers::Format;
-use rocket::{figment::providers::Yaml, serde::json::Json};
+use rocket::figment::providers::Yaml;
+use rocket::serde::json::Json;
 use serde::Serialize;
 
 #[derive(Serialize)]

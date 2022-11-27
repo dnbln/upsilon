@@ -281,5 +281,4 @@ macro_rules! qerror {
     };
 }
 
-pub(crate) use qerror;
-pub(crate) use str_newtype;
+pub(crate) use {qerror, str_newtype};

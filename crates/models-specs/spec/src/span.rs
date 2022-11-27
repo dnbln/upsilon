@@ -1,9 +1,10 @@
-use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticsHost, Label};
-use crate::file_host::FileHost;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+
+use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticsHost, Label};
+use crate::file_host::FileHost;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
 pub struct TextSize(usize);
