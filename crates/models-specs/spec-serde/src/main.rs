@@ -1,37 +1,14 @@
 use std::path::PathBuf;
 
+use spec_serde::Config;
+
 fn main() {
-    let s = r##"
-package users {
-    #[uuid]
-    newtype<UUID> struct UserID;
-    #[str]
-    newtype<str> struct Username;
-    #[str]
-    newtype<str> struct UserDisplayName;
+    let res = Config::new().with_file(
+        PathBuf::from("api-models/spec/models.modelspec"),
+        PathBuf::from("test.rs"),
+    ).run();
 
-    struct User {
-        id: UserID,
-        username: Username,
-        name?: UserDisplayName,
+    if !*res {
+        panic!("Failed to generate models");
     }
-
-    struct UserSelf {
-        id: UserID,
-        username: Username,
-        name?: UserDisplayName,
-    }
-}
-    "##;
-
-    let (parsed, diagnostics) =
-        spec::parse(Some(PathBuf::from("aaa.modelspec")), s).expect("parse");
-    let (resolved, successful) = spec::resolve_refs(parsed, &diagnostics);
-
-    if !*successful {
-        diagnostics.emit();
-        panic!("failed to resolve");
-    }
-
-    diagnostics.emit();
 }

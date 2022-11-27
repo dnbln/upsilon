@@ -54,6 +54,8 @@ pub struct LowerPackage {
     pub open_brace: OpenBracePunctToken,
     pub package_items: Vec<LowerPackageItem>,
     pub close_brace: CloseBracePunctToken,
+
+    pub(crate) self_path: RefCell<Option<Rc<LowerPath>>>,
 }
 
 impl LowerPackage {
@@ -68,7 +70,18 @@ impl LowerPackage {
                 .map(|item| LowerPackageItem::lower(item, references))
                 .collect(),
             close_brace: package.close_brace,
+            self_path: RefCell::new(None),
         })
+    }
+
+    pub fn get_self_path(&self) -> Rc<LowerPath> {
+        Rc::clone(
+            &self
+                .self_path
+                .borrow()
+                .as_ref()
+                .expect("self path should have been set by this time"),
+        )
     }
 
     fn clear_refs(&self) {
@@ -124,6 +137,8 @@ pub struct LowerNewtypeStruct {
     pub struct_kw: StructKw,
     pub name: Ident,
     pub semicolon: SemicolonPunctToken,
+
+    pub(crate) self_path: RefCell<Option<Rc<LowerPath>>>,
 }
 
 impl LowerNewtypeStruct {
@@ -137,7 +152,19 @@ impl LowerNewtypeStruct {
             struct_kw: newtype_struct.struct_kw,
             name: newtype_struct.name,
             semicolon: newtype_struct.semicolon,
+
+            self_path: RefCell::new(None),
         })
+    }
+
+    pub fn get_self_path(&self) -> Rc<LowerPath> {
+        Rc::clone(
+            &self
+                .self_path
+                .borrow()
+                .as_ref()
+                .expect("self path should have been set by this time"),
+        )
     }
 
     fn clear_refs(&self) {
@@ -152,6 +179,8 @@ pub struct LowerStruct {
     pub open_brace: OpenBracePunctToken,
     pub fields: Vec<LowerStructField>,
     pub close_brace: CloseBracePunctToken,
+
+    pub(crate) self_path: RefCell<Option<Rc<LowerPath>>>,
 }
 
 impl LowerStruct {
@@ -167,7 +196,19 @@ impl LowerStruct {
                 .map(|field| LowerStructField::lower(field, references))
                 .collect(),
             close_brace: struct_.close_brace,
+
+            self_path: RefCell::new(None),
         })
+    }
+
+    pub fn get_self_path(&self) -> Rc<LowerPath> {
+        Rc::clone(
+            &self
+                .self_path
+                .borrow()
+                .as_ref()
+                .expect("self path should have been set by this time"),
+        )
     }
 
     fn clear_refs(&self) {
@@ -208,6 +249,8 @@ pub struct LowerEnum {
     pub open_brace: OpenBracePunctToken,
     pub variants: Vec<LowerEnumVariant>,
     pub close_brace: CloseBracePunctToken,
+
+    pub(crate) self_path: RefCell<Option<Rc<LowerPath>>>,
 }
 
 impl LowerEnum {
@@ -223,7 +266,19 @@ impl LowerEnum {
                 .map(|variant| LowerEnumVariant::lower(variant, references))
                 .collect(),
             close_brace: enum_.close_brace,
+
+            self_path: RefCell::new(None),
         })
+    }
+
+    pub fn get_self_path(&self) -> Rc<LowerPath> {
+        Rc::clone(
+            &self
+                .self_path
+                .borrow()
+                .as_ref()
+                .expect("self path should have been set by this time"),
+        )
     }
 
     fn clear_refs(&self) {
@@ -285,10 +340,7 @@ impl LowerTyRef {
 
     pub fn path_resolved_to(&self) -> RefTargetHost {
         self.path_ref
-            .resolved_to
-            .borrow()
-            .as_ref()
-            .cloned()
+            .get()
             .expect("path should have been resolved by now")
     }
 }
@@ -425,6 +477,12 @@ impl fmt::Display for LowerPath {
     }
 }
 
+impl fmt::Debug for LowerPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl LowerPath {
     pub(crate) fn span(&self) -> Span {
         match self {
@@ -452,11 +510,105 @@ impl LowerPath {
         }
     }
 
-    pub(crate) fn unwrap_parent(&self) -> &Rc<LowerPath> {
+    pub fn unwrap_parent(&self) -> &Rc<LowerPath> {
         match self {
             LowerPath::Ident(_) => panic!("unwrap_parent called on Ident"),
             LowerPath::Path(path, _, _) => path,
         }
+    }
+
+    fn parent(&self) -> Option<&Rc<LowerPath>> {
+        match self {
+            LowerPath::Ident(_) => None,
+            LowerPath::Path(path, _, _) => Some(path),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            LowerPath::Ident(_) => 1,
+            LowerPath::Path(path, _, _) => 1 + path.len(),
+        }
+    }
+
+    fn joining(self: &Rc<Self>) -> Vec<Rc<LowerPath>> {
+        match self.as_ref() {
+            LowerPath::Ident(_) => vec![Rc::clone(self)],
+            LowerPath::Path(path, _, _) => {
+                let mut paths = path.joining();
+                paths.push(Rc::clone(self));
+                paths
+            }
+        }
+    }
+
+    fn clone_up_to_depth(self: &Rc<Self>, depth: usize) -> Option<Rc<LowerPath>> {
+        if depth == 0 {
+            return None;
+        }
+
+        Some(match self.as_ref() {
+            LowerPath::Ident(ident) => {
+                if depth == 1 {
+                    Rc::new(LowerPath::Ident(ident.clone()))
+                } else {
+                    return None;
+                }
+            }
+            LowerPath::Path(path, punct, ident) => {
+                if depth == 1 {
+                    Rc::new(LowerPath::Ident(ident.clone()))
+                } else {
+                    Rc::new(LowerPath::Path(
+                        path.clone_up_to_depth(depth - 1)?,
+                        punct.clone(),
+                        ident.clone(),
+                    ))
+                }
+            }
+        })
+    }
+
+    pub fn relative_to(
+        self: &Rc<Self>,
+        other: &Rc<LowerPath>,
+    ) -> (
+        Option<Rc<LowerPath>>,
+        (Option<Rc<LowerPath>>, Option<Rc<LowerPath>>),
+    ) {
+        let self_paths = self.joining();
+        let other_paths = other.joining();
+
+        dbg!(&self_paths);
+        dbg!(&other_paths);
+
+        let mut i = 0;
+        while i < self_paths.len() && i < other_paths.len() {
+            if self_paths[i] != other_paths[i] {
+                break;
+            }
+            i += 1;
+        }
+        dbg!(i);
+
+        let common = self_paths.get(i - 1).cloned();
+
+        let diff1 = if i < self_paths.len() {
+            self.clone_up_to_depth(self_paths.len() - i)
+        } else {
+            None
+        };
+        let diff2 = if i < other_paths.len() {
+            other.clone_up_to_depth(other_paths.len() - i)
+        } else {
+            None
+        };
+
+        dbg!(&common);
+        dbg!(&diff1);
+        dbg!(&diff2);
+
+        (common, (diff1, diff2))
     }
 
     fn lower(ty_path: Path, references: &Refs) -> Rc<LowerPath> {
@@ -489,17 +641,13 @@ impl Ref {
     pub(crate) fn resolved_to(&self, resolved_to: RefTargetHost) {
         *self.resolved_to.borrow_mut() = Some(resolved_to);
     }
+
+    fn get(&self) -> Option<RefTargetHost> {
+        self.resolved_to.borrow().as_ref().cloned()
+    }
 }
 
 type Refs = Rc<RefCell<References>>;
-
-impl Ref {
-    pub fn get(&self) -> Option<RefTargetHost> {
-        match &self.ref_kind {
-            RefKind::TyPath(r) => self.references.borrow().refs.get(&**r).cloned(),
-        }
-    }
-}
 
 pub(crate) struct References {
     refs: BTreeMap<LowerPath, RefTargetHost>,

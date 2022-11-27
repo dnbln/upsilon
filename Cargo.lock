@@ -1878,6 +1878,8 @@ dependencies = [
 name = "spec-serde"
 version = "0.1.0"
 dependencies = [
+ "proc-macro2",
+ "quote",
  "spec",
 ]
 
@@ -2416,6 +2418,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "git2",
 ]
 
 [[package]]

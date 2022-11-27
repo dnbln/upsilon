@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 spec = { path = "../spec" }
+quote = "1.0.21"
+proc-macro2 = "1.0.47"

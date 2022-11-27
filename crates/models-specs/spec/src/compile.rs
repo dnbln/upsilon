@@ -123,6 +123,8 @@ fn collect_defs_for_package(
         None => LowerPath::Ident(package.name.clone()),
     });
 
+    *package.self_path.borrow_mut() = Some(Rc::clone(&self_path));
+
     {
         let _ = duplicate_definition_check_or_register(
             cx,
@@ -152,11 +154,13 @@ fn collect_def_for_newtype_struct(
     newtype_struct: &Rc<LowerNewtypeStruct>,
     parent: Rc<LowerPath>,
 ) {
-    let self_path = LowerPath::Path(
+    let self_path = Rc::new(LowerPath::Path(
         parent,
         newtype_struct.struct_kw.span().clone().into(),
         newtype_struct.name.clone(),
-    );
+    ));
+
+    *newtype_struct.self_path.borrow_mut() = Some(Rc::clone(&self_path));
 
     let _ = duplicate_definition_check_or_register(
         cx,
@@ -166,11 +170,13 @@ fn collect_def_for_newtype_struct(
 }
 
 fn collect_def_for_struct(cx: &CompileContext, struct_: &Rc<LowerStruct>, parent: Rc<LowerPath>) {
-    let self_path = LowerPath::Path(
+    let self_path = Rc::new(LowerPath::Path(
         parent,
         struct_.struct_kw.span().clone().into(),
         struct_.name.clone(),
-    );
+    ));
+
+    *struct_.self_path.borrow_mut() = Some(Rc::clone(&self_path));
 
     let _ = duplicate_definition_check_or_register(
         cx,
@@ -180,11 +186,13 @@ fn collect_def_for_struct(cx: &CompileContext, struct_: &Rc<LowerStruct>, parent
 }
 
 fn collect_def_for_enum(cx: &CompileContext, enum_: &Rc<LowerEnum>, parent: Rc<LowerPath>) {
-    let self_path = LowerPath::Path(
+    let self_path = Rc::new(LowerPath::Path(
         parent,
         enum_.enum_kw.span().clone().into(),
         enum_.name.clone(),
-    );
+    ));
+
+    *enum_.self_path.borrow_mut() = Some(Rc::clone(&self_path));
 
     let _ = duplicate_definition_check_or_register(
         cx,

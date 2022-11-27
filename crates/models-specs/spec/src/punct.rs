@@ -1,11 +1,11 @@
 use crate::span::{Span, Spanned};
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct PunctToken;
 
 macro_rules! punct {
     ($name:ident) => {
-        #[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+        #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
         pub struct $name(Spanned<PunctToken>);
 
         impl $name {

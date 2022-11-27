@@ -6,6 +6,8 @@ package users {
     #[str]
     newtype<string> struct UserDisplayName;
 
+    newtype<Username> struct UsernameWrapper;
+
     struct User {
         id: UserID,
         username: Username,
