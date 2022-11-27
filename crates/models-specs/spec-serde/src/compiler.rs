@@ -224,13 +224,20 @@ fn compile_struct(cx: &CompileCx, struct_: &Rc<LowerStruct>) -> TokenStream {
     impl<'a> ToTokens for StructField<'a> {
         fn to_tokens(&self, tokens: &mut TokenStream) {
             let name = format_ident!("{}", self.2.name.as_str());
-            let ty = resolve_ty_path(
+            let mut attrs = TokenStream::new();
+            let mut ty = resolve_ty_path(
                 self.0,
                 &self.1.get_self_path().unwrap_parent(),
                 self.2.ty.path_resolved_to(),
             );
 
+            if self.2.qmark.is_some() {
+                attrs = quote! {#[serde(default, skip_serializing_if = "Option::is_none")]};
+                ty = quote! {Option<#ty>};
+            }
+
             tokens.append_all(quote! {
+                #attrs
                 pub #name: #ty
             });
         }
