@@ -1,27 +1,22 @@
 [alias]
 xtask = "run --package upsilon-xtask --"
 
-[build]
-rustflags = ["--cfg", "uuid_unstable"]
-[target.x86_64-unknown-linux-gnu]
-rustflags = [
-    "--cfg", "uuid_unstable",
-    "-Clink-arg=-fuse-ld=lld",
-    "-Zshare-generics=y",
-]
-
-[target.x86_64-pc-windows-msvc]
+[target.'cfg(all())']
 rustflags = [
     "--cfg", "uuid_unstable",
     "-Zshare-generics=y"
 ]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-Clink-arg=-fuse-ld=lld",
+]
+
+[target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
 
 [target.x86_64-apple-darwin]
 rustflags = [
-    "--cfg", "uuid_unstable",
-    "-C",
-    "-Zshare-generics=y",
     "-Csplit-debuginfo=unpacked",
 ]
 [profile.dev]

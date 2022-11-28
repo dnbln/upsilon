@@ -9,7 +9,6 @@ use crate::span::{Span, SpanHosts, TextSize};
 use crate::Successful;
 
 struct CompileContext {
-    span_hosts: Rc<SpanHosts>,
     references: Rc<RefCell<References>>,
     file: Rc<LowerFile>,
 
@@ -36,10 +35,9 @@ fn tombstone_path(span_hosts: Rc<SpanHosts>) -> LowerPath {
 
 fn resolve_refs_impl(
     file: &Rc<LowerFile>,
-    diagnostics: &DiagnosticsHost,
+    _diagnostics: &DiagnosticsHost,
 ) -> (CompileContext, Successful) {
     let cx = CompileContext {
-        span_hosts: Rc::clone(&file.span_hosts),
         references: Rc::clone(&file.references),
         file: Rc::clone(file),
 
@@ -219,7 +217,7 @@ impl LowerPathHolder for LowerPath {
 
 impl<'a> LowerPathHolder for &'a LowerPath {
     fn get(&self) -> &LowerPath {
-        *self
+        self
     }
 
     fn into_owned(self) -> LowerPath {
@@ -282,11 +280,7 @@ fn resolve_references_for_package(
     parent: Option<Rc<LowerPath>>,
 ) {
     let self_path = Rc::new(match parent {
-        Some(parent) => LowerPath::Path(
-            Rc::clone(&parent),
-            package.package_kw.span().clone().into(),
-            package.name.clone(),
-        ),
+        Some(parent) => parent.child(package.package_kw.span().clone(), package.name.clone()),
         None => LowerPath::Ident(package.name.clone()),
     });
 
@@ -339,9 +333,8 @@ fn resolve_references_for_newtype_struct(
     newtype_struct: &LowerNewtypeStruct,
     parent: Rc<LowerPath>,
 ) {
-    let self_path = Rc::new(LowerPath::Path(
-        parent,
-        newtype_struct.newtype_kw.span().clone().into(),
+    let self_path = Rc::new(parent.child(
+        newtype_struct.newtype_kw.span().clone(),
         newtype_struct.name.clone(),
     ));
 
@@ -353,11 +346,7 @@ fn resolve_references_for_struct(
     struct_: &LowerStruct,
     parent: Rc<LowerPath>,
 ) {
-    let self_path = Rc::new(LowerPath::Path(
-        parent,
-        struct_.struct_kw.span().clone().into(),
-        struct_.name.clone(),
-    ));
+    let self_path = Rc::new(parent.child(struct_.struct_kw.span().clone(), struct_.name.clone()));
 
     for field in struct_.fields.iter() {
         resolve_references_for_field(cx, field, Rc::clone(&self_path));
@@ -365,11 +354,7 @@ fn resolve_references_for_struct(
 }
 
 fn resolve_references_for_enum(cx: &CompileContext, enum_: &LowerEnum, parent: Rc<LowerPath>) {
-    let self_path = Rc::new(LowerPath::Path(
-        parent,
-        enum_.enum_kw.span().clone().into(),
-        enum_.name.clone(),
-    ));
+    let self_path = Rc::new(parent.child(enum_.enum_kw.span().clone(), enum_.name.clone()));
 
     for variant in enum_.variants.iter() {
         resolve_references_for_enum_variant(cx, variant, Rc::clone(&self_path));
@@ -406,7 +391,7 @@ fn resolve_references_for_type(cx: &CompileContext, ty: &LowerTyRef, parent_path
             *cx.ref_resolve_successful.borrow_mut() = false;
         }
         Some(target) => {
-            ty.path_ref.resolved_to(target.clone());
+            ty.path_ref.resolved_to(target);
         }
     }
 
@@ -440,7 +425,7 @@ fn resolve_path(
 
     let package = find_package(cx, parent_path)?;
 
-    if let Some(target) = cx.references.borrow_mut().get(&path) {
+    if let Some(target) = cx.references.borrow_mut().get(path) {
         return Some(target.clone());
     }
 

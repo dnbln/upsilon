@@ -322,7 +322,7 @@ impl LowerTyRef {
         let path = LowerPath::lower(ty.path, references);
 
         LowerTyRef {
-            path_ref: Ref::new_path(Rc::clone(&path), references),
+            path_ref: Ref::new(),
             path,
             generics: ty
                 .generics
@@ -458,10 +458,6 @@ impl RefTargetHost {
     }
 }
 
-enum RefKind {
-    TyPath(Rc<LowerPath>),
-}
-
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum LowerPath {
     Ident(Ident),
@@ -517,18 +513,23 @@ impl LowerPath {
         }
     }
 
-    fn parent(&self) -> Option<&Rc<LowerPath>> {
+    pub fn parent(&self) -> Option<&Rc<LowerPath>> {
         match self {
             LowerPath::Ident(_) => None,
             LowerPath::Path(path, _, _) => Some(path),
         }
     }
 
+    #[allow(clippy::len_without_is_empty)] // cannot have an empty path
     pub fn len(&self) -> usize {
         match self {
             LowerPath::Ident(_) => 1,
             LowerPath::Path(path, _, _) => 1 + path.len(),
         }
+    }
+
+    pub fn child(self: &Rc<Self>, dot_span: Span, ident: Ident) -> LowerPath {
+        LowerPath::Path(Rc::clone(self), dot_span.into(), ident)
     }
 
     fn joining(self: &Rc<Self>) -> Vec<Rc<LowerPath>> {
@@ -622,18 +623,12 @@ impl LowerPath {
 }
 
 pub(crate) struct Ref {
-    ref_kind: RefKind,
-    references: Refs,
-
     resolved_to: RefCell<Option<RefTargetHost>>,
 }
 
 impl Ref {
-    fn new_path(path: Rc<LowerPath>, references: &Refs) -> Ref {
+    fn new() -> Ref {
         Ref {
-            ref_kind: RefKind::TyPath(path),
-            references: Refs::clone(references),
-
             resolved_to: RefCell::new(None),
         }
     }

@@ -13,15 +13,16 @@ mod compile;
 pub mod config;
 pub mod diagnostics;
 mod file_host;
-mod keywords;
+pub mod keywords;
 pub mod lower;
-mod punct;
-mod span;
+pub mod punct;
+pub mod span;
 
 pub use compile::{CompileCx, Compiler};
 pub use config::Config;
 
 #[rustfmt::skip]
+#[allow(warnings, unused)]
 mod parser {
     include!("parser.rs");
 }

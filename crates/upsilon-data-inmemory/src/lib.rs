@@ -1,3 +1,5 @@
+#![deny(clippy::map_clone)]
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
@@ -97,6 +99,7 @@ impl DataClient for InMemoryDataClient {
         Ok(Self(config, Box::new(InMemoryDataStore::new())))
     }
 
+    #[allow(clippy::needless_lifetimes)] // async_trait changes lifetimes
     fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a> {
         InMemoryQueryImpl(self)
     }
@@ -404,7 +407,7 @@ impl<'a> InMemoryNamespaceMutQueryLock<'a> {
 impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     type Error = InMemoryError;
 
-    async fn create_user(self: &Self, user: User) -> Result<(), Self::Error> {
+    async fn create_user(&self, user: User) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
             NamespaceKind::GlobalNamespace,
@@ -428,7 +431,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let lock = self.store().users.read().await;
 
         lock.get(&user_id)
-            .map(|user| user.clone())
+            .cloned()
             .ok_or(InMemoryError::UserNotFound)
     }
 
@@ -442,7 +445,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .values()
             .find(|user| user.username == username_email || user.emails.contains(username_email));
 
-        Ok(user.map(|user| user.clone()))
+        Ok(user.cloned())
     }
 
     async fn query_user_by_username<'self_ref>(
@@ -453,7 +456,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
 
         let user = lock.values().find(|user| user.username == username);
 
-        Ok(user.map(|user| user.clone()))
+        Ok(user.cloned())
     }
 
     async fn set_user_name(&self, user_id: UserId, user_name: Username) -> Result<(), Self::Error> {
@@ -497,7 +500,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let lock = self.store().repos.read().await;
 
         lock.get(&repo_id)
-            .map(|repo| repo.clone())
+            .cloned()
             .ok_or(InMemoryError::RepoNotFound)
     }
 
@@ -512,7 +515,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .values()
             .find(|repo| repo.name == repo_name && repo.namespace == *repo_namespace);
 
-        Ok(repo.map(|repo| repo.clone()))
+        Ok(repo.cloned())
     }
 
     async fn set_repo_name(&self, repo_id: RepoId, repo_name: RepoName) -> Result<(), Self::Error> {
@@ -566,7 +569,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let lock = self.store().organizations.read().await;
 
         lock.get(&org_id)
-            .map(|org| org.clone())
+            .cloned()
             .ok_or(InMemoryError::OrganizationNotFound)
     }
 
@@ -578,7 +581,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
 
         let org = lock.values().find(|org| org.name == org_name);
 
-        Ok(org.map(|org| org.clone()))
+        Ok(org.cloned())
     }
 
     async fn set_organization_name(
@@ -625,7 +628,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         Ok(lock
             .get(&org_id)
             .and_then(|members| members.get(&user_id))
-            .map(|member| member.clone()))
+            .cloned())
     }
 
     async fn query_organization_members(
@@ -661,7 +664,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let lock = self.store().teams.read().await;
 
         lock.get(&team_id)
-            .map(|team| team.clone())
+            .cloned()
             .ok_or(InMemoryError::TeamNotFound)
     }
 
@@ -676,7 +679,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .values()
             .find(|team| team.organization_id == org_id && team.name == team_name);
 
-        Ok(team.map(|team| team.clone()))
+        Ok(team.cloned())
     }
 
     async fn set_team_name(&self, team_id: TeamId, team_name: TeamName) -> Result<(), Self::Error> {
@@ -725,7 +728,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             let lock = self.store().teams.read().await;
 
             lock.get(&team_id)
-                .map(|team| team.clone())
+                .cloned()
                 .ok_or(InMemoryError::TeamNotFound)?
         };
 
@@ -735,7 +738,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             let lock = self.store().organizations.read().await;
 
             lock.get(&org_id)
-                .map(|org| org.clone())
+                .cloned()
                 .ok_or(InMemoryError::OrganizationNotFound)?
         };
 

@@ -116,7 +116,7 @@ fn version_macro(
     let f_name = f.sig.ident.clone();
     let v_route_link = versioned_route_link(version, &f_name);
 
-    proc_macro::TokenStream::from(::quote::quote! {
+    proc_macro::TokenStream::from(quote! {
         #f
 
         #v_route_link

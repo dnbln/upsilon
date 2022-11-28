@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
 use std::rc::Rc;
 
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticsHost, Label};
@@ -12,7 +13,7 @@ pub struct TextSize(usize);
 impl TextSize {
     pub(crate) const ZERO: TextSize = TextSize(0);
 
-    pub(crate) fn new(size: usize) -> Self {
+    pub(crate) const fn new(size: usize) -> Self {
         Self(size)
     }
 }
@@ -97,6 +98,10 @@ impl Span {
 
         Span::new(start, end, Rc::clone(&self.span_hosts))
     }
+
+    pub fn source_file(&self) -> SourceFile {
+        SourceFile(Rc::clone(&self.span_hosts.file_host))
+    }
 }
 
 impl Debug for Span {
@@ -177,5 +182,17 @@ impl<T: Ord> Ord for Spanned<T> {
 impl<T: Display> Display for Spanned<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+pub struct SourceFile(Rc<FileHost>);
+
+impl SourceFile {
+    pub fn source(&self) -> &str {
+        &self.0.contents
+    }
+
+    pub fn source_path(&self) -> Option<&Path> {
+        self.0.path.as_ref().map(|it| it.as_ref())
     }
 }

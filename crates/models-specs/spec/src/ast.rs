@@ -224,6 +224,7 @@ pub struct NewtypeStruct {
 }
 
 impl NewtypeStruct {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         attrs: Attrs,
         newtype_kw: NewtypeKw,

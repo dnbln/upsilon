@@ -30,14 +30,14 @@ impl Compiler for SerdeCompiler {
 
 struct CompileCx<'a> {
     spec_cx: &'a spec::CompileCx<'a>,
-    diagnostics: &'a DiagnosticsHost,
+    _diagnostics: &'a DiagnosticsHost,
 }
 
 impl<'a> CompileCx<'a> {
     fn new_from(spec_cx: &'a spec::CompileCx<'a>, diagnostics: &'a DiagnosticsHost) -> Self {
         Self {
             spec_cx,
-            diagnostics,
+            _diagnostics: diagnostics,
         }
     }
 }
@@ -56,7 +56,7 @@ fn compile_file(cx: &CompileCx, file: &Rc<LowerFile>, to: &Path) {
     }
 
     let s = format!("{}", modules);
-    let result = std::fs::write(to, &s);
+    let result = std::fs::write(to, s);
 
     if let Err(e) = result {
         eprintln!("Error while writing to file {}: {}", to.display(), e);
@@ -131,7 +131,7 @@ fn resolve_to_path(path: &LowerPath, result: &mut TokenStream) {
     }
 }
 
-fn resolve_ty_path(cx: &CompileCx, path: &Rc<LowerPath>, target: RefTargetHost) -> TokenStream {
+fn resolve_ty_path(cx: &CompileCx, target: RefTargetHost) -> TokenStream {
     match target {
         RefTargetHost::Struct(struct_) => {
             let mut ts = TokenStream::new();
@@ -155,7 +155,7 @@ fn resolve_ty_path(cx: &CompileCx, path: &Rc<LowerPath>, target: RefTargetHost) 
     }
 }
 
-fn resolve_builtin_ty(cx: &CompileCx, builtin: LowerBuiltinTy) -> TokenStream {
+fn resolve_builtin_ty(_cx: &CompileCx, builtin: LowerBuiltinTy) -> TokenStream {
     match builtin {
         LowerBuiltinTy::Bool => {
             quote! {bool}
@@ -209,7 +209,7 @@ fn compile_newtype_struct(cx: &CompileCx, newtype_struct: &Rc<LowerNewtypeStruct
     let target = newtype_struct.raw_ty.path_resolved_to();
 
     let name = format_ident!("{}", newtype_struct.name.as_str());
-    let ty = resolve_ty_path(cx, newtype_struct.get_self_path().unwrap_parent(), target);
+    let ty = resolve_ty_path(cx, target);
 
     quote! {
         #[derive(serde::Serialize, serde::Deserialize)]
@@ -225,11 +225,7 @@ fn compile_struct(cx: &CompileCx, struct_: &Rc<LowerStruct>) -> TokenStream {
         fn to_tokens(&self, tokens: &mut TokenStream) {
             let name = format_ident!("{}", self.2.name.as_str());
             let mut attrs = TokenStream::new();
-            let mut ty = resolve_ty_path(
-                self.0,
-                &self.1.get_self_path().unwrap_parent(),
-                self.2.ty.path_resolved_to(),
-            );
+            let mut ty = resolve_ty_path(self.0, self.2.ty.path_resolved_to());
 
             if self.2.qmark.is_some() {
                 attrs = quote! {#[serde(default, skip_serializing_if = "Option::is_none")]};
@@ -263,11 +259,7 @@ fn compile_enum(cx: &CompileCx, enum_: &Rc<LowerEnum>) -> TokenStream {
     impl<'a> ToTokens for EnumVariant<'a> {
         fn to_tokens(&self, tokens: &mut TokenStream) {
             let name = format_ident!("{}", self.2.name.as_str());
-            let ty = resolve_ty_path(
-                self.0,
-                &self.1.get_self_path().unwrap_parent(),
-                self.2.ty.path_resolved_to(),
-            );
+            let ty = resolve_ty_path(self.0, self.2.ty.path_resolved_to());
 
             tokens.append_all(quote! {
                 #name(#ty)

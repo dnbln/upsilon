@@ -50,11 +50,9 @@ impl DiagnosticsHost {
         let mut diagnostics = self.diagnostics.borrow_mut();
 
         let writer = StandardStream::stderr(ColorChoice::Auto);
-        let config = {
-            let mut config = codespan_reporting::term::Config::default();
-            config.display_style = DisplayStyle::Rich;
-
-            config
+        let config = codespan_reporting::term::Config {
+            display_style: DisplayStyle::Rich,
+            ..Default::default()
         };
         let (files, file_id) = {
             let mut files = SimpleFiles::<String, &String>::new();

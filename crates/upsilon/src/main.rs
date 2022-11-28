@@ -20,10 +20,8 @@ fn hello_world() -> Json<Message> {
 fn rocket() -> rocket::Rocket<rocket::Build> {
     let figment = rocket::Config::figment().merge(Yaml::file("upsilon.yaml"));
 
-    let rocket = rocket::custom(figment)
+    rocket::custom(figment)
         .mount("/", routes![hello_world])
         .attach(upsilon_api::ApiConfigurator)
-        .attach(upsilon::ConfigManager);
-
-    rocket
+        .attach(upsilon::ConfigManager)
 }
