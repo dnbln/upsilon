@@ -8,6 +8,8 @@ members = [
     "crates/upsilon-data",
     "crates/upsilon-data-inmemory",
     "crates/upsilon-data-pg",
+    "crates/upsilon-graphql",
+    "crates/upsilon-hook-registrar",
     "crates/upsilon-id",
     "crates/upsilon-models",
     "crates/upsilon-procx",

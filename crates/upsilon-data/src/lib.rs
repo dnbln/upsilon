@@ -1,8 +1,7 @@
-#![feature(stmt_expr_attributes)]
-
 pub extern crate upsilon_models;
 pub extern crate upsilon_procx;
 
+use std::sync::Arc;
 pub use async_trait::async_trait;
 
 pub trait CommonDataClientErrorExtractor {
@@ -45,11 +44,12 @@ pub trait DataClientMaster: Send + Sync {
     async fn on_shutdown(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub struct DataClientMasterHolder(Box<dyn DataClientMaster>);
+#[derive(Clone)]
+pub struct DataClientMasterHolder(Arc<Box<dyn DataClientMaster>>);
 
 impl DataClientMasterHolder {
     pub fn new<T: DataClient + DataClientMaster + 'static>(client: T) -> Self {
-        Self(Box::new(client))
+        Self(Arc::new(Box::new(client)))
     }
 
     pub fn query_master(&self) -> DataQueryMaster {

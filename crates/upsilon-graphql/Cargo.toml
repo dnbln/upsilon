@@ -1,0 +1,14 @@
+[package]
+name = "upsilon-graphql"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+juniper = "0.15.10"
+juniper_codegen = "0.15.9"
+juniper_subscriptions = "0.16.0"
+
+upsilon-models = { path = "../upsilon-models" }
+upsilon-data = { path = "../upsilon-data" }
