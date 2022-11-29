@@ -1,3 +1,6 @@
+use std::ops::Deref;
+use std::sync::Arc;
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -43,4 +46,24 @@ pub struct UsersAuthConfig {
 pub struct UsersConfig {
     pub register: UsersRegisterConfig,
     pub auth: UsersAuthConfig,
+}
+
+#[derive(Clone)]
+pub struct Cfg<T: Send + Sync>(Arc<T>);
+
+impl<T: Send + Sync> Cfg<T> {
+    pub fn new(cfg: T) -> Self {
+        Self(Arc::new(cfg))
+    }
+}
+
+impl<T> Deref for Cfg<T>
+where
+    T: Send + Sync,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }

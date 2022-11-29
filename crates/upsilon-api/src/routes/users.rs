@@ -1,6 +1,6 @@
 use rocket::serde::json::Json;
 use rocket::State;
-use upsilon_core::config::UsersConfig;
+use upsilon_core::config::{Cfg, UsersConfig};
 use upsilon_data::DataClientMasterHolder;
 use upsilon_models::email::Email;
 use upsilon_models::users::emails::UserEmails;
@@ -21,8 +21,8 @@ pub struct CreateUserRequest {
 pub async fn create_user(
     user: Json<CreateUserRequest>,
     data: &State<DataClientMasterHolder>,
-    users_config: &State<UsersConfig>,
-) -> ApiResult<()> {
+    users_config: &State<Cfg<UsersConfig>>,
+) -> ApiResult<String> {
     if !users_config.register.enabled {
         return Err(Error::Forbidden);
     }
@@ -49,7 +49,7 @@ pub async fn create_user(
         })
         .await?;
 
-    Ok(())
+    Ok(id.to_string())
 }
 
 #[derive(serde::Deserialize)]
@@ -63,7 +63,7 @@ pub struct LoginUserRequest {
 pub async fn login_user(
     user: Json<LoginUserRequest>,
     data: &State<DataClientMasterHolder>,
-    users_config: &State<UsersConfig>,
+    users_config: &State<Cfg<UsersConfig>>,
 ) -> ApiResult<String> {
     let query_master = data.query_master();
 

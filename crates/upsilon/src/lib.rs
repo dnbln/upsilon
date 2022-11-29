@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
+use upsilon_core::config::Cfg;
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
 
@@ -112,7 +113,7 @@ impl Fairing for ConfigManager {
         }
         .attach(DataBackendShutdownFairing);
 
-        Ok(rocket.manage(vcs).manage(users))
+        Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
     }
 }
 

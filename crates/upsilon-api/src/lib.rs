@@ -3,10 +3,12 @@ extern crate rocket;
 #[macro_use(v1, api_routes)]
 extern crate upsilon_procx;
 
+use graphql::GraphQLContext;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket, State};
-use upsilon_graphql::GraphQLContext;
+use upsilon_core::config::Cfg;
 
+mod graphql;
 mod routes;
 
 mod error;
@@ -31,10 +33,10 @@ impl Fairing for GraphQLApiConfigurator {
                 "/",
                 routes![graphiql, get_graphql_handler, post_graphql_handler],
             )
-            .manage(upsilon_graphql::Schema::new(
-                upsilon_graphql::QueryRoot,
-                upsilon_graphql::MutationRoot,
-                upsilon_graphql::SubscriptionRoot,
+            .manage(graphql::Schema::new(
+                graphql::QueryRoot,
+                graphql::MutationRoot,
+                graphql::SubscriptionRoot,
             )))
     }
 }
@@ -47,19 +49,21 @@ fn graphiql() -> rocket::response::content::RawHtml<String> {
 #[rocket::get("/graphql?<request>")]
 async fn get_graphql_handler(
     request: juniper_rocket::GraphQLRequest,
-    schema: &State<upsilon_graphql::Schema>,
+    schema: &State<graphql::Schema>,
     db: &State<upsilon_data::DataClientMasterHolder>,
+    users_config: &State<Cfg<upsilon_core::config::UsersConfig>>,
 ) -> juniper_rocket::GraphQLResponse {
-    let context = GraphQLContext::new(db.inner().clone());
+    let context = GraphQLContext::new(db.inner().clone(), users_config.inner().clone());
     request.execute(&**schema, &context).await
 }
 
 #[rocket::post("/graphql", data = "<request>")]
 async fn post_graphql_handler(
     request: juniper_rocket::GraphQLRequest,
-    schema: &State<upsilon_graphql::Schema>,
+    schema: &State<graphql::Schema>,
     db: &State<upsilon_data::DataClientMasterHolder>,
+    users_config: &State<Cfg<upsilon_core::config::UsersConfig>>,
 ) -> juniper_rocket::GraphQLResponse {
-    let context = GraphQLContext::new(db.inner().clone());
+    let context = GraphQLContext::new(db.inner().clone(), users_config.inner().clone());
     request.execute(&**schema, &context).await
 }

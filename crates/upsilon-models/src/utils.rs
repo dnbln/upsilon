@@ -41,6 +41,27 @@ macro_rules! str_newtype {
                 self.0.as_str() == *other
             }
         }
+
+        #[juniper::graphql_scalar]
+        impl<S> GraphQLScalar for $name
+            where
+                S: juniper::ScalarValue,
+        {
+            fn resolve(&self) -> Value {
+                juniper::Value::scalar(self.0.to_string())
+            }
+
+            fn from_input_value(value: &juniper::InputValue) -> Option<Self> {
+                value
+                    .as_string_value()
+                    .map(|s| s.to_string())
+                    .map(Self)
+            }
+
+            fn from_str(value: juniper::ScalarToken) -> juniper::ParseScalarResult<S> {
+                <String as juniper::ParseScalarValue<S>>::from_str(value)
+            }
+        }
     };
     ($name:ident $(@derives [$($derive:path),* $(,)?])?) => {
         crate::utils::str_newtype!(#[no_as_str] $name $(@derives [$($derive),*])?);

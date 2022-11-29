@@ -10,11 +10,11 @@ rocket = { version = "0.5.0-rc.2", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
 linkme = "0.3"
+juniper = "0.15.10"
 juniper_rocket = "0.8.2"
 
 upsilon-core = { path = "../upsilon-core" }
 upsilon-data = { path = "../upsilon-data" }
-upsilon-graphql = { path = "../upsilon-graphql" }
 upsilon-models = { path = "../upsilon-models" }
 upsilon-procx = { path = "../upsilon-procx" }
 upsilon-vcs = { path = "../upsilon-vcs" }

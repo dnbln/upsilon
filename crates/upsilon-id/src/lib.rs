@@ -20,6 +20,14 @@ impl std::fmt::Display for __InternalUUID {
     }
 }
 
+impl std::str::FromStr for __InternalUUID {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse().map(Self)
+    }
+}
+
 pub fn __internal_new_with_ts() -> __InternalUUID {
     __InternalUUID(uuid::Uuid::now_v7())
 }
@@ -69,6 +77,35 @@ macro_rules! id_ty {
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 self.0.fmt(f)
+            }
+        }
+
+        impl std::str::FromStr for $name {
+            type Err = <$crate::__InternalUUID as std::str::FromStr>::Err;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                s.parse().map(Self)
+            }
+        }
+
+        #[juniper::graphql_scalar]
+        impl<S> GraphQLScalar for $name
+            where
+                S: juniper::ScalarValue,
+        {
+            fn resolve(&self) -> Value {
+                juniper::Value::scalar(self.0.to_string())
+            }
+
+            fn from_input_value(value: &juniper::InputValue) -> Option<Self> {
+                value
+                    .as_string_value()
+                    .and_then(|s| s.parse().ok())
+                    .map(Self)
+            }
+
+            fn from_str(value: juniper::ScalarToken) -> juniper::ParseScalarResult<S> {
+                <String as juniper::ParseScalarValue<S>>::from_str(value)
             }
         }
     };

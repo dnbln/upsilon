@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use rocket::serde::json::Json;
 use rocket::{tokio, State};
+use upsilon_core::config::Cfg;
 use upsilon_data::{CommonDataClientError, DataClientMasterHolder, DataQueryMaster};
 use upsilon_models::namespace::NamespaceId;
 use upsilon_models::organization::{
@@ -21,7 +22,7 @@ use crate::routes::repos::repo_lookup_path::RepoLookupPath;
 #[post("/repos/<repo_path>")]
 pub async fn create_repo(
     repo_path: RepoLookupPath,
-    vcs_config: &State<UpsilonVcsConfig>,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: &State<DataClientMasterHolder>,
 ) -> ApiResult<String> {
     let qm = data.query_master();
@@ -73,7 +74,7 @@ pub async fn get_repo(
 pub async fn get_branch_top(
     repo: RepoLookupPath,
     branch: String,
-    vcs_config: &State<UpsilonVcsConfig>,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: &State<DataClientMasterHolder>,
 ) -> ApiResult<String> {
     let qm = data.query_master();
@@ -104,7 +105,7 @@ pub async fn get_branch_top(
 pub async fn get_branch_history(
     repo: RepoLookupPath,
     branch: String,
-    vcs_config: &State<UpsilonVcsConfig>,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: &State<DataClientMasterHolder>,
 ) -> ApiResult<String> {
     let qm = data.query_master();
@@ -136,7 +137,7 @@ pub async fn get_branch_history(
 pub async fn get_commit(
     repo: RepoLookupPath,
     commit: String,
-    vcs_config: &State<UpsilonVcsConfig>,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: &State<DataClientMasterHolder>,
 ) -> ApiResult<String> {
     let qm = data.query_master();

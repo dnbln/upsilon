@@ -1135,16 +1135,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "juniper_subscriptions"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2983b26a1e12b691c17432aee3881d8bec4a94d6c64bc933c0eaf6d9e3429f13"
-dependencies = [
- "futures",
- "juniper",
-]
-
-[[package]]
 name = "lalrpop"
 version = "0.19.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2536,6 +2526,7 @@ dependencies = [
 name = "upsilon-api"
 version = "0.1.0"
 dependencies = [
+ "juniper",
  "juniper_rocket",
  "linkme",
  "rocket",
@@ -2543,7 +2534,6 @@ dependencies = [
  "thiserror",
  "upsilon-core",
  "upsilon-data",
- "upsilon-graphql",
  "upsilon-models",
  "upsilon-procx",
  "upsilon-vcs",
@@ -2599,17 +2589,6 @@ name = "upsilon-data-pg"
 version = "0.1.0"
 
 [[package]]
-name = "upsilon-graphql"
-version = "0.1.0"
-dependencies = [
- "juniper",
- "juniper_codegen",
- "juniper_subscriptions",
- "upsilon-data",
- "upsilon-models",
-]
-
-[[package]]
 name = "upsilon-hook-registrar"
 version = "0.1.0"
 dependencies = [
@@ -2633,6 +2612,7 @@ name = "upsilon-models"
 version = "0.1.0"
 dependencies = [
  "bcrypt",
+ "juniper",
  "rust-argon2",
  "serde",
  "thiserror",
