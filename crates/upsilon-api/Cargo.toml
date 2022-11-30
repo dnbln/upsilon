@@ -12,6 +12,9 @@ thiserror = "1"
 linkme = "0.3"
 juniper = "0.15.10"
 juniper_rocket = "0.8.2"
+jwt = { version = "0.16.0", features = ["openssl"] }
+openssl = "0.10.35"
+chrono = "0.4.23"
 
 upsilon-core = { path = "../upsilon-core" }
 upsilon-data = { path = "../upsilon-data" }
