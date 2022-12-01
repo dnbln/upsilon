@@ -16,27 +16,18 @@
 
 #![feature(try_blocks)]
 
-use std::path::PathBuf;
-
 use clap::Parser;
 
 use crate::cmd::cargo_cmd;
 use crate::result::XtaskResult;
 
 mod cmd;
-mod gen_models;
+mod git_checks;
 mod result;
 mod ws;
-mod git_checks;
 
 #[derive(Parser, Debug)]
 enum App {
-    #[clap(name = "gen-models")]
-    GenModels {
-        #[arg(short, long)]
-        #[clap(default_value_os_t = ws::ws_path!("client-app" / "upsilon_client"))]
-        target: PathBuf,
-    },
     #[clap(name = "fmt")]
     Fmt,
     #[clap(name = "fmt-check")]
@@ -49,9 +40,6 @@ fn main() -> XtaskResult<()> {
     let app: App = App::parse();
 
     match app {
-        App::GenModels { target } => {
-            gen_models::gen_models(target)?;
-        }
         App::Fmt => {
             cargo_cmd!("fmt", "--all")?;
         }

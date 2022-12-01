@@ -1,21 +1,4 @@
 [workspace]
 members = [
-    "crates/upsilon",
-    "crates/upsilon-api",
-    "crates/upsilon-api-models-protobuf",
-    "crates/upsilon-ci",
-    "crates/upsilon-core",
-    "crates/upsilon-data",
-    "crates/upsilon-data-inmemory",
-    "crates/upsilon-data-pg",
-    "crates/upsilon-hook-registrar",
-    "crates/upsilon-id",
-    "crates/upsilon-models",
-    "crates/upsilon-procx",
-    "crates/upsilon-stdx",
-    "crates/upsilon-vcs",
-    "crates/upsilon-web",
-    "crates/upsilon-xtask",
-    "crates/models-specs/spec",
-    "crates/models-specs/spec-serde",
+    "crates/*",
 ]

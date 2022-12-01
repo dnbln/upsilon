@@ -80,8 +80,6 @@ macro_rules! cmd_call {
                 if !exit_status.success() {
                     Err::<(), _>($crate::cmd::CmdError::NotSuccess(exit_status))?
                 }
-
-                ()
             };
             v
         }
