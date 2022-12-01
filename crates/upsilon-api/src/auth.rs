@@ -18,13 +18,11 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use jwt::token::Signed;
 use jwt::{AlgorithmType, PKeyWithDigest, SignWithKey, Token, VerifyWithKey};
 use openssl::pkey::{PKey, Private, Public};
 use openssl::rsa::Rsa;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome};
-use rocket::yansi::Color::Default;
 use rocket::{Request, State};
 use upsilon_models::users::UserId;
 
@@ -34,18 +32,43 @@ pub struct AuthToken {
     token: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum AuthTokenError {
+    #[error("No authorization header")]
+    NoAuthorizationHeader,
+    #[error("Invalid authorization header")]
+    InvalidAuthorizationHeader,
+    #[error("jwt: {0}")]
+    Jwt(#[from] jwt::error::Error),
+    #[error("internal error")]
+    InternalError,
+}
+
 #[rocket::async_trait]
-impl<'a, 'r> FromRequest for AuthToken {
-    type Error = &'static str;
+impl<'r> FromRequest<'r> for AuthToken {
+    type Error = AuthTokenError;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let Some(token) = request.headers().get_one("Authorization") else {
-            return Outcome::Failure((Status::Unauthorized, "No Authorization header"));
+            return Outcome::Failure((Status::Unauthorized, AuthTokenError::NoAuthorizationHeader));
         };
 
-        let cx: AuthContext = State::<AuthContext>::from_request(request).await?;
+        let Some(token) = token.strip_prefix("Bearer ") else {
+            return Outcome::Failure((Status::Unauthorized, AuthTokenError::InvalidAuthorizationHeader));
+        };
 
-        let claims = cx.verify(token).await?;
+        let cx = match <&State<AuthContext>>::from_request(request).await {
+            Outcome::Success(cx) => cx.inner().clone(),
+            Outcome::Failure((status, _)) => {
+                return Outcome::Failure((status, AuthTokenError::InternalError))
+            }
+            Outcome::Forward(_) => return Outcome::Forward(()),
+        };
+
+        let claims = match cx.verify(token) {
+            Ok(claims) => claims,
+            Err(jwt) => return Outcome::Failure((Status::Unauthorized, jwt.into())),
+        };
 
         Outcome::Success(AuthToken {
             claims,
@@ -109,13 +132,14 @@ impl AuthContextInternal {
                 algorithm: AlgorithmType::Rs256,
                 ..Default::default()
             },
-            &claims,
+            claims.clone(),
         )
         .sign_with_key(&PKeyWithDigest {
             digest: openssl::hash::MessageDigest::sha256(),
             key: self.private_key.clone(),
         })
         .unwrap();
+
         AuthToken {
             claims,
             token: token.as_str().to_string(),
@@ -123,11 +147,10 @@ impl AuthContextInternal {
     }
 
     fn verify(&self, token: &str) -> Result<AuthTokenClaims, jwt::Error> {
-        let token = Token::<jwt::Header, AuthTokenClaims, Signed>::parse(token)?;
-        token.verify_with_key(&PKeyWithDigest {
+        let claims: AuthTokenClaims = token.verify_with_key(&PKeyWithDigest {
             digest: openssl::hash::MessageDigest::sha256(),
             key: self.public_key.clone(),
         })?;
-        Ok(token.claims().clone())
+        Ok(claims)
     }
 }

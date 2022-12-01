@@ -13,7 +13,7 @@ linkme = "0.3"
 juniper = "0.15.10"
 juniper_rocket = "0.8.2"
 jwt = { version = "0.16.0", features = ["openssl"] }
-openssl = "0.10.35"
+openssl = "0.10.43"
 chrono = "0.4.23"
 
 upsilon-core = { path = "../upsilon-core" }

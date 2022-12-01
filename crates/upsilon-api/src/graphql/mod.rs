@@ -16,6 +16,7 @@
 
 use std::pin::Pin;
 
+use chrono::Duration;
 use juniper::futures::Stream;
 use juniper::{futures, graphql_object, graphql_subscription, FieldError, FieldResult};
 use upsilon_core::config::{Cfg, UsersConfig};
@@ -25,6 +26,7 @@ use upsilon_models::organization::{OrganizationDisplayName, OrganizationId, Orga
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{UserId, Username};
 
+use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
 use crate::error::Error;
 
 pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, SubscriptionRoot>;
@@ -32,6 +34,7 @@ pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, Subscripti
 pub struct GraphQLContext {
     db: upsilon_data::DataClientMasterHolder,
     users_config: Cfg<UsersConfig>,
+    auth_context: AuthContext,
     auth: Option<AuthToken>,
 }
 
@@ -39,11 +42,13 @@ impl GraphQLContext {
     pub fn new(
         db: upsilon_data::DataClientMasterHolder,
         users_config: Cfg<UsersConfig>,
+        auth_context: AuthContext,
         auth: Option<AuthToken>,
     ) -> Self {
         Self {
             db,
             users_config,
+            auth_context,
             auth,
         }
     }
@@ -138,22 +143,28 @@ impl MutationRoot {
             Err(Error::Unauthorized)?;
         }
 
-        Ok("<token>".to_string())
+        let token = context
+            .auth_context
+            .sign(AuthTokenClaims::new(user.id, Duration::days(15)));
+
+        Ok(token.to_string())
     }
 
     async fn create_organization(
         context: &GraphQLContext,
         name: OrganizationName,
     ) -> FieldResult<OrganizationId> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
         let id = OrganizationId::new();
         context
             .db
             .query_master()
             .create_organization(upsilon_models::organization::Organization {
                 id,
-                owner: (),
-                name: OrganizationName::from(name),
-                display_name: OrganizationDisplayName::from(name),
+                owner: auth.claims.sub,
+                name,
+                display_name: None,
                 email: None,
             })
             .await?;

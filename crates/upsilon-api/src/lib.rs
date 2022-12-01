@@ -72,9 +72,15 @@ async fn get_graphql_handler(
     schema: &State<graphql::Schema>,
     db: &State<upsilon_data::DataClientMasterHolder>,
     users_config: &State<Cfg<upsilon_core::config::UsersConfig>>,
+    auth_context: &State<AuthContext>,
     auth: Option<AuthToken>,
 ) -> juniper_rocket::GraphQLResponse {
-    let context = GraphQLContext::new(db.inner().clone(), users_config.inner().clone(), auth);
+    let context = GraphQLContext::new(
+        db.inner().clone(),
+        users_config.inner().clone(),
+        auth_context.inner().clone(),
+        auth,
+    );
     request.execute(&**schema, &context).await
 }
 
@@ -84,8 +90,14 @@ async fn post_graphql_handler(
     schema: &State<graphql::Schema>,
     db: &State<upsilon_data::DataClientMasterHolder>,
     users_config: &State<Cfg<upsilon_core::config::UsersConfig>>,
+    auth_context: &State<AuthContext>,
     auth: Option<AuthToken>,
 ) -> juniper_rocket::GraphQLResponse {
-    let context = GraphQLContext::new(db.inner().clone(), users_config.inner().clone(), auth);
+    let context = GraphQLContext::new(
+        db.inner().clone(),
+        users_config.inner().clone(),
+        auth_context.inner().clone(),
+        auth,
+    );
     request.execute(&**schema, &context).await
 }
