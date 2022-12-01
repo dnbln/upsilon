@@ -6,18 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = { version = "0.5.0-rc.2", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1"
+rocket.workspace = true
+serde.workspace = true
+thiserror.workspace = true
 linkme = "0.3"
-juniper = "0.15.10"
+juniper.workspace = true
 juniper_rocket = "0.8.2"
 jwt = { version = "0.16.0", features = ["openssl"] }
-openssl = "0.10.43"
-chrono = "0.4.23"
+openssl.workspace = true
+chrono.workspace = true
 
-upsilon-core = { path = "../upsilon-core" }
-upsilon-data = { path = "../upsilon-data" }
-upsilon-models = { path = "../upsilon-models" }
-upsilon-procx = { path = "../upsilon-procx" }
-upsilon-vcs = { path = "../upsilon-vcs" }
+upsilon-core.workspace = true
+upsilon-data.workspace = true
+upsilon-models.workspace = true
+upsilon-procx.workspace = true
+upsilon-vcs.workspace = true

@@ -2,3 +2,31 @@
 members = [
     "crates/*",
 ]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rocket = {version = "0.5.0-rc.2", features = ["json"] }
+tokio = { version = "1.22.0", features = ["full"] }
+linkme = "0.3"
+thiserror = "1.0"
+juniper = "0.15.10"
+openssl = "0.10.43"
+chrono = { version = "0.4.23", features = ["serde"] }
+async-trait = "0.1.59"
+
+upsilon = { path = "crates/upsilon" }
+upsilon-api = { path = "crates/upsilon-api" }
+upsilon-ci = { path = "crates/upsilon-ci" }
+upsilon-core = { path = "crates/upsilon-core" }
+upsilon-data = { path = "crates/upsilon-data" }
+upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
+upsilon-data-pg = { path = "crates/upsilon-data-pg" }
+upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }
+upsilon-id = { path = "crates/upsilon-id" }
+upsilon-models = { path = "crates/upsilon-models" }
+upsilon-procx = { path = "crates/upsilon-procx" }
+upsilon-stdx = { path = "crates/upsilon-stdx" }
+upsilon-vcs = { path = "crates/upsilon-vcs" }
+upsilon-web = { path = "crates/upsilon-web" }
+upsilon-xtask = { path = "crates/upsilon-xtask" }

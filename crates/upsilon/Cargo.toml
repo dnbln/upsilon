@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = { version = "0.5.0-rc.2", features = ["json"] }
+rocket.workspace = true
 figment = { version = "0.10.8", features = ["yaml"] }
-serde = { version = "1.0", features = ["derive"] }
-upsilon-api = { path = "../upsilon-api" }
-upsilon-core = { path = "../upsilon-core" }
-upsilon-data = { path = "../upsilon-data" }
-upsilon-data-inmemory = { path = "../upsilon-data-inmemory" }
-upsilon-vcs = { path = "../upsilon-vcs" }
+serde.workspace = true
+upsilon-api.workspace = true
+upsilon-core.workspace = true
+upsilon-data.workspace = true
+upsilon-data-inmemory.workspace = true
+upsilon-vcs.workspace = true
 
