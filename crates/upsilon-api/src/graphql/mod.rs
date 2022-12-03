@@ -23,6 +23,7 @@ use upsilon_core::config::{Cfg, UsersConfig};
 use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
 use upsilon_models::organization::{OrganizationDisplayName, OrganizationId, OrganizationName};
+use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{UserId, Username};
 
@@ -89,9 +90,9 @@ pub struct MutationRoot;
 impl MutationRoot {
     async fn create_user(
         context: &GraphQLContext,
-        username: String,
-        email: String,
-        password: String,
+        username: Username,
+        email: Email,
+        password: PlainPassword,
     ) -> FieldResult<UserId> {
         if !context.users_config.register.enabled {
             Err(Error::Forbidden)?;
@@ -100,22 +101,17 @@ impl MutationRoot {
         let id = UserId::new();
         let password_hash =
             PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password)
-                .hash_password(
-                    &PlainPassword::from(password),
-                    &id.chrono_ts().timestamp().to_le_bytes(),
-                );
+                .hash_password(&password, &id.chrono_ts().timestamp().to_le_bytes());
 
         context
             .db
             .query_master()
             .create_user(upsilon_models::users::User {
                 id,
-                username: upsilon_models::users::Username::from(username),
+                username,
                 password: password_hash,
                 name: None,
-                emails: upsilon_models::users::emails::UserEmails::new(
-                    upsilon_models::email::Email::from(email),
-                ),
+                emails: UserEmails::new(email),
                 avatar: None,
             })
             .await?;
