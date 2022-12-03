@@ -59,7 +59,7 @@ pub async fn create_user(
             id,
             username,
             password: password_hash,
-            name: None,
+            display_name: None,
             emails: UserEmails::new(email),
             avatar: None,
         })

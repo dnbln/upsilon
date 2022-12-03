@@ -17,15 +17,19 @@
 use std::pin::Pin;
 
 use chrono::Duration;
-use juniper::futures::Stream;
-use juniper::{futures, graphql_object, graphql_subscription, FieldError, FieldResult};
+use futures::{Stream, StreamExt, TryStreamExt};
+use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
 use upsilon_core::config::{Cfg, UsersConfig};
 use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
-use upsilon_models::organization::{OrganizationDisplayName, OrganizationId, OrganizationName};
+use upsilon_models::namespace::NamespaceId;
+use upsilon_models::organization::{
+    OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, Team, TeamDisplayName, TeamId, TeamName
+};
+use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
 use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
-use upsilon_models::users::{UserId, Username};
+use upsilon_models::users::{User, UserDisplayName, UserId, Username};
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
 use crate::error::Error;
@@ -93,7 +97,7 @@ impl MutationRoot {
         username: Username,
         email: Email,
         password: PlainPassword,
-    ) -> FieldResult<UserId> {
+    ) -> FieldResult<String> {
         if !context.users_config.register.enabled {
             Err(Error::Forbidden)?;
         }
@@ -103,20 +107,22 @@ impl MutationRoot {
             PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password)
                 .hash_password(&password, &id.chrono_ts().timestamp().to_le_bytes());
 
-        context
-            .db
-            .query_master()
-            .create_user(upsilon_models::users::User {
-                id,
-                username,
-                password: password_hash,
-                name: None,
-                emails: UserEmails::new(email),
-                avatar: None,
-            })
-            .await?;
+        let user = User {
+            id,
+            username,
+            password: password_hash,
+            display_name: None,
+            emails: UserEmails::new(email),
+            avatar: None,
+        };
 
-        Ok(id)
+        context.db.query_master().create_user(user.clone()).await?;
+
+        let token = context
+            .auth_context
+            .sign(AuthTokenClaims::new(user.id, Duration::days(15)));
+
+        Ok(token.to_string())
     }
 
     async fn login(
@@ -149,23 +155,99 @@ impl MutationRoot {
     async fn create_organization(
         context: &GraphQLContext,
         name: OrganizationName,
-    ) -> FieldResult<OrganizationId> {
+    ) -> FieldResult<OrganizationRef> {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
-        let id = OrganizationId::new();
+        let org = upsilon_models::organization::Organization {
+            id: OrganizationId::new(),
+            owner: auth.claims.sub,
+            name,
+            display_name: None,
+            email: None,
+        };
+
         context
             .db
             .query_master()
-            .create_organization(upsilon_models::organization::Organization {
-                id,
-                owner: auth.claims.sub,
-                name,
-                display_name: None,
-                email: None,
-            })
+            .create_organization(org.clone())
             .await?;
 
-        Ok(id)
+        Ok(OrganizationRef(org))
+    }
+
+    async fn create_repo(context: &GraphQLContext, name: RepoName) -> FieldResult<RepoRef> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let repo = Repo {
+            id: RepoId::new(),
+            namespace: RepoNamespace(NamespaceId::User(auth.claims.sub)),
+            name,
+            display_name: None,
+        };
+
+        context.db.query_master().create_repo(repo.clone()).await?;
+
+        Ok(RepoRef(repo))
+    }
+
+    async fn create_repo_in_organization(
+        context: &GraphQLContext,
+        name: RepoName,
+        organization_id: OrganizationId,
+    ) -> FieldResult<RepoRef> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let org = context
+            .db
+            .query_master()
+            .query_organization(organization_id)
+            .await?;
+
+        if org.owner != auth.claims.sub {
+            Err(Error::Forbidden)?;
+        }
+
+        let repo = Repo {
+            id: RepoId::new(),
+            namespace: RepoNamespace(NamespaceId::Organization(organization_id)),
+            name,
+            display_name: None,
+        };
+
+        context.db.query_master().create_repo(repo.clone()).await?;
+
+        Ok(RepoRef(repo))
+    }
+
+    async fn create_repo_in_team(
+        context: &GraphQLContext,
+        name: RepoName,
+        team_id: TeamId,
+    ) -> FieldResult<RepoRef> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let team = context.db.query_master().query_team(team_id).await?;
+
+        let organization = context
+            .db
+            .query_master()
+            .query_organization(team.organization_id)
+            .await?;
+
+        if organization.owner != auth.claims.sub {
+            Err(Error::Forbidden)?;
+        }
+
+        let repo = Repo {
+            id: RepoId::new(),
+            namespace: RepoNamespace(NamespaceId::Team(team.organization_id, team_id)),
+            name,
+            display_name: None,
+        };
+
+        context.db.query_master().create_repo(repo.clone()).await?;
+
+        Ok(RepoRef(repo))
     }
 }
 
@@ -182,7 +264,7 @@ impl SubscriptionRoot {
     }
 }
 
-pub struct UserRef(upsilon_models::users::User);
+pub struct UserRef(User);
 
 #[graphql_object(name = "User", context = GraphQLContext)]
 impl UserRef {
@@ -202,14 +284,36 @@ impl UserRef {
         self.0.avatar.as_ref()
     }
 
-    fn display_name(&self) -> Option<&upsilon_models::users::Name> {
-        self.0.name.as_ref()
+    fn display_name(&self) -> Option<&UserDisplayName> {
+        self.0.display_name.as_ref()
+    }
+
+    async fn repo(&self, context: &GraphQLContext, name: RepoName) -> FieldResult<Option<RepoRef>> {
+        Ok(context
+            .db
+            .query_master()
+            .query_repo_by_name(&name, &RepoNamespace(NamespaceId::User(self.0.id)))
+            .await?
+            .map(RepoRef))
+    }
+}
+
+struct RepoRef(Repo);
+
+#[graphql_object(name = "Repo", context = GraphQLContext)]
+impl RepoRef {
+    fn id(&self) -> RepoId {
+        self.0.id
+    }
+
+    fn name(&self) -> &RepoName {
+        &self.0.name
     }
 }
 
 struct OrganizationRef(upsilon_models::organization::Organization);
 
-#[graphql_object(context = GraphQLContext)]
+#[graphql_object(name = "Organization", context = GraphQLContext)]
 impl OrganizationRef {
     fn id(&self) -> OrganizationId {
         self.0.id
@@ -231,5 +335,113 @@ impl OrganizationRef {
         Ok(UserRef(
             context.db.query_master().query_user(self.0.owner).await?,
         ))
+    }
+
+    async fn members(&self, context: &GraphQLContext) -> FieldResult<Vec<OrganizationMemberRef>> {
+        Ok(context
+            .db
+            .query_master()
+            .query_organization_members(self.0.id)
+            .await?
+            .into_iter()
+            .map(OrganizationMemberRef)
+            .collect())
+    }
+
+    async fn teams(&self, context: &GraphQLContext) -> FieldResult<Vec<TeamRef>> {
+        Ok(context
+            .db
+            .query_master()
+            .query_organization_teams(self.0.id)
+            .await?
+            .into_iter()
+            .map(TeamRef)
+            .collect())
+    }
+}
+
+pub struct OrganizationMemberRef(OrganizationMember);
+
+#[graphql_object(name = "OrganizationMember", context = GraphQLContext)]
+impl OrganizationMemberRef {
+    fn user_id(&self) -> UserId {
+        self.0.user_id
+    }
+
+    fn organization_id(&self) -> OrganizationId {
+        self.0.organization_id
+    }
+
+    fn team_ids(&self) -> &Vec<TeamId> {
+        &self.0.teams
+    }
+
+    async fn user(&self, context: &GraphQLContext) -> FieldResult<UserRef> {
+        Ok(UserRef(
+            context.db.query_master().query_user(self.0.user_id).await?,
+        ))
+    }
+
+    async fn organization(&self, context: &GraphQLContext) -> FieldResult<OrganizationRef> {
+        Ok(OrganizationRef(
+            context
+                .db
+                .query_master()
+                .query_organization(self.0.organization_id)
+                .await?,
+        ))
+    }
+
+    async fn teams(&self, context: &GraphQLContext) -> FieldResult<Vec<TeamRef>> {
+        futures::stream::iter(self.0.teams.iter())
+            .then(|team_id: &TeamId| async move {
+                Ok::<_, FieldError>(TeamRef(
+                    context.db.query_master().query_team(*team_id).await?,
+                ))
+            })
+            .try_collect()
+            .await
+    }
+}
+
+pub struct TeamRef(Team);
+
+#[graphql_object(name = "Team", context = GraphQLContext)]
+impl TeamRef {
+    fn id(&self) -> TeamId {
+        self.0.id
+    }
+
+    fn name(&self) -> &TeamName {
+        &self.0.name
+    }
+
+    fn display_name(&self) -> Option<&TeamDisplayName> {
+        self.0.display_name.as_ref()
+    }
+
+    fn organization_id(&self) -> OrganizationId {
+        self.0.organization_id
+    }
+
+    async fn organization(&self, context: &GraphQLContext) -> FieldResult<OrganizationRef> {
+        Ok(OrganizationRef(
+            context
+                .db
+                .query_master()
+                .query_organization(self.0.organization_id)
+                .await?,
+        ))
+    }
+
+    async fn members(&self, context: &GraphQLContext) -> FieldResult<Vec<OrganizationMemberRef>> {
+        Ok(context
+            .db
+            .query_master()
+            .query_team_members(self.0.organization_id, self.0.id)
+            .await?
+            .into_iter()
+            .map(OrganizationMemberRef)
+            .collect())
     }
 }

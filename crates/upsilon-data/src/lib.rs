@@ -133,7 +133,7 @@ macro_rules! query_impl_trait {
                 >;
             )*
 
-            fn as_query_master(self) -> Box<dyn $crate::DataClientQueryMaster + 'a>;
+            fn into_query_master(self) -> Box<dyn $crate::DataClientQueryMaster + 'a>;
         }
 
         #[async_trait]
@@ -271,6 +271,9 @@ query_impl_trait! {
     async fn query_team<'self_ref>(
         {into} team_id: upsilon_models::organization::TeamId,
     ) -> upsilon_models::organization::Team;
+    async fn query_organization_teams<'self_ref>(
+        {into} org_id: upsilon_models::organization::OrganizationId,
+    ) -> Vec<upsilon_models::organization::Team>;
     async fn query_team_by_name<'self_ref>(
         {into} org_id: upsilon_models::organization::OrganizationId,
         {into} team_name: upsilon_models::organization::TeamNameRef<'self_ref>,
@@ -290,4 +293,9 @@ query_impl_trait! {
         upsilon_models::organization::Organization,
         upsilon_models::organization::Team,
     );
+
+    async fn query_team_members<'self_ref>(
+        {into} organization_id: upsilon_models::organization::OrganizationId,
+        {into} team_id: upsilon_models::organization::TeamId,
+    ) -> Vec<upsilon_models::organization::OrganizationMember>;
 }

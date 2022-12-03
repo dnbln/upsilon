@@ -124,7 +124,7 @@ impl DataClient for InMemoryDataClient {
 #[async_trait]
 impl DataClientMaster for InMemoryDataClient {
     fn query_master<'a>(&'a self) -> Box<dyn DataClientQueryMaster + 'a> {
-        self.data_client_query_impl().as_query_master()
+        self.data_client_query_impl().into_query_master()
     }
 
     async fn on_shutdown(&self) -> Result<(), Box<dyn Error>> {
@@ -684,6 +684,19 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .ok_or(InMemoryError::TeamNotFound)
     }
 
+    async fn query_organization_teams(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<Team>, Self::Error> {
+        let lock = self.store().teams.read().await;
+
+        Ok(lock
+            .values()
+            .filter(|team| team.organization_id == org_id)
+            .cloned()
+            .collect())
+    }
+
     async fn query_team_by_name<'self_ref>(
         &'self_ref self,
         org_id: OrganizationId,
@@ -761,7 +774,26 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         Ok((org, team))
     }
 
-    fn as_query_master(self) -> Box<dyn DataClientQueryMaster + 'a> {
+    async fn query_team_members(
+        &self,
+        organization_id: OrganizationId,
+        team_id: TeamId,
+    ) -> Result<Vec<OrganizationMember>, Self::Error> {
+        let lock = self.store().organization_members.read().await;
+
+        Ok(lock
+            .get(&organization_id)
+            .map(|members: &BTreeMap<UserId, OrganizationMember>| {
+                members
+                    .values()
+                    .filter(|member| member.teams.contains(&team_id))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    fn into_query_master(self) -> Box<dyn DataClientQueryMaster + 'a> {
         Box::new(InMemoryQueryMaster(self))
     }
 }

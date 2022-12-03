@@ -34,14 +34,14 @@ crate::utils::str_newtype! {
     Username, UsernameRef,
     PlainNamespaceFragment, PlainNamespaceFragmentRef
 }
-crate::utils::str_newtype!(Name, NameRef);
+crate::utils::str_newtype!(UserDisplayName, UserDisplayNameRef);
 
 #[derive(Debug, Clone)]
 pub struct User {
     pub id: UserId,
     pub username: Username,
     pub password: HashedPassword,
-    pub name: Option<Name>,
+    pub display_name: Option<UserDisplayName>,
 
     pub emails: UserEmails,
     pub avatar: Option<ImageAssetId>,
