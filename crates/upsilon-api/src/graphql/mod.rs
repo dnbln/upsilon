@@ -15,7 +15,7 @@
  */
 
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use chrono::Duration;
@@ -43,6 +43,7 @@ use crate::error::Error;
 
 pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, SubscriptionRoot>;
 
+#[derive(Clone)]
 pub struct GraphQLContext {
     db: upsilon_data::DataClientMasterHolder,
     vcs_config: Cfg<UpsilonVcsConfig>,
@@ -117,6 +118,17 @@ impl GraphQLContext {
         self.query(|qm| async move { qm.query_organization(org_id).await })
             .await
             .map(OrganizationRef)
+    }
+
+    async fn init_repo(&self, path: PathBuf) -> FieldResult<()> {
+        let vcs_config_clone = self.vcs_config.clone();
+
+        let _ = tokio::task::spawn_blocking(move || {
+            upsilon_vcs::init_repo_absolute(&vcs_config_clone, &path)
+        })
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -260,7 +272,8 @@ impl MutationRoot {
         let path = context.vcs_config.repo_dir(pb);
 
         tokio::fs::create_dir_all(&path).await?;
-        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
+
+        context.init_repo(path).await?;
 
         Ok(RepoRef(repo))
     }
@@ -300,7 +313,8 @@ impl MutationRoot {
         let path = context.vcs_config.repo_dir(pb);
 
         tokio::fs::create_dir_all(&path).await?;
-        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
+
+        context.init_repo(path).await?;
 
         Ok(RepoRef(repo))
     }
@@ -345,7 +359,7 @@ impl MutationRoot {
         let path = context.vcs_config.repo_dir(pb);
 
         tokio::fs::create_dir_all(&path).await?;
-        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
+        context.init_repo(path).await?;
 
         Ok(RepoRef(repo))
     }

@@ -26,7 +26,7 @@ use rocket::request::{FromRequest, Outcome};
 use rocket::{Request, State};
 use upsilon_models::users::UserId;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AuthToken {
     pub claims: AuthTokenClaims,
     token: String,
