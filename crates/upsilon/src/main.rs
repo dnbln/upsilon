@@ -1,30 +1,36 @@
-/*
- *        Copyright (c) 2022 Dinu Blanovschi
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        https://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
+use clap::Parser;
 
-#[macro_use]
-extern crate rocket;
+#[derive(Parser, Debug)]
+enum App {
+    #[clap(name = "web")]
+    Web,
+}
 
-use figment::providers::Format;
-use rocket::figment::providers::Yaml;
+fn main() {
+    let app: App = App::parse();
 
-#[launch]
-fn rocket() -> rocket::Rocket<rocket::Build> {
-    let figment = rocket::Config::figment().merge(Yaml::file("upsilon.yaml"));
+    match app {
+        App::Web => {
+            let p = upsilon_core::alt_exe("upsilon-web");
 
-    rocket::custom(figment)
-        .attach(upsilon_api::GraphQLApiConfigurator)
-        .attach(upsilon::ConfigManager)
+            let mut cmd = std::process::Command::new(p);
+
+            #[cfg(unix)]
+            cmd.exec(); // replace current process with upsilon-web,
+                        // execve-style (only available on unix)
+
+            #[cfg(not(unix))]
+            {
+                let exit_status = cmd
+                    .spawn()
+                    .expect("failed to execute process")
+                    .wait()
+                    .expect("failed to execute process");
+
+                if !exit_status.success() {
+                    panic!("upsilon-web failed to execute");
+                }
+            }
+        }
+    }
 }

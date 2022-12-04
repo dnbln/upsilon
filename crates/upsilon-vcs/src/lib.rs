@@ -14,16 +14,16 @@
  *    limitations under the License.
  */
 
+mod config;
+
 use std::path::{Path, PathBuf};
+use std::result::Result as StdResult;
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{TreeEntry, TreeIter};
-use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
-pub struct UpsilonVcsConfig {
-    path: PathBuf,
-}
+pub use self::config::UpsilonVcsConfig;
+use crate::config::GitProtocol;
 
 impl UpsilonVcsConfig {
     pub fn repo_dir(&self, repo: impl AsRef<Path>) -> PathBuf {
@@ -60,8 +60,8 @@ impl Repository {
                     .transpose()
             }) {
             Some(Ok(b)) => Ok(b),
-            Some(Err(e)) => return Err(e.into()),
-            None => return Err(Error::Unknown),
+            Some(Err(e)) => Err(e),
+            None => Err(Error::Unknown),
         }
     }
 }
@@ -167,10 +167,10 @@ impl<'r> Commit<'r> {
         self_ascendants
             .into_iter()
             .zip(other_ascendants.into_iter())
-            .filter_map(|p| match p {
-                (Ok(a), Ok(b)) => Some(Ok((a, b))),
-                (Err(a), _) => Some(Err(a)),
-                (_, Err(b)) => Some(Err(b)),
+            .map(|p| match p {
+                (Ok(a), Ok(b)) => Ok((a, b)),
+                (Err(a), _) => Err(a),
+                (_, Err(b)) => Err(b),
             })
             .filter_map(|r| r.ok())
             .take_while(|(a, b)| a.commit.id() == b.commit.id())
@@ -220,7 +220,7 @@ impl<'r> Iterator for AllCommitAscendants<'r> {
 
         let commit = match self.current.parent(0) {
             Ok(c) => c,
-            Err(e) => return Some(Err(e.into())),
+            Err(e) => return Some(Err(e)),
         };
 
         self.current = commit;
@@ -304,25 +304,36 @@ impl<'r> Tree<'r> {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("git error: {0}")]
-    GitError(#[from] git2::Error),
+    Git(#[from] git2::Error),
+
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
 
     #[error("unknown object")]
     Unknown,
 }
 
-pub use std::result::Result as StdResult;
-pub type Result<T> = StdResult<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
-pub fn init_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
-    Ok(Repository {
-        repo: git2::Repository::init_bare(config.repo_dir(path))?,
-    })
+pub fn init_repo(
+    config: &UpsilonVcsConfig,
+    repo_config: RepoConfig,
+    path: impl AsRef<Path>,
+) -> Result<Repository> {
+    init_repo_absolute(config, repo_config, config.repo_dir(path))
 }
 
 pub fn init_repo_absolute(
-    _config: &UpsilonVcsConfig,
+    config: &UpsilonVcsConfig,
+    repo_config: RepoConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
+    if let GitProtocol::Enabled(_) = &config.git_protocol {
+        if repo_config.visibility == RepoVisibility::Public {
+            std::fs::write(path.as_ref().join("git-daemon-export-ok"), "")?;
+        }
+    }
+
     Ok(Repository {
         repo: git2::Repository::init_bare(path)?,
     })
@@ -332,4 +343,20 @@ pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Rep
     Ok(Repository {
         repo: git2::Repository::open_bare(config.repo_dir(path))?,
     })
+}
+
+pub struct RepoConfig {
+    visibility: RepoVisibility,
+}
+
+impl RepoConfig {
+    pub fn new(visibility: RepoVisibility) -> Self {
+        Self { visibility }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RepoVisibility {
+    Public,
+    Private,
 }

@@ -2,5 +2,8 @@ imports_layout = "Horizontal"
 reorder_imports = true
 group_imports = "StdExternalCrate"
 imports_granularity = "Module"
+reorder_modules = true
+reorder_impl_items = true
+merge_derives = true
 
 unstable_features = true

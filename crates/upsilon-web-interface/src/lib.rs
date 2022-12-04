@@ -14,20 +14,21 @@
  *    limitations under the License.
  */
 
-use std::path::{Path, PathBuf};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::{async_trait, Build, Rocket};
 
-pub mod config;
+pub struct WebFairing;
 
-pub fn upsilon_exe() -> PathBuf {
-    let mut path = std::env::current_exe().unwrap();
-    path.pop();
-    path.push("upsilon");
-    path
-}
+#[async_trait]
+impl Fairing for WebFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Web fairing",
+            kind: Kind::Ignite | Kind::Singleton,
+        }
+    }
 
-pub fn alt_exe(name: impl AsRef<Path>) -> PathBuf {
-    let mut path = std::env::current_exe().unwrap();
-    path.pop();
-    path.push(name);
-    path
+    async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
+        Ok(rocket)
+    }
 }

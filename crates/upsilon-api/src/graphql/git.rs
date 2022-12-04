@@ -14,20 +14,4 @@
  *    limitations under the License.
  */
 
-use std::path::{Path, PathBuf};
-
-pub mod config;
-
-pub fn upsilon_exe() -> PathBuf {
-    let mut path = std::env::current_exe().unwrap();
-    path.pop();
-    path.push("upsilon");
-    path
-}
-
-pub fn alt_exe(name: impl AsRef<Path>) -> PathBuf {
-    let mut path = std::env::current_exe().unwrap();
-    path.pop();
-    path.push(name);
-    path
-}
+pub struct RepoGit(pub upsilon_vcs::Repository);

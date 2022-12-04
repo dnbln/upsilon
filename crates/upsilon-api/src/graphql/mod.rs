@@ -14,8 +14,10 @@
  *    limitations under the License.
  */
 
+mod git;
+
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::pin::Pin;
 
 use chrono::Duration;
@@ -36,7 +38,7 @@ use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
 use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{User, UserDisplayName, UserId, Username};
-use upsilon_vcs::UpsilonVcsConfig;
+use upsilon_vcs::{RepoConfig, RepoVisibility, UpsilonVcsConfig};
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
 use crate::error::Error;
@@ -87,22 +89,6 @@ impl Sentinel for GraphQLContext {
 }
 
 impl GraphQLContext {
-    pub fn new(
-        db: upsilon_data::DataClientMasterHolder,
-        vcs_config: Cfg<UpsilonVcsConfig>,
-        users_config: Cfg<UsersConfig>,
-        auth_context: AuthContext,
-        auth: Option<AuthToken>,
-    ) -> Self {
-        Self {
-            db,
-            vcs_config,
-            users_config,
-            auth_context,
-            auth,
-        }
-    }
-
     async fn query<'a, 'b, F, T, E, Fut>(&'a self, f: F) -> FieldResult<T>
     where
         F: FnOnce(DataQueryMaster<'a>) -> Fut,
@@ -120,11 +106,11 @@ impl GraphQLContext {
             .map(OrganizationRef)
     }
 
-    async fn init_repo(&self, path: PathBuf) -> FieldResult<()> {
+    async fn init_repo(&self, repo_config: RepoConfig, path: PathBuf) -> FieldResult<()> {
         let vcs_config_clone = self.vcs_config.clone();
 
         let _ = tokio::task::spawn_blocking(move || {
-            upsilon_vcs::init_repo_absolute(&vcs_config_clone, &path)
+            upsilon_vcs::init_repo_absolute(&vcs_config_clone, repo_config, &path)
         })
         .await?;
 
@@ -144,8 +130,9 @@ impl QueryRoot {
 
     async fn user(context: &GraphQLContext, user_id: UserId) -> FieldResult<UserRef> {
         context
-            .query(|qm| async move { qm.query_user(user_id).await.map(UserRef) })
+            .query(|qm| async move { qm.query_user(user_id).await })
             .await
+            .map(UserRef)
     }
 
     async fn user_by_username(
@@ -156,6 +143,30 @@ impl QueryRoot {
             .query(|qm| async move { qm.query_user_by_username(&username).await })
             .await
             .map(|opt| opt.map(UserRef))
+    }
+
+    async fn organization(
+        context: &GraphQLContext,
+        org_id: OrganizationId,
+    ) -> FieldResult<OrganizationRef> {
+        context.query_org(org_id).await
+    }
+
+    async fn organization_by_name(
+        context: &GraphQLContext,
+        name: OrganizationName,
+    ) -> FieldResult<Option<OrganizationRef>> {
+        context
+            .query(|qm| async move { qm.query_organization_by_name(&name).await })
+            .await
+            .map(|opt| opt.map(OrganizationRef))
+    }
+
+    async fn repo(context: &GraphQLContext, repo_id: RepoId) -> FieldResult<RepoRef> {
+        context
+            .query(|qm| async move { qm.query_repo(repo_id).await })
+            .await
+            .map(RepoRef)
     }
 }
 
@@ -279,7 +290,9 @@ impl MutationRoot {
 
         tokio::fs::create_dir_all(&path).await?;
 
-        context.init_repo(path).await?;
+        context
+            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -320,7 +333,9 @@ impl MutationRoot {
 
         tokio::fs::create_dir_all(&path).await?;
 
-        context.init_repo(path).await?;
+        context
+            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -365,7 +380,9 @@ impl MutationRoot {
         let path = context.vcs_config.repo_dir(pb);
 
         tokio::fs::create_dir_all(&path).await?;
-        context.init_repo(path).await?;
+        context
+            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -415,7 +432,7 @@ impl UserRef {
                     .await
             })
             .await
-            .map(|repo| repo.map(RepoRef))
+            .map(|opt| opt.map(RepoRef))
     }
 
     async fn organizations(
@@ -490,7 +507,7 @@ impl OrganizationRef {
                     .await
             })
             .await
-            .map(|repo| repo.map(RepoRef))
+            .map(|opt| opt.map(RepoRef))
     }
 }
 
@@ -506,6 +523,7 @@ where
     It: IntoIterator<Item = T>,
 {
     type Item = T;
+
     fn wrap<U, F>(self, f: F) -> Vec<U>
     where
         F: Fn(Self::Item) -> U,
@@ -598,6 +616,6 @@ impl TeamRef {
                 .await
             })
             .await
-            .map(|repo| repo.map(RepoRef))
+            .map(|opt| opt.map(RepoRef))
     }
 }
