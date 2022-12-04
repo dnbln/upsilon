@@ -174,9 +174,12 @@ impl MutationRoot {
         }
 
         let id = UserId::new();
-        let password_hash =
-            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password)
-                .hash_password(&password, &id.chrono_ts().timestamp().to_le_bytes());
+        let password_hash_algo =
+            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password);
+        let password_hash = tokio::task::spawn_blocking(move || {
+            password_hash_algo.hash_password(&password, &id.chrono_ts().timestamp().to_le_bytes())
+        })
+        .await?;
 
         let user = User {
             id,
@@ -208,9 +211,12 @@ impl MutationRoot {
             .await?
             .ok_or(Error::Unauthorized)?;
 
-        let password_check =
-            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password)
-                .verify_password(&password, &user.password);
+        let password_hash_algo =
+            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password);
+        let password_check = tokio::task::spawn_blocking(move || {
+            password_hash_algo.verify_password(&password, &user.password)
+        })
+        .await?;
 
         if !password_check {
             Err(Error::Unauthorized)?;
