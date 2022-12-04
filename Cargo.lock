@@ -2340,6 +2340,7 @@ dependencies = [
  "tokio",
  "upsilon-data",
  "upsilon-models",
+ "upsilon-stdx",
 ]
 
 [[package]]

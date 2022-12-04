@@ -9,5 +9,6 @@ edition = "2021"
 serde.workspace = true
 upsilon-data.workspace = true
 upsilon-models.workspace = true
+upsilon-stdx.workspace = true
 tokio.workspace = true
 thiserror.workspace = true

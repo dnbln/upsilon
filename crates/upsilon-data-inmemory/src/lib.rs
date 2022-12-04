@@ -31,6 +31,7 @@ use upsilon_models::organization::{
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace};
 use upsilon_models::users::{User, UserId, Username, UsernameRef};
+use upsilon_stdx::TakeIfUnless;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InMemoryError {
@@ -656,6 +657,19 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         lock.get(&org_id)
             .map(|members| members.values().cloned().collect())
             .ok_or(InMemoryError::OrganizationMembersNotFound)
+    }
+
+    async fn query_user_organizations(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<OrganizationMember>, Self::Error> {
+        let lock = self.store().organization_members.read().await;
+
+        Ok(lock
+            .values()
+            .filter_map(|members| members.take_if(|members| members.contains_key(&user_id)))
+            .flat_map(|members| members.values().cloned())
+            .collect())
     }
 
     async fn create_team(&self, team: Team) -> Result<(), Self::Error> {

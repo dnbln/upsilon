@@ -14,12 +14,14 @@
  *    limitations under the License.
  */
 
+use std::future::Future;
 use std::pin::Pin;
 
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
 use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
 use upsilon_core::config::{Cfg, UsersConfig};
+use upsilon_data::DataQueryMaster;
 use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
 use upsilon_models::namespace::NamespaceId;
@@ -57,6 +59,23 @@ impl GraphQLContext {
             auth,
         }
     }
+
+    async fn query<'a, 'b, F, T, E, Fut>(&'a self, f: F) -> FieldResult<T>
+    where
+        F: FnOnce(DataQueryMaster<'a>) -> Fut,
+        Fut: Future<Output = Result<T, E>> + 'b,
+        E: Into<FieldError>,
+        'b: 'a,
+    {
+        let qm = self.db.query_master();
+        f(qm).await.map_err(Into::into)
+    }
+
+    async fn query_org(&self, org_id: OrganizationId) -> FieldResult<OrganizationRef> {
+        self.query(|qm| async move { qm.query_organization(org_id).await })
+            .await
+            .map(OrganizationRef)
+    }
 }
 
 impl juniper::Context for GraphQLContext {}
@@ -65,26 +84,24 @@ pub struct QueryRoot;
 
 #[graphql_object(Context = GraphQLContext)]
 impl QueryRoot {
-    async fn api_version() -> &str {
+    fn api_version() -> &str {
         "v1"
     }
 
     async fn user(context: &GraphQLContext, user_id: UserId) -> FieldResult<UserRef> {
-        Ok(UserRef(
-            context.db.query_master().query_user(user_id).await?,
-        ))
+        context
+            .query(|qm| async move { qm.query_user(user_id).await.map(UserRef) })
+            .await
     }
 
     async fn user_by_username(
         context: &GraphQLContext,
         username: Username,
     ) -> FieldResult<Option<UserRef>> {
-        Ok(context
-            .db
-            .query_master()
-            .query_user_by_username(&username)
-            .await?
-            .map(UserRef))
+        context
+            .query(|qm| async move { qm.query_user_by_username(&username).await })
+            .await
+            .map(|opt| opt.map(UserRef))
     }
 }
 
@@ -116,11 +133,13 @@ impl MutationRoot {
             avatar: None,
         };
 
-        context.db.query_master().create_user(user.clone()).await?;
+        context
+            .query(|qm| async move { qm.create_user(user.clone()).await })
+            .await?;
 
         let token = context
             .auth_context
-            .sign(AuthTokenClaims::new(user.id, Duration::days(15)));
+            .sign(AuthTokenClaims::new(id, Duration::days(15)));
 
         Ok(token.to_string())
     }
@@ -130,10 +149,8 @@ impl MutationRoot {
         username_or_email: String,
         password: PlainPassword,
     ) -> FieldResult<String> {
-        let query_master = context.db.query_master();
-
-        let user = query_master
-            .query_user_by_username_email(&username_or_email)
+        let user = context
+            .query(|qm| async move { qm.query_user_by_username_email(&username_or_email).await })
             .await?
             .ok_or(Error::Unauthorized)?;
 
@@ -166,10 +183,10 @@ impl MutationRoot {
             email: None,
         };
 
+        let org_clone = org.clone();
+
         context
-            .db
-            .query_master()
-            .create_organization(org.clone())
+            .query(|qm| async move { qm.create_organization(org_clone).await })
             .await?;
 
         Ok(OrganizationRef(org))
@@ -185,7 +202,10 @@ impl MutationRoot {
             display_name: None,
         };
 
-        context.db.query_master().create_repo(repo.clone()).await?;
+        let repo_clone = repo.clone();
+        context
+            .query(|qm| async move { qm.create_repo(repo_clone).await })
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -198,9 +218,7 @@ impl MutationRoot {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
         let org = context
-            .db
-            .query_master()
-            .query_organization(organization_id)
+            .query(|qm| async move { qm.query_organization(organization_id).await })
             .await?;
 
         if org.owner != auth.claims.sub {
@@ -214,7 +232,11 @@ impl MutationRoot {
             display_name: None,
         };
 
-        context.db.query_master().create_repo(repo.clone()).await?;
+        let repo_clone = repo.clone();
+
+        context
+            .query(|qm| async move { qm.create_repo(repo_clone).await })
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -226,12 +248,12 @@ impl MutationRoot {
     ) -> FieldResult<RepoRef> {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
-        let team = context.db.query_master().query_team(team_id).await?;
+        let team = context
+            .query(|qm| async move { qm.query_team(team_id).await })
+            .await?;
 
         let organization = context
-            .db
-            .query_master()
-            .query_organization(team.organization_id)
+            .query(|qm| async move { qm.query_organization(team.organization_id).await })
             .await?;
 
         if organization.owner != auth.claims.sub {
@@ -245,7 +267,11 @@ impl MutationRoot {
             display_name: None,
         };
 
-        context.db.query_master().create_repo(repo.clone()).await?;
+        let repo_clone = repo.clone();
+
+        context
+            .query(|qm| async move { qm.create_repo(repo_clone).await })
+            .await?;
 
         Ok(RepoRef(repo))
     }
@@ -289,12 +315,23 @@ impl UserRef {
     }
 
     async fn repo(&self, context: &GraphQLContext, name: RepoName) -> FieldResult<Option<RepoRef>> {
-        Ok(context
-            .db
-            .query_master()
-            .query_repo_by_name(&name, &RepoNamespace(NamespaceId::User(self.0.id)))
-            .await?
-            .map(RepoRef))
+        context
+            .query(|qm| async move {
+                qm.query_repo_by_name(&name, &RepoNamespace(NamespaceId::User(self.0.id)))
+                    .await
+            })
+            .await
+            .map(|repo| repo.map(RepoRef))
+    }
+
+    async fn organizations(
+        &self,
+        context: &GraphQLContext,
+    ) -> FieldResult<Vec<OrganizationMemberRef>> {
+        context
+            .query(|qm| async move { qm.query_user_organizations(self.0.id).await })
+            .await
+            .map(|v| v.wrap(OrganizationMemberRef))
     }
 }
 
@@ -332,31 +369,54 @@ impl OrganizationRef {
     }
 
     async fn owner(&self, context: &GraphQLContext) -> FieldResult<UserRef> {
-        Ok(UserRef(
-            context.db.query_master().query_user(self.0.owner).await?,
-        ))
+        context
+            .query(|qm| async move { qm.query_user(self.0.owner).await })
+            .await
+            .map(UserRef)
     }
 
     async fn members(&self, context: &GraphQLContext) -> FieldResult<Vec<OrganizationMemberRef>> {
         Ok(context
-            .db
-            .query_master()
-            .query_organization_members(self.0.id)
+            .query(|qm| async move { qm.query_organization_members(self.0.id).await })
             .await?
-            .into_iter()
-            .map(OrganizationMemberRef)
-            .collect())
+            .wrap(OrganizationMemberRef))
     }
 
     async fn teams(&self, context: &GraphQLContext) -> FieldResult<Vec<TeamRef>> {
         Ok(context
-            .db
-            .query_master()
-            .query_organization_teams(self.0.id)
+            .query(|qm| async move { qm.query_organization_teams(self.0.id).await })
             .await?
-            .into_iter()
-            .map(TeamRef)
-            .collect())
+            .wrap(TeamRef))
+    }
+
+    async fn repo(&self, context: &GraphQLContext, name: RepoName) -> FieldResult<Option<RepoRef>> {
+        context
+            .query(|qm| async move {
+                qm.query_repo_by_name(&name, &RepoNamespace(NamespaceId::Organization(self.0.id)))
+                    .await
+            })
+            .await
+            .map(|repo| repo.map(RepoRef))
+    }
+}
+
+trait Wrap {
+    type Item;
+    fn wrap<T, F>(self, f: F) -> Vec<T>
+    where
+        F: Fn(Self::Item) -> T;
+}
+
+impl<T, It> Wrap for It
+where
+    It: IntoIterator<Item = T>,
+{
+    type Item = T;
+    fn wrap<U, F>(self, f: F) -> Vec<U>
+    where
+        F: Fn(Self::Item) -> U,
+    {
+        self.into_iter().map(f).collect()
     }
 }
 
@@ -377,27 +437,23 @@ impl OrganizationMemberRef {
     }
 
     async fn user(&self, context: &GraphQLContext) -> FieldResult<UserRef> {
-        Ok(UserRef(
-            context.db.query_master().query_user(self.0.user_id).await?,
-        ))
+        context
+            .query(|qm| async move { qm.query_user(self.0.user_id).await })
+            .await
+            .map(UserRef)
     }
 
     async fn organization(&self, context: &GraphQLContext) -> FieldResult<OrganizationRef> {
-        Ok(OrganizationRef(
-            context
-                .db
-                .query_master()
-                .query_organization(self.0.organization_id)
-                .await?,
-        ))
+        context.query_org(self.0.organization_id).await
     }
 
     async fn teams(&self, context: &GraphQLContext) -> FieldResult<Vec<TeamRef>> {
         futures::stream::iter(self.0.teams.iter())
-            .then(|team_id: &TeamId| async move {
-                Ok::<_, FieldError>(TeamRef(
-                    context.db.query_master().query_team(*team_id).await?,
-                ))
+            .then(|team_id| async move {
+                context
+                    .query(|qm| async move { qm.query_team(*team_id).await })
+                    .await
+                    .map(TeamRef)
             })
             .try_collect()
             .await
@@ -425,23 +481,29 @@ impl TeamRef {
     }
 
     async fn organization(&self, context: &GraphQLContext) -> FieldResult<OrganizationRef> {
-        Ok(OrganizationRef(
-            context
-                .db
-                .query_master()
-                .query_organization(self.0.organization_id)
-                .await?,
-        ))
+        context.query_org(self.0.organization_id).await
     }
 
     async fn members(&self, context: &GraphQLContext) -> FieldResult<Vec<OrganizationMemberRef>> {
-        Ok(context
-            .db
-            .query_master()
-            .query_team_members(self.0.organization_id, self.0.id)
-            .await?
-            .into_iter()
-            .map(OrganizationMemberRef)
-            .collect())
+        context
+            .query(|qm| async move {
+                qm.query_team_members(self.0.organization_id, self.0.id)
+                    .await
+            })
+            .await
+            .map(|v| v.wrap(OrganizationMemberRef))
+    }
+
+    async fn repo(&self, context: &GraphQLContext, name: RepoName) -> FieldResult<Option<RepoRef>> {
+        context
+            .query(|qm| async move {
+                qm.query_repo_by_name(
+                    &name,
+                    &RepoNamespace(NamespaceId::Team(self.0.organization_id, self.0.id)),
+                )
+                .await
+            })
+            .await
+            .map(|repo| repo.map(RepoRef))
     }
 }

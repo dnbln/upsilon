@@ -262,6 +262,10 @@ query_impl_trait! {
         {into} org_id: upsilon_models::organization::OrganizationId,
     ) -> Vec<upsilon_models::organization::OrganizationMember>;
 
+    async fn query_user_organizations<'self_ref>(
+        {into} user_id: upsilon_models::users::UserId,
+    ) -> Vec<upsilon_models::organization::OrganizationMember>;
+
     // ===========================
     // ======== Teams ============
     // ===========================
