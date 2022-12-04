@@ -64,7 +64,6 @@ pub struct UsersConfig {
     pub auth: UsersAuthConfig,
 }
 
-#[derive(Clone)]
 pub struct Cfg<T: Send + Sync>(Arc<T>);
 
 impl<T: Send + Sync> Cfg<T> {
@@ -81,5 +80,11 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T> Clone for Cfg<T> where T: Send + Sync {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
     }
 }

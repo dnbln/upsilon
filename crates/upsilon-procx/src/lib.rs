@@ -50,21 +50,3 @@ pub fn private_context(item: proc_macro::TokenStream) -> proc_macro::TokenStream
     })
 }
 
-mod api_routes;
-
-api_routes::version_proc_macro_wrappers! {}
-
-// Only to be called from upsilon-api
-#[proc_macro]
-pub fn api_routes(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    api_routes::api_routes(item)
-}
-
-#[proc_macro_attribute]
-pub fn api_configurator(
-    attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    api_routes::api_configurator(attr, item)
-}
-

@@ -126,8 +126,7 @@ impl Fairing for ConfigManager {
             DataBackendConfig::Postgres(config) => {
                 rocket.attach(PostgresDataBackendFairing(config))
             }
-        }
-        .attach(DataBackendShutdownFairing);
+        };
 
         Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
     }
@@ -164,7 +163,9 @@ impl Fairing for InMemoryDataBackendFairing {
 
         let client_master_holder = DataClientMasterHolder::new(client);
 
-        Ok(rocket.manage(client_master_holder))
+        Ok(rocket
+            .manage(client_master_holder)
+            .attach(DataBackendShutdownFairing))
     }
 }
 

@@ -15,11 +15,15 @@
  */
 
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
 use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
+use rocket::outcome::try_outcome;
+use rocket::request::{FromRequest, Outcome};
+use rocket::{Ignite, Request, Rocket, Sentinel, State};
 use upsilon_core::config::{Cfg, UsersConfig};
 use upsilon_data::DataQueryMaster;
 use upsilon_models::assets::ImageAssetId;
@@ -32,6 +36,7 @@ use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
 use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{User, UserDisplayName, UserId, Username};
+use upsilon_vcs::UpsilonVcsConfig;
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
 use crate::error::Error;
@@ -40,20 +45,57 @@ pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, Subscripti
 
 pub struct GraphQLContext {
     db: upsilon_data::DataClientMasterHolder,
+    vcs_config: Cfg<UpsilonVcsConfig>,
     users_config: Cfg<UsersConfig>,
     auth_context: AuthContext,
     auth: Option<AuthToken>,
 }
 
+#[async_trait]
+impl<'r> FromRequest<'r> for GraphQLContext {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let db = try_outcome!(
+            request
+                .guard::<&State<upsilon_data::DataClientMasterHolder>>()
+                .await
+        );
+        let vcs_config = try_outcome!(request.guard::<&State<Cfg<UpsilonVcsConfig>>>().await);
+        let users_config = try_outcome!(request.guard::<&State<Cfg<UsersConfig>>>().await);
+        let auth_context = try_outcome!(request.guard::<&State<AuthContext>>().await);
+        let auth = request.guard::<Option<AuthToken>>().await.unwrap();
+
+        Outcome::Success(Self {
+            db: db.inner().clone(),
+            vcs_config: vcs_config.inner().clone(),
+            users_config: users_config.inner().clone(),
+            auth_context: auth_context.inner().clone(),
+            auth,
+        })
+    }
+}
+
+impl Sentinel for GraphQLContext {
+    fn abort(rocket: &Rocket<Ignite>) -> bool {
+        <&State<upsilon_data::DataClientMasterHolder>>::abort(rocket)
+            || <&State<Cfg<UpsilonVcsConfig>>>::abort(rocket)
+            || <&State<Cfg<UsersConfig>>>::abort(rocket)
+            || <&State<AuthContext>>::abort(rocket)
+    }
+}
+
 impl GraphQLContext {
     pub fn new(
         db: upsilon_data::DataClientMasterHolder,
+        vcs_config: Cfg<UpsilonVcsConfig>,
         users_config: Cfg<UsersConfig>,
         auth_context: AuthContext,
         auth: Option<AuthToken>,
     ) -> Self {
         Self {
             db,
+            vcs_config,
             users_config,
             auth_context,
             auth,
@@ -195,10 +237,14 @@ impl MutationRoot {
     async fn create_repo(context: &GraphQLContext, name: RepoName) -> FieldResult<RepoRef> {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
+        let user = context
+            .query(|qm| async move { qm.query_user(auth.claims.sub).await })
+            .await?;
+
         let repo = Repo {
             id: RepoId::new(),
             namespace: RepoNamespace(NamespaceId::User(auth.claims.sub)),
-            name,
+            name: name.clone(),
             display_name: None,
         };
 
@@ -206,6 +252,15 @@ impl MutationRoot {
         context
             .query(|qm| async move { qm.create_repo(repo_clone).await })
             .await?;
+
+        let mut pb = PathBuf::new();
+        pb.push(user.username.as_str());
+        pb.push(name.as_str());
+
+        let path = context.vcs_config.repo_dir(pb);
+
+        tokio::fs::create_dir_all(&path).await?;
+        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
 
         Ok(RepoRef(repo))
     }
@@ -228,7 +283,7 @@ impl MutationRoot {
         let repo = Repo {
             id: RepoId::new(),
             namespace: RepoNamespace(NamespaceId::Organization(organization_id)),
-            name,
+            name: name.clone(),
             display_name: None,
         };
 
@@ -237,6 +292,15 @@ impl MutationRoot {
         context
             .query(|qm| async move { qm.create_repo(repo_clone).await })
             .await?;
+
+        let mut pb = PathBuf::new();
+        pb.push(org.name.as_str());
+        pb.push(name.as_str());
+
+        let path = context.vcs_config.repo_dir(pb);
+
+        tokio::fs::create_dir_all(&path).await?;
+        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
 
         Ok(RepoRef(repo))
     }
@@ -263,7 +327,7 @@ impl MutationRoot {
         let repo = Repo {
             id: RepoId::new(),
             namespace: RepoNamespace(NamespaceId::Team(team.organization_id, team_id)),
-            name,
+            name: name.clone(),
             display_name: None,
         };
 
@@ -272,6 +336,16 @@ impl MutationRoot {
         context
             .query(|qm| async move { qm.create_repo(repo_clone).await })
             .await?;
+
+        let mut pb = PathBuf::new();
+        pb.push(organization.name.as_str());
+        pb.push(team.name.as_str());
+        pb.push(name.as_str());
+
+        let path = context.vcs_config.repo_dir(pb);
+
+        tokio::fs::create_dir_all(&path).await?;
+        let _ = upsilon_vcs::init_repo_absolute(&context.vcs_config, &path)?;
 
         Ok(RepoRef(repo))
     }

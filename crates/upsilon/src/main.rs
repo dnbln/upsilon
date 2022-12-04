@@ -25,7 +25,6 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     let figment = rocket::Config::figment().merge(Yaml::file("upsilon.yaml"));
 
     rocket::custom(figment)
-        .attach(upsilon_api::ApiConfigurator)
         .attach(upsilon_api::GraphQLApiConfigurator)
         .attach(upsilon::ConfigManager)
 }

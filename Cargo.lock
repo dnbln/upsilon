@@ -2302,6 +2302,7 @@ dependencies = [
  "rocket",
  "serde",
  "thiserror",
+ "tokio",
  "upsilon-core",
  "upsilon-data",
  "upsilon-models",
