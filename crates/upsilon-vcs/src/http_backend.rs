@@ -204,13 +204,15 @@ pub async fn handle<B: AsyncRead>(
 
     let buf_ref = &buf[..read_count];
 
-    // SAFETY: we are only reading up until the first empty line (\r\n\r\n in HTTP),
-    // which is guaranteed to be ASCII
-    let s = unsafe { std::str::from_utf8_unchecked(buf_ref) };
-    let headers_end = s
-        .find("\r\n\r\n")
+    const END_OF_HEADERS: &[u8] = b"\r\n\r\n";
+
+    let headers_end = buf_ref
+        .windows(END_OF_HEADERS.len())
+        .position(|it| it == END_OF_HEADERS)
         .expect("Missing \\r\\n\\r\\n in HTTP response");
-    let headers = &s[0..headers_end];
+
+    // SAFETY: Headers are guaranteed to be ASCII
+    let headers = unsafe { std::str::from_utf8_unchecked(&buf_ref[..headers_end]) };
     let buffer = &buf_ref[headers_end + 4..]; // +4 for the actual \r\n\r\n
 
     let mut headers = headers
