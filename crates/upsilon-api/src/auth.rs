@@ -32,6 +32,17 @@ pub struct AuthToken {
     token: String,
 }
 
+impl AuthToken {
+    pub fn from_string(token: String, cx: &AuthContext) -> Result<Self, AuthTokenError> {
+        let claims = match cx.verify(&token) {
+            Ok(claims) => claims,
+            Err(jwt) => return Err(jwt.into()),
+        };
+
+        Ok(AuthToken { claims, token })
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AuthTokenError {
     #[error("No authorization header")]

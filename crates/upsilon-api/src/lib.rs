@@ -24,7 +24,7 @@ use rocket::{Build, Rocket, State};
 
 use crate::auth::AuthContext;
 
-mod auth;
+pub mod auth;
 mod graphql;
 
 mod error;

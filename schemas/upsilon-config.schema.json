@@ -87,6 +87,11 @@
             "enable": {
               "type": "boolean",
               "description": "Enable the http protocol"
+            },
+            "push-auth-required": {
+              "type": "boolean",
+              "description": "Require authentication for push operations",
+              "default": true
             }
           },
           "required": [

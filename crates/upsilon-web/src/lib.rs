@@ -15,6 +15,7 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -26,13 +27,15 @@ use rocket::data::ByteUnit;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::uri::fmt::ValidRoutePrefix;
 use rocket::http::uri::Origin;
-use rocket::http::{HeaderMap, Status};
+use rocket::http::{Header, HeaderMap, Status};
 use rocket::request::{FromRequest, Outcome};
 use rocket::response::Responder;
-use rocket::{error, routes, Build, Data, Orbit, Request, Rocket, State};
+use rocket::{error, routes, Build, Data, Orbit, Request, Response, Rocket, State};
+use rocket_basicauth::{BasicAuth, BasicAuthError};
 use serde::{Deserialize, Deserializer};
 use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
+use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
 use upsilon_core::config::Cfg;
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
@@ -42,7 +45,7 @@ use upsilon_vcs::{
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    vcs: upsilon_vcs::UpsilonVcsConfig,
+    vcs: UpsilonVcsConfig,
     #[serde(rename = "data-backend")]
     data_backend: DataBackendConfig,
 
@@ -277,7 +280,7 @@ lazy_static! {
     // (Accelerated static Apache 2.x)
     static ref GIT_HTTP_PROTOCOL_STATIC_PATHS: regex::Regex = regex::Regex::new(
         //language=regexp
-        "^/(.*/objects/([0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}.(pack|idx)))$"
+        "^/(.*/objects/([0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx)))$"
     ).unwrap();
 }
 
@@ -335,10 +338,12 @@ impl Fairing for GitHttpProtocolFairing {
             };
             let forward_path = format!("/{}", &captures[1]);
 
+            let query = uri.query().map(|it| Cow::Owned(it.to_string()));
+
             req.set_uri(
                 Origin::parse("/__priv-git-static/")
                     .unwrap()
-                    .append(Cow::Owned(forward_path), None),
+                    .append(Cow::Owned(forward_path), query),
             );
         } else if GIT_HTTP_PROTOCOL_PATHS.is_match(p_str) {
             let Some(captures) = GIT_HTTP_PROTOCOL_PATHS.captures(p_str) else {
@@ -346,10 +351,12 @@ impl Fairing for GitHttpProtocolFairing {
             };
             let forward_path = format!("/{}", &captures[1]);
 
+            let query = uri.query().map(|it| Cow::Owned(it.to_string()));
+
             req.set_uri(
                 Origin::parse("/__priv-git-http-backend-cgi/")
                     .unwrap()
-                    .append(Cow::Owned(forward_path), None),
+                    .append(Cow::Owned(forward_path), query),
             );
         }
     }
@@ -381,11 +388,24 @@ enum GitHttpBackendError {
     HandleGitHttpBackend(#[from] upsilon_vcs::HttpBackendHandleError),
     #[error("Failed to read response: {0}")]
     IO(#[from] std::io::Error),
+    #[error("Auth required")]
+    AuthRequired,
 }
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
-        (Status::InternalServerError, self.to_string()).respond_to(request)
+        match self {
+            GitHttpBackendError::HandleGitHttpBackend(_) => {
+                (Status::InternalServerError, self.to_string()).respond_to(request)
+            }
+            GitHttpBackendError::IO(_) => {
+                (Status::InternalServerError, self.to_string()).respond_to(request)
+            }
+            GitHttpBackendError::AuthRequired => Response::build()
+                .status(Status::Unauthorized)
+                .header(Header::new("WWW-Authenticate", "Basic"))
+                .ok(),
+        }
     }
 }
 
@@ -401,17 +421,62 @@ fn status_code_from_status_line(status_line: &str) -> Status {
     .expect("Invalid code")
 }
 
+#[derive(Debug)]
+struct AuthTokenBasic {
+    username: String,
+    token: AuthToken,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum AuthTokenBasicError {
+    #[error("basic auth error: {0:?}")]
+    BasicAuthError(BasicAuthError),
+    #[error("auth token error: {0}")]
+    AuthTokenError(#[from] AuthTokenError),
+}
+
+impl From<BasicAuthError> for AuthTokenBasicError {
+    fn from(value: BasicAuthError) -> Self {
+        Self::BasicAuthError(value)
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AuthTokenBasic {
+    type Error = AuthTokenBasicError;
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let basic_auth = match BasicAuth::from_request(request).await {
+            Outcome::Success(auth) => auth,
+            Outcome::Failure((status, error)) => return Outcome::Failure((status, error.into())),
+            Outcome::Forward(_) => {
+                return Outcome::Forward(());
+            }
+        };
+
+        let BasicAuth { username, password } = basic_auth;
+
+        let cx = <&State<AuthContext>>::from_request(request).await.unwrap();
+
+        match AuthToken::from_string(password, cx) {
+            Ok(token) => Outcome::Success(AuthTokenBasic { username, token }),
+            Err(e) => Outcome::Failure((Status::Unauthorized, e.into())),
+        }
+    }
+}
+
 #[rocket::get("/<path..>?<query..>")]
 async fn git_http_backend_cgi_get(
     path: PathBuf,
-    query: Option<String>,
+    query: Option<HashMap<String, String>>,
     headers: HMap<'_>,
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
+    auth_token: Option<AuthTokenBasic>,
 ) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
     let path = PathBuf::from("/").join(path); // add the root /
 
-    let req = GitBackendCgiRequest::new(
+    let mut req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Get,
         path,
         query,
@@ -420,6 +485,19 @@ async fn git_http_backend_cgi_get(
         std::io::Cursor::new(""),
     );
 
+    let auth_required = req.auth_required(vcs_config);
+
+    if auth_required {
+        if let Some(auth_token) = &auth_token {
+            // TODO: check perms for repo
+            req.auth();
+        } else {
+            Err(GitHttpBackendError::AuthRequired)?;
+        }
+    }
+
+    // dbg!(&req);
+
     let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
@@ -428,22 +506,25 @@ async fn git_http_backend_cgi_get(
     let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
     response.read_to_end(&mut resp_buf).await?;
 
+    dbg!(unsafe { std::str::from_utf8_unchecked(&resp_buf) });
+
     Ok((status, resp_buf))
 }
 
 #[rocket::post("/<path..>?<query..>", data = "<data>")]
 async fn git_http_backend_cgi_post(
     path: PathBuf,
-    query: Option<String>,
+    query: Option<HashMap<String, String>>,
     headers: HMap<'_>,
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: Data<'_>,
+    auth_token: Option<AuthTokenBasic>,
 ) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
     let path = PathBuf::from("/").join(path); // add the root /
 
     let data_stream = data.open(ByteUnit::Mebibyte(20));
-    let req = GitBackendCgiRequest::new(
+    let mut req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Post,
         path,
         query,
@@ -452,6 +533,17 @@ async fn git_http_backend_cgi_post(
         data_stream,
     );
 
+    let auth_required = req.auth_required(vcs_config);
+
+    if auth_required {
+        if let Some(auth_token) = &auth_token {
+            // TODO: check perms for repo
+            req.auth();
+        } else {
+            Err(GitHttpBackendError::AuthRequired)?;
+        }
+    }
+
     let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
@@ -463,5 +555,3 @@ async fn git_http_backend_cgi_post(
     Ok((status, resp_buf))
 }
 
-// TODO: fix pushing over http, when rocket gets support for webdav
-// see https://github.com/SergioBenitez/Rocket/issues/232

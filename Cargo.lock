@@ -1739,6 +1739,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rocket-basicauth"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79128c0f55b7bc6785c13816d71af4baee156bd615b09468800edaaa7da56a08"
+dependencies = [
+ "base64",
+ "log",
+ "rocket",
+]
+
+[[package]]
 name = "rocket_codegen"
 version = "0.5.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2468,6 +2479,7 @@ dependencies = [
  "lazy_static",
  "regex",
  "rocket",
+ "rocket-basicauth",
  "serde",
  "thiserror",
  "tokio",

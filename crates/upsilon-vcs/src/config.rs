@@ -116,4 +116,11 @@ impl<'de> Deserialize<'de> for GitHttpProtocol {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GitHttpProtocolConfig {}
+pub struct GitHttpProtocolConfig {
+    #[serde(rename = "push-auth-required", default = "default_push_auth_required")]
+    pub push_auth_required: bool,
+}
+
+fn default_push_auth_required() -> bool {
+    true
+}
