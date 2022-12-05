@@ -101,8 +101,6 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<std::process::Child, Sp
 
     cmd.arg(&config.path);
 
-    dbg!(&cmd);
-
     let child = cmd.spawn()?;
 
     Ok(child)
