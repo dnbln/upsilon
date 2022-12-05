@@ -15,13 +15,17 @@
  */
 
 use std::path::PathBuf;
+use std::process::Child;
+use std::sync::Arc;
 
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{Build, Orbit, Rocket};
+use rocket::{error, Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
+use tokio::sync::Mutex;
 use upsilon_core::config::Cfg;
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
+use upsilon_vcs::SpawnDaemonError;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -128,6 +132,20 @@ impl Fairing for ConfigManager {
             }
         };
 
+        match upsilon_vcs::spawn_daemon(&vcs) {
+            Ok(child) => {
+                rocket = rocket.attach(GitProtocolDaemonFairing {
+                    child: Arc::new(Mutex::new(child)),
+                });
+            }
+            Err(SpawnDaemonError::Disabled) => {}
+            Err(io_err @ SpawnDaemonError::IoError(_)) => {
+                error!("Failed to spawn git protocol daemon: {}", io_err);
+
+                return Err(rocket);
+            }
+        }
+
         Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
     }
 }
@@ -205,5 +223,27 @@ impl Fairing for DataBackendShutdownFairing {
             .on_shutdown()
             .await
             .expect("Data backend shutdown error");
+    }
+}
+
+struct GitProtocolDaemonFairing {
+    child: Arc<Mutex<Child>>,
+}
+
+#[rocket::async_trait]
+impl Fairing for GitProtocolDaemonFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Git protocol daemon fairing",
+            kind: Kind::Shutdown | Kind::Singleton,
+        }
+    }
+
+    async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
+        self.child
+            .lock()
+            .await
+            .kill()
+            .expect("Failed to kill git daemon");
     }
 }

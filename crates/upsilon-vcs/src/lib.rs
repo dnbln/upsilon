@@ -22,7 +22,7 @@ use std::result::Result as StdResult;
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{TreeEntry, TreeIter};
 
-pub use self::config::UpsilonVcsConfig;
+pub use self::config::{UpsilonVcsConfig, SpawnDaemonError, spawn_daemon};
 use crate::config::GitProtocol;
 
 impl UpsilonVcsConfig {

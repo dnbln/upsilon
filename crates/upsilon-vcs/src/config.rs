@@ -25,6 +25,89 @@ pub struct UpsilonVcsConfig {
     pub(crate) git_protocol: GitProtocol,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum SpawnDaemonError {
+    #[error("git daemon is disabled")]
+    Disabled,
+
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<std::process::Child, SpawnDaemonError> {
+    let GitProtocol::Enabled(protocol_config) = &config.git_protocol else {Err(SpawnDaemonError::Disabled)?};
+    let GitDaemon::Enabled(daemon_config) = &protocol_config.git_daemon else {Err(SpawnDaemonError::Disabled)?};
+
+    let access_hook_path = upsilon_core::alt_exe("upsilon-git-protocol-accesshook");
+
+    let mut cmd = std::process::Command::new("git");
+
+    cmd.arg("daemon")
+        .arg(format!("--base-path={}", &config.path.display()))
+        .arg(format!("--port={}", daemon_config.port))
+        .arg("--reuseaddr")
+        .arg(format!(r#"--access-hook="{}""#, access_hook_path.display()));
+
+    if let Some(pid_file) = &daemon_config.pid_file {
+        cmd.arg(format!("--pid-file={}", pid_file.display()));
+    }
+
+    fn patch_cmd_for_service(
+        cmd: &mut std::process::Command,
+        service: &GitDaemonService,
+        service_name: &str,
+    ) {
+        fn patch_cmd_for_override(
+            cmd: &mut std::process::Command,
+            override_kind: &GitDaemonServiceOverride,
+            service_name: &str,
+        ) {
+            match override_kind {
+                GitDaemonServiceOverride::Allow => {
+                    cmd.arg(format!("--allow-override={service_name}"));
+                }
+                GitDaemonServiceOverride::Forbid => {
+                    cmd.arg(format!("--forbid-override={service_name}"));
+                }
+                GitDaemonServiceOverride::Default => {}
+            }
+        }
+
+        match service {
+            GitDaemonService::Enabled(s) => {
+                cmd.arg(format!("--enable={service_name}"));
+
+                patch_cmd_for_override(cmd, &s.override_kind, service_name);
+            }
+            GitDaemonService::Disabled(s) => {
+                cmd.arg(format!("--disable={service_name}"));
+
+                patch_cmd_for_override(cmd, &s.override_kind, service_name);
+            }
+        }
+    }
+
+    patch_cmd_for_service(&mut cmd, &daemon_config.services.upload_pack, "upload-pack");
+    patch_cmd_for_service(
+        &mut cmd,
+        &daemon_config.services.upload_archive,
+        "upload-archive",
+    );
+    patch_cmd_for_service(
+        &mut cmd,
+        &daemon_config.services.receive_pack,
+        "receive-pack",
+    );
+
+    cmd.arg(&config.path);
+
+    dbg!(&cmd);
+
+    let child = cmd.spawn()?;
+
+    Ok(child)
+}
+
 #[derive(Debug)]
 pub enum GitProtocol {
     Enabled(GitProtocolConfig),
@@ -111,6 +194,9 @@ pub struct GitDaemonConfig {
     pub port: u16,
 
     #[serde(default)]
+    pub pid_file: Option<PathBuf>,
+
+    #[serde(default)]
     pub services: GitDaemonServices,
 }
 
@@ -140,13 +226,15 @@ impl Default for GitDaemonServices {
 }
 
 fn receive_pack_default() -> GitDaemonService {
-    GitDaemonService::Disabled
+    GitDaemonService::Disabled(GitDaemonServiceConfig {
+        override_kind: GitDaemonServiceOverride::Default,
+    })
 }
 
 #[derive(Debug)]
 pub enum GitDaemonService {
     Enabled(GitDaemonServiceConfig),
-    Disabled,
+    Disabled(GitDaemonServiceConfig),
 }
 
 impl<'de> Deserialize<'de> for GitDaemonService {
@@ -157,8 +245,8 @@ impl<'de> Deserialize<'de> for GitDaemonService {
         #[derive(Deserialize)]
         struct GitDaemonServiceDesc {
             enable: bool,
-            #[serde(flatten, default)]
-            config: Option<GitDaemonServiceConfig>,
+            #[serde(flatten)]
+            config: GitDaemonServiceConfig,
         }
 
         let desc = GitDaemonServiceDesc::deserialize(deserializer)?;
@@ -166,16 +254,12 @@ impl<'de> Deserialize<'de> for GitDaemonService {
         match desc {
             GitDaemonServiceDesc {
                 enable: true,
-                config: Some(config),
+                config,
             } => Ok(GitDaemonService::Enabled(config)),
             GitDaemonServiceDesc {
-                enable: true,
-                config: None,
-            } => Err(serde::de::Error::custom("Missing config for enable = true")),
-            GitDaemonServiceDesc {
                 enable: false,
-                config: _,
-            } => Ok(GitDaemonService::Disabled),
+                config,
+            } => Ok(GitDaemonService::Disabled(config)),
         }
     }
 }

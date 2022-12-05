@@ -22,6 +22,7 @@ pub fn upsilon_exe() -> PathBuf {
     let mut path = std::env::current_exe().unwrap();
     path.pop();
     path.push("upsilon");
+    path.set_extension(std::env::consts::EXE_EXTENSION);
     path
 }
 
@@ -29,5 +30,6 @@ pub fn alt_exe(name: impl AsRef<Path>) -> PathBuf {
     let mut path = std::env::current_exe().unwrap();
     path.pop();
     path.push(name);
+    path.set_extension(std::env::consts::EXE_EXTENSION);
     path
 }

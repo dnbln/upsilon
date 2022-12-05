@@ -2377,6 +2377,13 @@ name = "upsilon-data-pg"
 version = "0.1.0"
 
 [[package]]
+name = "upsilon-git-protocol-accesshook"
+version = "0.1.0"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "upsilon-hook-registrar"
 version = "0.1.0"
 dependencies = [
@@ -2430,6 +2437,7 @@ dependencies = [
  "git2",
  "serde",
  "thiserror",
+ "upsilon-core",
 ]
 
 [[package]]
@@ -2439,6 +2447,7 @@ dependencies = [
  "figment",
  "rocket",
  "serde",
+ "tokio",
  "upsilon-api",
  "upsilon-core",
  "upsilon-data",
