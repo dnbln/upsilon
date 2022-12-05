@@ -79,11 +79,26 @@
             "enable"
           ],
           "additionalProperties": false
+        },
+        "http-protocol": {
+          "type": "object",
+          "description": "The http protocol configuration",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable the http protocol"
+            }
+          },
+          "required": [
+            "enable"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "path",
-        "git-protocol"
+        "git-protocol",
+        "http-protocol"
       ],
       "additionalProperties": false
     },

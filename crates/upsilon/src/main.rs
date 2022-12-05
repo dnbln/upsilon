@@ -15,21 +15,14 @@ fn main() {
 
             let mut cmd = std::process::Command::new(p);
 
-            #[cfg(unix)]
-            cmd.exec(); // replace current process with upsilon-web,
-                        // execve-style (only available on unix)
+            let exit_status = cmd
+                .spawn()
+                .expect("failed to execute process")
+                .wait()
+                .expect("failed to execute process");
 
-            #[cfg(not(unix))]
-            {
-                let exit_status = cmd
-                    .spawn()
-                    .expect("failed to execute process")
-                    .wait()
-                    .expect("failed to execute process");
-
-                if !exit_status.success() {
-                    panic!("upsilon-web failed to execute");
-                }
+            if !exit_status.success() {
+                panic!("upsilon-web failed to execute");
             }
         }
     }

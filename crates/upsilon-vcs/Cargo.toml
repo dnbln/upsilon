@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 serde.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+path-slash = "0.2.1"
 git2 = "0.15"
 
 upsilon-core.workspace = true

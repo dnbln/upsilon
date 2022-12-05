@@ -14,18 +14,31 @@
  *    limitations under the License.
  */
 
+use std::borrow::Cow;
+use std::convert::Infallible;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::Arc;
 
+use lazy_static::lazy_static;
+use rocket::data::ByteUnit;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{error, Build, Orbit, Rocket};
+use rocket::http::uri::fmt::ValidRoutePrefix;
+use rocket::http::uri::Origin;
+use rocket::http::{HeaderMap, Status};
+use rocket::request::{FromRequest, Outcome};
+use rocket::response::Responder;
+use rocket::{error, routes, Build, Data, Orbit, Request, Rocket, State};
 use serde::{Deserialize, Deserializer};
+use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use upsilon_core::config::Cfg;
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
-use upsilon_vcs::SpawnDaemonError;
+use upsilon_vcs::{
+    GitBackendCgiRequest, GitBackendCgiRequestMethod, SpawnDaemonError, UpsilonVcsConfig
+};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -146,6 +159,10 @@ impl Fairing for ConfigManager {
             }
         }
 
+        if vcs.http_protocol_enabled() {
+            rocket = rocket.attach(GitHttpProtocolFairing);
+        }
+
         Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
     }
 }
@@ -247,3 +264,204 @@ impl Fairing for GitProtocolDaemonFairing {
             .expect("Failed to kill git daemon");
     }
 }
+
+lazy_static! {
+    // regexes from `git http-backend --help`
+    static ref GIT_HTTP_PROTOCOL_PATHS: regex::Regex = regex::Regex::new(
+        //language=regexp
+        "^/(.*/(HEAD|info/refs|objects/(info/[^/]+|[0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx))|git-(upload|receive)-pack))$"
+    )
+    .unwrap();
+
+
+    // (Accelerated static Apache 2.x)
+    static ref GIT_HTTP_PROTOCOL_STATIC_PATHS: regex::Regex = regex::Regex::new(
+        //language=regexp
+        "^/(.*/objects/([0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}.(pack|idx)))$"
+    ).unwrap();
+}
+
+struct GitHttpProtocolFairing;
+
+#[rocket::async_trait]
+impl Fairing for GitHttpProtocolFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Git HTTP protocol fairing",
+            kind: Kind::Ignite | Kind::Request | Kind::Singleton,
+        }
+    }
+
+    async fn on_ignite(&self, mut rocket: Rocket<Build>) -> rocket::fairing::Result {
+        let vcs_config = rocket
+            .state::<Cfg<UpsilonVcsConfig>>()
+            .expect("Missing state")
+            .clone();
+
+        if vcs_config.http_protocol_enabled() {
+            rocket = rocket
+                .mount(
+                    "/__priv-git-http-backend-cgi",
+                    routes![git_http_backend_cgi_get, git_http_backend_cgi_post],
+                )
+                .mount(
+                    "/__priv-git-static",
+                    rocket::fs::FileServer::from(&vcs_config.path),
+                );
+        }
+
+        Ok(rocket)
+    }
+
+    async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
+        let vcs_config = <&State<Cfg<UpsilonVcsConfig>>>::from_request(req)
+            .await
+            .unwrap()
+            .inner()
+            .clone();
+
+        if !vcs_config.http_protocol_enabled() {
+            return;
+        }
+
+        let uri = req.uri();
+
+        let p = uri.path();
+        let p_str = p.as_str();
+
+        if GIT_HTTP_PROTOCOL_STATIC_PATHS.is_match(p_str) {
+            let Some(captures) = GIT_HTTP_PROTOCOL_STATIC_PATHS.captures(p_str) else {
+                return;
+            };
+            let forward_path = format!("/{}", &captures[1]);
+
+            req.set_uri(
+                Origin::parse("/__priv-git-static/")
+                    .unwrap()
+                    .append(Cow::Owned(forward_path), None),
+            );
+        } else if GIT_HTTP_PROTOCOL_PATHS.is_match(p_str) {
+            let Some(captures) = GIT_HTTP_PROTOCOL_PATHS.captures(p_str) else {
+                return;
+            };
+            let forward_path = format!("/{}", &captures[1]);
+
+            req.set_uri(
+                Origin::parse("/__priv-git-http-backend-cgi/")
+                    .unwrap()
+                    .append(Cow::Owned(forward_path), None),
+            );
+        }
+    }
+}
+
+struct HMap<'r>(&'r HeaderMap<'r>);
+
+impl<'r> HMap<'r> {
+    fn to_headers_list(&self) -> Vec<(String, String)> {
+        self.0
+            .iter()
+            .map(|h| (h.name.to_string(), h.value.to_string()))
+            .collect()
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for HMap<'r> {
+    type Error = Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        Outcome::Success(Self(request.headers()))
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum GitHttpBackendError {
+    #[error("Failed to handle git-http-backend: {0}")]
+    HandleGitHttpBackend(#[from] upsilon_vcs::HttpBackendHandleError),
+    #[error("Failed to read response: {0}")]
+    IO(#[from] std::io::Error),
+}
+
+impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
+        (Status::InternalServerError, self.to_string()).respond_to(request)
+    }
+}
+
+fn status_code_from_status_line(status_line: &str) -> Status {
+    Status::from_code(
+        status_line
+            .split(' ')
+            .next()
+            .expect("Missing code")
+            .parse()
+            .expect("Code is not a number"),
+    )
+    .expect("Invalid code")
+}
+
+#[rocket::get("/<path..>?<query..>")]
+async fn git_http_backend_cgi_get(
+    path: PathBuf,
+    query: Option<String>,
+    headers: HMap<'_>,
+    remote_addr: SocketAddr,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
+) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
+    let path = PathBuf::from("/").join(path); // add the root /
+
+    let req = GitBackendCgiRequest::new(
+        GitBackendCgiRequestMethod::Get,
+        path,
+        query,
+        headers.to_headers_list(),
+        remote_addr,
+        std::io::Cursor::new(""),
+    );
+
+    let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
+    let status = status_code_from_status_line(&response.status_line);
+
+    const RESP_BUF_SIZE: usize = 1024 * 1024;
+
+    let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
+    response.read_to_end(&mut resp_buf).await?;
+
+    Ok((status, resp_buf))
+}
+
+#[rocket::post("/<path..>?<query..>", data = "<data>")]
+async fn git_http_backend_cgi_post(
+    path: PathBuf,
+    query: Option<String>,
+    headers: HMap<'_>,
+    remote_addr: SocketAddr,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
+    data: Data<'_>,
+) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
+    let path = PathBuf::from("/").join(path); // add the root /
+
+    let data_stream = data.open(ByteUnit::Mebibyte(20));
+    let req = GitBackendCgiRequest::new(
+        GitBackendCgiRequestMethod::Post,
+        path,
+        query,
+        headers.to_headers_list(),
+        remote_addr,
+        data_stream,
+    );
+
+    let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
+    let status = status_code_from_status_line(&response.status_line);
+
+    const RESP_BUF_SIZE: usize = 1024 * 1024;
+
+    let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
+    response.read_to_end(&mut resp_buf).await?;
+
+    Ok((status, resp_buf))
+}
+
+// TODO: fix pushing over http, when rocket gets support for webdav
+// see https://github.com/SergioBenitez/Rocket/issues/232

@@ -44,6 +44,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aho-corasick"
+version = "0.7.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc936419f96fa211c1b9166887b38e5e40b19958e5b895be7c1f93adec7071ac"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1430,6 +1439,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "path-slash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e91099d4268b0e11973f036e885d652fb0b21fedcf69738c627f94db6a44f42"
+
+[[package]]
 name = "pear"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1655,6 +1670,8 @@ version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e076559ef8e241f2ae3479e36f97bd5741c0330689e217ad51ce2c76808b868a"
 dependencies = [
+ "aho-corasick",
+ "memchr",
  "regex-syntax",
 ]
 
@@ -2435,8 +2452,10 @@ name = "upsilon-vcs"
 version = "0.1.0"
 dependencies = [
  "git2",
+ "path-slash",
  "serde",
  "thiserror",
+ "tokio",
  "upsilon-core",
 ]
 
@@ -2445,8 +2464,12 @@ name = "upsilon-web"
 version = "0.1.0"
 dependencies = [
  "figment",
+ "futures",
+ "lazy_static",
+ "regex",
  "rocket",
  "serde",
+ "thiserror",
  "tokio",
  "upsilon-api",
  "upsilon-core",

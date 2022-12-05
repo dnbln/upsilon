@@ -1,3 +1,4 @@
+#![feature(drain_filter)]
 /*
  *        Copyright (c) 2022 Dinu Blanovschi
  *
@@ -21,9 +22,16 @@ use std::result::Result as StdResult;
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{TreeEntry, TreeIter};
+pub use http_backend::{
+    handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
+};
 
-pub use self::config::{UpsilonVcsConfig, SpawnDaemonError, spawn_daemon};
+pub use self::config::UpsilonVcsConfig;
+pub use self::daemon::{spawn_daemon, SpawnDaemonError};
 use crate::config::GitProtocol;
+
+mod daemon;
+mod http_backend;
 
 impl UpsilonVcsConfig {
     pub fn repo_dir(&self, repo: impl AsRef<Path>) -> PathBuf {

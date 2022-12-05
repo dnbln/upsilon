@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 rocket.workspace = true
 tokio.workspace = true
+regex.workspace = true
+lazy_static.workspace = true
+futures.workspace = true
+thiserror.workspace = true
 figment = { version = "0.10.8", features = ["yaml"] }
 serde.workspace = true
 upsilon-api.workspace = true
