@@ -20,7 +20,6 @@ use std::convert::Infallible;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::process::Child;
 use std::sync::Arc;
 
 use lazy_static::lazy_static;
@@ -35,6 +34,7 @@ use rocket::{error, routes, Build, Data, Orbit, Request, Response, Rocket, State
 use rocket_basicauth::{BasicAuth, BasicAuthError};
 use serde::{Deserialize, Deserializer};
 use tokio::io::AsyncReadExt;
+use tokio::process::Child;
 use tokio::sync::Mutex;
 use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
 use upsilon_core::config::Cfg;
@@ -265,6 +265,7 @@ impl Fairing for GitProtocolDaemonFairing {
             .lock()
             .await
             .kill()
+            .await
             .expect("Failed to kill git daemon");
     }
 }

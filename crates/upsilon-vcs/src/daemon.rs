@@ -15,7 +15,10 @@
  */
 
 use std::path::PathBuf;
+
 use serde::{Deserialize, Deserializer};
+use tokio::process::{Child, Command};
+
 use crate::config::GitProtocol;
 use crate::UpsilonVcsConfig;
 
@@ -28,13 +31,13 @@ pub enum SpawnDaemonError {
     IoError(#[from] std::io::Error),
 }
 
-pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<std::process::Child, SpawnDaemonError> {
+pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError> {
     let GitProtocol::Enabled(protocol_config) = &config.git_protocol else {Err(SpawnDaemonError::Disabled)?};
     let GitDaemon::Enabled(daemon_config) = &protocol_config.git_daemon else {Err(SpawnDaemonError::Disabled)?};
 
     let access_hook_path = upsilon_core::alt_exe("upsilon-git-protocol-accesshook");
 
-    let mut cmd = std::process::Command::new("git");
+    let mut cmd = Command::new("git");
 
     cmd.arg("daemon")
         .arg(format!("--base-path={}", &config.path.display()))
@@ -46,13 +49,9 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<std::process::Child, Sp
         cmd.arg(format!("--pid-file={}", pid_file.display()));
     }
 
-    fn patch_cmd_for_service(
-        cmd: &mut std::process::Command,
-        service: &GitDaemonService,
-        service_name: &str,
-    ) {
+    fn patch_cmd_for_service(cmd: &mut Command, service: &GitDaemonService, service_name: &str) {
         fn patch_cmd_for_override(
-            cmd: &mut std::process::Command,
+            cmd: &mut Command,
             override_kind: &GitDaemonServiceOverride,
             service_name: &str,
         ) {
