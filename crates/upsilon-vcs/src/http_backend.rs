@@ -192,35 +192,31 @@ pub async fn handle<B: AsyncRead>(
     let mut cmd = tokio::process::Command::new("git");
 
     cmd.arg("http-backend")
-        .env(
-            "GIT_PROJECT_ROOT",
-            dbg!(config.path.to_slash_lossy().as_ref()),
-        )
+        .env("GIT_PROJECT_ROOT", config.path.to_slash_lossy().as_ref())
         .env("REQUEST_METHOD", req.method.as_str())
-        .env("PATH_INFO", dbg!(req.path_info.to_slash_lossy().as_ref()))
+        .env("PATH_INFO", req.path_info.to_slash_lossy().as_ref())
         .env(
             "PATH_TRANSLATED",
-            dbg!(config
+            config
                 .path
                 .join(
                     req.path_info
                         .strip_prefix("/")
-                        .expect("Missing leading slash")
+                        .expect("Missing leading slash"),
                 )
                 .to_slash_lossy()
-                .as_ref()),
+                .as_ref(),
         )
         .env("REMOTE_ADDR", req.remote_addr.ip().to_string())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());
 
     if let Some(qs) = &req.query_string {
-        cmd.env("QUERY_STRING", dbg!(build_query_string(qs)));
+        cmd.env("QUERY_STRING", build_query_string(qs));
     }
 
     for (key, value) in &req.headers {
         let key = key.to_uppercase().replace('-', "_");
-        dbg!(&key, &value);
         match key.as_str() {
             "CONTENT_TYPE" | "CONTENT_LENGTH" | "REMOTE_HOST" | "REMOTE_USER" | "GIT_PROTOCOL" => {
                 cmd.env(key, value);

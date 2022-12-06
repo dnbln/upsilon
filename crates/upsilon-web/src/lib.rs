@@ -17,6 +17,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::io::Cursor;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Child;
@@ -465,6 +466,28 @@ impl<'r> FromRequest<'r> for AuthTokenBasic {
     }
 }
 
+struct ResponseHeaders(Vec<(String, String)>);
+
+struct GitHttpBackendResponder(Status, ResponseHeaders, Vec<u8>);
+
+impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
+        let GitHttpBackendResponder(status, headers, body) = self;
+
+        let mut response = Response::build();
+
+        response.status(status);
+
+        for (name, value) in headers.0 {
+            response.header(Header::new(name, value));
+        }
+
+        response.sized_body(body.len(), Cursor::new(body));
+
+        response.ok()
+    }
+}
+
 #[rocket::get("/<path..>?<query..>")]
 async fn git_http_backend_cgi_get(
     path: PathBuf,
@@ -473,7 +496,7 @@ async fn git_http_backend_cgi_get(
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     auth_token: Option<AuthTokenBasic>,
-) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
+) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     let path = PathBuf::from("/").join(path); // add the root /
 
     let mut req = GitBackendCgiRequest::new(
@@ -508,7 +531,11 @@ async fn git_http_backend_cgi_get(
 
     dbg!(unsafe { std::str::from_utf8_unchecked(&resp_buf) });
 
-    Ok((status, resp_buf))
+    Ok(GitHttpBackendResponder(
+        status,
+        ResponseHeaders(response.headers),
+        resp_buf,
+    ))
 }
 
 #[rocket::post("/<path..>?<query..>", data = "<data>")]
@@ -520,7 +547,7 @@ async fn git_http_backend_cgi_post(
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: Data<'_>,
     auth_token: Option<AuthTokenBasic>,
-) -> Result<(Status, Vec<u8>), GitHttpBackendError> {
+) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     let path = PathBuf::from("/").join(path); // add the root /
 
     let data_stream = data.open(ByteUnit::Mebibyte(20));
@@ -552,6 +579,9 @@ async fn git_http_backend_cgi_post(
     let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
     response.read_to_end(&mut resp_buf).await?;
 
-    Ok((status, resp_buf))
+    Ok(GitHttpBackendResponder(
+        status,
+        ResponseHeaders(response.headers),
+        resp_buf,
+    ))
 }
-
