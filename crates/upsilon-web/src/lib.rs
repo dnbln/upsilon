@@ -526,11 +526,11 @@ impl<'r> FromRequest<'r> for AuthTokenBasic {
     }
 }
 
-struct GitHttpBackendResponder(Status, GitBackendCgiResponse, Vec<u8>);
+struct GitHttpBackendResponder(Status, GitBackendCgiResponse);
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
     fn respond_to(self, _request: &'r Request<'_>) -> rocket::response::Result<'o> {
-        let GitHttpBackendResponder(status, mut cgi_response, body) = self;
+        let GitHttpBackendResponder(status, mut cgi_response) = self;
 
         let mut response = Response::build();
 
@@ -540,13 +540,11 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
             response.header(Header::new(name, value));
         }
 
-        response.sized_body(body.len(), Cursor::new(body));
+        response.streamed_body(cgi_response);
 
         response.ok()
     }
 }
-
-const RESP_BUF_INIT_SIZE: usize = 1024 * 1024;
 
 #[rocket::get("/<path..>?<query..>")]
 async fn git_http_backend_cgi_get(
@@ -581,13 +579,10 @@ async fn git_http_backend_cgi_get(
         }
     }
 
-    let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
+    let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
-    let mut resp_buf = Vec::with_capacity(response.content_length.unwrap_or(RESP_BUF_INIT_SIZE));
-    response.read_to_end(&mut resp_buf).await?;
-
-    Ok(GitHttpBackendResponder(status, response, resp_buf))
+    Ok(GitHttpBackendResponder(status, response))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -626,13 +621,10 @@ async fn git_http_backend_cgi_post(
         }
     }
 
-    let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
+    let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
-    let mut resp_buf = Vec::with_capacity(response.content_length.unwrap_or(RESP_BUF_INIT_SIZE));
-    response.read_to_end(&mut resp_buf).await?;
-
-    Ok(GitHttpBackendResponder(status, response, resp_buf))
+    Ok(GitHttpBackendResponder(status, response))
 }
 
 #[rocket::get("/<path..>")]

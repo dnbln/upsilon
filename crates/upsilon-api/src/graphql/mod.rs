@@ -386,6 +386,44 @@ impl MutationRoot {
 
         Ok(RepoRef(repo))
     }
+
+    async fn global_mirror(
+        context: &GraphQLContext,
+        name: String,
+        url: String,
+    ) -> FieldResult<RepoRef> {
+        let path = context.vcs_config.repo_dir(&name);
+
+        tokio::fs::create_dir_all(&path).await?;
+
+        let vcs_config_clone = context.vcs_config.clone();
+
+        tokio::task::spawn_blocking(move || {
+            upsilon_vcs::setup_mirror_absolute(
+                &vcs_config_clone,
+                url,
+                &RepoConfig::new(RepoVisibility::Public),
+                path,
+            )
+        })
+        .await
+        .expect("Failed to spawn blocking task")?;
+
+        let repo = Repo {
+            id: RepoId::new(),
+            namespace: RepoNamespace(NamespaceId::GlobalNamespace),
+            name: RepoName::from(name),
+            display_name: None,
+        };
+
+        let repo_clone = repo.clone();
+
+        context
+            .query(|qm| async move { qm.create_repo(repo_clone).await })
+            .await?;
+
+        Ok(RepoRef(repo))
+    }
 }
 
 pub struct SubscriptionRoot;

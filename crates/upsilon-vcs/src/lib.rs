@@ -336,19 +336,54 @@ pub fn init_repo_absolute(
     repo_config: RepoConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
+    let repo = git2::Repository::init_bare(&path)?;
+
+    repo_setup(config, path, &repo, &repo_config)?;
+
+    Ok(Repository { repo })
+}
+
+fn repo_setup(
+    config: &UpsilonVcsConfig,
+    path: impl AsRef<Path>,
+    repo: &git2::Repository,
+    repo_config: &RepoConfig,
+) -> Result<()> {
     if let GitProtocol::Enabled(_) = &config.git_protocol {
         if repo_config.visibility == RepoVisibility::Public {
             std::fs::write(path.as_ref().join("git-daemon-export-ok"), "")?;
         }
     }
 
-    let repo = git2::Repository::init_bare(&path)?;
-
     if let GitHttpProtocol::Enabled(_) = &config.http_protocol {
         repo.config()?
             .open_level(ConfigLevel::Local)?
             .set_bool("http.receivepack", true)?;
     }
+
+    Ok(())
+}
+
+pub fn setup_mirror(
+    config: &UpsilonVcsConfig,
+    url: impl AsRef<str>,
+    repo_config: &RepoConfig,
+    path: impl AsRef<Path>,
+) -> Result<Repository> {
+    setup_mirror_absolute(config, url, repo_config, config.repo_dir(path))
+}
+
+pub fn setup_mirror_absolute(
+    config: &UpsilonVcsConfig,
+    mirror_url: impl AsRef<str>,
+    repo_config: &RepoConfig,
+    path: impl AsRef<Path>,
+) -> Result<Repository> {
+    let repo = git2::build::RepoBuilder::new()
+        .bare(true)
+        .clone(mirror_url.as_ref(), path.as_ref())?;
+
+    repo_setup(config, path.as_ref(), &repo, repo_config)?;
 
     Ok(Repository { repo })
 }
