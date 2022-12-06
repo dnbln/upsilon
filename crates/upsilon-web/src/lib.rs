@@ -290,6 +290,13 @@ lazy_static! {
 const PRIVATE_GIT_STATIC_ROOT: &str = "/__priv-git-static";
 const PRIVATE_GIT_HTTP_BACKEND_ROOT: &str = "/__priv-git-http-backend-cgi";
 
+lazy_static! {
+    static ref PRIVATE_GIT_STATIC_ROOT_ORIGIN: Origin<'static> =
+        Origin::parse(PRIVATE_GIT_STATIC_ROOT).unwrap();
+    static ref PRIVATE_GIT_HTTP_BACKEND_ROOT_ORIGIN: Origin<'static> =
+        Origin::parse(PRIVATE_GIT_HTTP_BACKEND_ROOT).unwrap();
+}
+
 #[derive(Debug)]
 struct RepoPath(Vec<String>);
 
@@ -373,29 +380,23 @@ impl Fairing for GitHttpProtocolFairing {
         let p_str = p.as_str();
 
         if GIT_HTTP_PROTOCOL_STATIC_PATHS.is_match(p_str) {
-            let Some(captures) = GIT_HTTP_PROTOCOL_STATIC_PATHS.captures(p_str) else {
-                return;
-            };
-            let forward_path = format!("/{}", &captures[1]);
+            let forward_path = p_str.to_string();
 
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
             req.set_uri(
-                Origin::parse(PRIVATE_GIT_STATIC_ROOT)
-                    .unwrap()
+                PRIVATE_GIT_STATIC_ROOT_ORIGIN
+                    .clone()
                     .append(Cow::Owned(forward_path), query),
             );
         } else if GIT_HTTP_PROTOCOL_PATHS.is_match(p_str) {
-            let Some(captures) = GIT_HTTP_PROTOCOL_PATHS.captures(p_str) else {
-                return;
-            };
-            let forward_path = format!("/{}", &captures[1]);
+            let forward_path = p_str.to_string();
 
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
             req.set_uri(
-                Origin::parse(PRIVATE_GIT_HTTP_BACKEND_ROOT)
-                    .unwrap()
+                PRIVATE_GIT_HTTP_BACKEND_ROOT_ORIGIN
+                    .clone()
                     .append(Cow::Owned(forward_path), query),
             );
         }
