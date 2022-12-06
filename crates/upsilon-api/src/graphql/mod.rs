@@ -406,8 +406,7 @@ impl MutationRoot {
                 path,
             )
         })
-        .await
-        .expect("Failed to spawn blocking task")?;
+        .await??;
 
         let repo = Repo {
             id: RepoId::new(),
