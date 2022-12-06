@@ -193,13 +193,13 @@ pub async fn handle<B: AsyncRead>(
     let mut cmd = tokio::process::Command::new("git");
 
     cmd.arg("http-backend")
-        .env("GIT_PROJECT_ROOT", config.path.to_slash_lossy().as_ref())
+        .env("GIT_PROJECT_ROOT", config.get_path().to_slash_lossy().as_ref())
         .env("REQUEST_METHOD", req.method.as_str())
         .env("PATH_INFO", req.path_info.to_slash_lossy().as_ref())
         .env(
             "PATH_TRANSLATED",
             config
-                .path
+                .get_path()
                 .join(
                     req.path_info
                         .strip_prefix("/")

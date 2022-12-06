@@ -121,8 +121,8 @@ pub struct ConfigManager;
 impl Fairing for ConfigManager {
     fn info(&self) -> Info {
         Info {
-            name: "API fairing configurator",
-            kind: Kind::Ignite | Kind::Singleton,
+            name: "Configurator fairing",
+            kind: Kind::Ignite | Kind::Shutdown | Kind::Singleton,
         }
     }
 
@@ -136,7 +136,7 @@ impl Fairing for ConfigManager {
         };
 
         let Config {
-            vcs,
+            mut vcs,
             data_backend,
             users,
         } = app_config;
@@ -149,6 +149,15 @@ impl Fairing for ConfigManager {
                 rocket.attach(PostgresDataBackendFairing(config))
             }
         };
+
+        match vcs.setup().await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Failed to setup git backend: {}", e);
+
+                return Err(rocket);
+            }
+        }
 
         match upsilon_vcs::spawn_daemon(&vcs) {
             Ok(child) => {
@@ -169,6 +178,17 @@ impl Fairing for ConfigManager {
         }
 
         Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
+    }
+
+    async fn on_shutdown(&self, rocket: &Rocket<Orbit>) {
+        let vcs_config = rocket.state::<Cfg<UpsilonVcsConfig>>().unwrap();
+
+        match vcs_config.shutdown().await {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("Failed to shutdown git backend: {}", e);
+            }
+        }
     }
 }
 
@@ -623,7 +643,7 @@ async fn git_static_get(
 ) -> Result<NamedFile, std::io::Error> {
     dbg!(&repo_path);
 
-    let file_path = vcs_config.path.join(path);
+    let file_path = vcs_config.get_path().join(path);
 
     NamedFile::open(file_path).await
 }

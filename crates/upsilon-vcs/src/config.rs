@@ -22,16 +22,47 @@ use crate::daemon::GitDaemon;
 
 #[derive(Deserialize, Debug)]
 pub struct UpsilonVcsConfig {
-    pub path: PathBuf,
+    path: PathBuf,
+    #[serde(skip_deserializing)]
+    pub(crate) actual_path: PathBuf,
+    #[serde(default = "false_f")]
+    pub(crate) jailed: bool,
     #[serde(rename = "git-protocol")]
     pub(crate) git_protocol: GitProtocol,
     #[serde(rename = "http-protocol")]
     pub(crate) http_protocol: GitHttpProtocol,
 }
 
+fn false_f() -> bool {
+    true
+}
+
 impl UpsilonVcsConfig {
     pub fn http_protocol_enabled(&self) -> bool {
         matches!(self.http_protocol, GitHttpProtocol::Enabled(_))
+    }
+
+    pub fn get_path(&self) -> &PathBuf {
+        &self.actual_path
+    }
+
+    pub async fn setup(&mut self) -> crate::Result<()> {
+        if self.jailed {
+            self.actual_path = self.path.join(format!("vcs-jail-{}", std::process::id()));
+            tokio::fs::create_dir(&self.actual_path).await?;
+        } else {
+            self.actual_path = self.path.clone();
+        }
+
+        Ok(())
+    }
+
+    pub async fn shutdown(&self) -> crate::Result<()> {
+        if self.jailed {
+            tokio::fs::remove_dir_all(&self.actual_path).await?;
+        }
+
+        Ok(())
     }
 }
 

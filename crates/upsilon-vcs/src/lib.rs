@@ -1,4 +1,3 @@
-#![feature(drain_filter)]
 /*
  *        Copyright (c) 2022 Dinu Blanovschi
  *
@@ -15,27 +14,28 @@
  *    limitations under the License.
  */
 
+#![feature(drain_filter)]
+
 mod config;
+mod daemon;
+mod http_backend;
 
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
-use git2::{TreeEntry, TreeIter};
+use git2::{ConfigLevel, TreeEntry, TreeIter};
 pub use http_backend::{
     handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
 
 pub use self::config::UpsilonVcsConfig;
 pub use self::daemon::{spawn_daemon, SpawnDaemonError};
-use crate::config::GitProtocol;
-
-mod daemon;
-mod http_backend;
+use crate::config::{GitHttpProtocol, GitProtocol};
 
 impl UpsilonVcsConfig {
     pub fn repo_dir(&self, repo: impl AsRef<Path>) -> PathBuf {
-        self.path.join(repo)
+        self.get_path().join(repo)
     }
 }
 
@@ -342,9 +342,15 @@ pub fn init_repo_absolute(
         }
     }
 
-    Ok(Repository {
-        repo: git2::Repository::init_bare(path)?,
-    })
+    let repo = git2::Repository::init_bare(&path)?;
+
+    if let GitHttpProtocol::Enabled(_) = &config.http_protocol {
+        repo.config()?
+            .open_level(ConfigLevel::Local)?
+            .set_bool("http.receivepack", true)?;
+    }
+
+    Ok(Repository { repo })
 }
 
 pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {

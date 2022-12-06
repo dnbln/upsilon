@@ -40,7 +40,7 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
     let mut cmd = Command::new("git");
 
     cmd.arg("daemon")
-        .arg(format!("--base-path={}", &config.path.display()))
+        .arg(format!("--base-path={}", &config.get_path().display()))
         .arg(format!("--port={}", daemon_config.port))
         .arg("--reuseaddr")
         .arg(format!(r#"--access-hook="{}""#, access_hook_path.display()));
@@ -92,7 +92,7 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
         "receive-pack",
     );
 
-    cmd.arg(&config.path);
+    cmd.arg(config.get_path());
 
     let child = cmd.spawn()?;
 
