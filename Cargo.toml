@@ -37,6 +37,6 @@ upsilon-web-interface = { path = "crates/upsilon-web-interface" }
 upsilon-xtask = { path = "crates/upsilon-xtask" }
 
 #[patch.crates-io]
-#rocket_http = { git = "https://github.com/dnbln/Rocket", rev = "34ab85e68cc3a71ce461cacc588baac91b93ff0d" }
-#rocket_codegen = { git = "https://github.com/dnbln/Rocket", rev = "34ab85e68cc3a71ce461cacc588baac91b93ff0d" }
-#rocket = { git = "https://github.com/dnbln/Rocket", rev = "34ab85e68cc3a71ce461cacc588baac91b93ff0d" }
+#rocket_http = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }
+#rocket_codegen = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }
+#rocket = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }

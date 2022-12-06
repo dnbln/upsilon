@@ -41,7 +41,7 @@ use upsilon_core::config::Cfg;
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
 use upsilon_vcs::{
-    GitBackendCgiRequest, GitBackendCgiRequestMethod, SpawnDaemonError, UpsilonVcsConfig
+    GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, SpawnDaemonError, UpsilonVcsConfig
 };
 
 #[derive(Deserialize, Debug)]
@@ -466,19 +466,17 @@ impl<'r> FromRequest<'r> for AuthTokenBasic {
     }
 }
 
-struct ResponseHeaders(Vec<(String, String)>);
-
-struct GitHttpBackendResponder(Status, ResponseHeaders, Vec<u8>);
+struct GitHttpBackendResponder(Status, GitBackendCgiResponse, Vec<u8>);
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
-    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
-        let GitHttpBackendResponder(status, headers, body) = self;
+    fn respond_to(self, _request: &'r Request<'_>) -> rocket::response::Result<'o> {
+        let GitHttpBackendResponder(status, mut cgi_response, body) = self;
 
         let mut response = Response::build();
 
         response.status(status);
 
-        for (name, value) in headers.0 {
+        for (name, value) in cgi_response.headers.drain(..) {
             response.header(Header::new(name, value));
         }
 
@@ -487,6 +485,8 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
         response.ok()
     }
 }
+
+const RESP_BUF_INIT_SIZE: usize = 1024 * 1024;
 
 #[rocket::get("/<path..>?<query..>")]
 async fn git_http_backend_cgi_get(
@@ -519,23 +519,13 @@ async fn git_http_backend_cgi_get(
         }
     }
 
-    // dbg!(&req);
-
     let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
-    const RESP_BUF_SIZE: usize = 1024 * 1024;
-
-    let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
+    let mut resp_buf = Vec::with_capacity(response.content_length.unwrap_or(RESP_BUF_INIT_SIZE));
     response.read_to_end(&mut resp_buf).await?;
 
-    dbg!(unsafe { std::str::from_utf8_unchecked(&resp_buf) });
-
-    Ok(GitHttpBackendResponder(
-        status,
-        ResponseHeaders(response.headers),
-        resp_buf,
-    ))
+    Ok(GitHttpBackendResponder(status, response, resp_buf))
 }
 
 #[rocket::post("/<path..>?<query..>", data = "<data>")]
@@ -574,14 +564,8 @@ async fn git_http_backend_cgi_post(
     let mut response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
-    const RESP_BUF_SIZE: usize = 1024 * 1024;
-
-    let mut resp_buf = Vec::with_capacity(RESP_BUF_SIZE);
+    let mut resp_buf = Vec::with_capacity(response.content_length.unwrap_or(RESP_BUF_INIT_SIZE));
     response.read_to_end(&mut resp_buf).await?;
 
-    Ok(GitHttpBackendResponder(
-        status,
-        ResponseHeaders(response.headers),
-        resp_buf,
-    ))
+    Ok(GitHttpBackendResponder(status, response, resp_buf))
 }

@@ -117,6 +117,7 @@ pub struct GitBackendCgiResponse {
 
     pub status_line: String,
     pub headers: Vec<(String, String)>,
+    pub content_length: Option<usize>,
 }
 
 impl AsyncRead for GitBackendCgiResponse {
@@ -275,11 +276,15 @@ pub async fn handle<B: AsyncRead>(
         .collect::<Vec<_>>();
 
     let mut status_line = "200 OK".to_string();
+    let mut content_length = None;
 
-    for (k, v) in headers.drain_filter(|(k, _)| k == "status") {
+    for (k, v) in headers.drain_filter(|(k, _)| k == "status" || k == "content-length") {
         match k.as_str() {
             "status" => {
                 status_line = v;
+            }
+            "content-length" => {
+                content_length = Some(v.parse::<usize>().expect("Invalid content length"));
             }
             _ => unreachable!(),
         }
@@ -299,5 +304,6 @@ pub async fn handle<B: AsyncRead>(
             GitBackendCgiResponseState::ReadbackBuffer
         },
         status_line,
+        content_length,
     })
 }
