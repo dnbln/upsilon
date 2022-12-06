@@ -13,6 +13,11 @@
           "$ref": "#/definitions/non-empty-string",
           "description": "The path where to store the repositories"
         },
+        "jailed": {
+          "type": "boolean",
+          "description": "Whether to use jailed mode. If enabled, this would create a directory under $path that it would clean up on shutdown",
+          "default": false
+        },
         "git-protocol": {
           "type": "object",
           "description": "The git protocol configuration",
