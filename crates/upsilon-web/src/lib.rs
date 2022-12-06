@@ -318,10 +318,10 @@ lazy_static! {
 }
 
 #[derive(Debug)]
-struct RepoPath(Vec<String>);
+struct RepoPathRaw<'r>(&'r str);
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for RepoPath {
+impl<'r> FromRequest<'r> for RepoPathRaw<'r> {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
@@ -333,24 +333,33 @@ impl<'r> FromRequest<'r> for RepoPath {
                 return Outcome::Failure((Status::BadRequest, ()));
             };
 
-            let repo_path = &captures[2];
+            let repo_path = captures.get(2).expect("Didn't match").as_str();
 
-            let repo_path = repo_path.split('/').map(|s| s.to_string()).collect();
-
-            Outcome::Success(RepoPath(repo_path))
+            Outcome::Success(Self(repo_path))
         } else if let Some(path) = uri_str.strip_prefix(PRIVATE_GIT_STATIC_ROOT) {
             let Some(captures) = GIT_HTTP_PROTOCOL_STATIC_PATHS.captures(path) else {
                 return Outcome::Failure((Status::BadRequest, ()));
             };
 
-            let repo_path = &captures[2];
+            let repo_path = captures.get(2).expect("Didn't match").as_str();
 
-            let repo_path = repo_path.split('/').map(|s| s.to_string()).collect();
-
-            Outcome::Success(RepoPath(repo_path))
+            Outcome::Success(Self(repo_path))
         } else {
             Outcome::Failure((Status::BadRequest, ()))
         }
+    }
+}
+
+struct RepoPath(PathBuf);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RepoPath {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        RepoPathRaw::from_request(request)
+            .await
+            .map(|it| Self(PathBuf::from(it.0)))
     }
 }
 
@@ -554,7 +563,7 @@ async fn git_http_backend_cgi_get(
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     auth_token: Option<AuthTokenBasic>,
-    repo_path: RepoPath,
+    repo_path: RepoPathRaw<'_>,
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     dbg!(&repo_path);
     let path = PathBuf::from("/").join(path); // add the root /
@@ -594,7 +603,7 @@ async fn git_http_backend_cgi_post(
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: Data<'_>,
-    repo_path: RepoPath,
+    repo_path: RepoPathRaw<'_>,
     auth_token: Option<AuthTokenBasic>,
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     dbg!(&repo_path);
@@ -630,7 +639,7 @@ async fn git_http_backend_cgi_post(
 #[rocket::get("/<path..>")]
 async fn git_static_get(
     path: PathBuf,
-    repo_path: RepoPath,
+    repo_path: RepoPathRaw<'_>,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
 ) -> Result<NamedFile, std::io::Error> {
     dbg!(&repo_path);
