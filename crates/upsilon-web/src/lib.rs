@@ -25,6 +25,7 @@ use std::sync::Arc;
 use lazy_static::lazy_static;
 use rocket::data::ByteUnit;
 use rocket::fairing::{Fairing, Info, Kind};
+use rocket::fs::NamedFile;
 use rocket::http::uri::fmt::ValidRoutePrefix;
 use rocket::http::uri::Origin;
 use rocket::http::{Header, HeaderMap, Status};
@@ -195,7 +196,7 @@ impl Fairing for InMemoryDataBackendFairing {
         let client = match upsilon_data_inmemory::InMemoryDataClient::init_client(cfg).await {
             Ok(client) => client,
             Err(e) => {
-                eprintln!("Failed to initialize in-memory data backend client: {e}");
+                error!("Failed to initialize in-memory data backend: {}", e);
                 return Err(rocket);
             }
         };
@@ -274,7 +275,7 @@ lazy_static! {
     // regexes from `git http-backend --help`
     static ref GIT_HTTP_PROTOCOL_PATHS: regex::Regex = regex::Regex::new(
         //language=regexp
-        "^/(.*/(HEAD|info/refs|objects/(info/[^/]+|[0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx))|git-(upload|receive)-pack))$"
+        "^/((.*)/(HEAD|info/refs|objects/(info/[^/]+|[0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx))|git-(upload|receive)-pack))$"
     )
     .unwrap();
 
@@ -282,8 +283,48 @@ lazy_static! {
     // (Accelerated static Apache 2.x)
     static ref GIT_HTTP_PROTOCOL_STATIC_PATHS: regex::Regex = regex::Regex::new(
         //language=regexp
-        "^/(.*/objects/([0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx)))$"
+        "^/((.*)/objects/([0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\\.(pack|idx)))$"
     ).unwrap();
+}
+
+const PRIVATE_GIT_STATIC_ROOT: &str = "/__priv-git-static";
+const PRIVATE_GIT_HTTP_BACKEND_ROOT: &str = "/__priv-git-http-backend-cgi";
+
+#[derive(Debug)]
+struct RepoPath(Vec<String>);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RepoPath {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let uri_path = request.uri().path();
+        let uri_str = uri_path.as_str();
+
+        if let Some(path) = uri_str.strip_prefix(PRIVATE_GIT_HTTP_BACKEND_ROOT) {
+            let Some(captures) = GIT_HTTP_PROTOCOL_PATHS.captures(path) else {
+                return Outcome::Failure((Status::BadRequest, ()));
+            };
+
+            let repo_path = &captures[2];
+
+            let repo_path = repo_path.split('/').map(|s| s.to_string()).collect();
+
+            Outcome::Success(RepoPath(repo_path))
+        } else if let Some(path) = uri_str.strip_prefix(PRIVATE_GIT_STATIC_ROOT) {
+            let Some(captures) = GIT_HTTP_PROTOCOL_STATIC_PATHS.captures(path) else {
+                return Outcome::Failure((Status::BadRequest, ()));
+            };
+
+            let repo_path = &captures[2];
+
+            let repo_path = repo_path.split('/').map(|s| s.to_string()).collect();
+
+            Outcome::Success(RepoPath(repo_path))
+        } else {
+            Outcome::Failure((Status::BadRequest, ()))
+        }
+    }
 }
 
 struct GitHttpProtocolFairing;
@@ -306,13 +347,10 @@ impl Fairing for GitHttpProtocolFairing {
         if vcs_config.http_protocol_enabled() {
             rocket = rocket
                 .mount(
-                    "/__priv-git-http-backend-cgi",
+                    PRIVATE_GIT_HTTP_BACKEND_ROOT,
                     routes![git_http_backend_cgi_get, git_http_backend_cgi_post],
                 )
-                .mount(
-                    "/__priv-git-static",
-                    rocket::fs::FileServer::from(&vcs_config.path),
-                );
+                .mount(PRIVATE_GIT_STATIC_ROOT, routes![git_static_get]);
         }
 
         Ok(rocket)
@@ -343,7 +381,7 @@ impl Fairing for GitHttpProtocolFairing {
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
             req.set_uri(
-                Origin::parse("/__priv-git-static/")
+                Origin::parse(PRIVATE_GIT_STATIC_ROOT)
                     .unwrap()
                     .append(Cow::Owned(forward_path), query),
             );
@@ -356,7 +394,7 @@ impl Fairing for GitHttpProtocolFairing {
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
             req.set_uri(
-                Origin::parse("/__priv-git-http-backend-cgi/")
+                Origin::parse(PRIVATE_GIT_HTTP_BACKEND_ROOT)
                     .unwrap()
                     .append(Cow::Owned(forward_path), query),
             );
@@ -497,7 +535,9 @@ async fn git_http_backend_cgi_get(
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     auth_token: Option<AuthTokenBasic>,
+    repo_path: RepoPath,
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
+    dbg!(&repo_path);
     let path = PathBuf::from("/").join(path); // add the root /
 
     let mut req = GitBackendCgiRequest::new(
@@ -506,7 +546,7 @@ async fn git_http_backend_cgi_get(
         query,
         headers.to_headers_list(),
         remote_addr,
-        std::io::Cursor::new(""),
+        Cursor::new(""),
     );
 
     let auth_required = req.auth_required(vcs_config);
@@ -529,6 +569,7 @@ async fn git_http_backend_cgi_get(
     Ok(GitHttpBackendResponder(status, response, resp_buf))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[rocket::post("/<path..>?<query..>", data = "<data>")]
 async fn git_http_backend_cgi_post(
     path: PathBuf,
@@ -537,8 +578,10 @@ async fn git_http_backend_cgi_post(
     remote_addr: SocketAddr,
     vcs_config: &State<Cfg<UpsilonVcsConfig>>,
     data: Data<'_>,
+    repo_path: RepoPath,
     auth_token: Option<AuthTokenBasic>,
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
+    dbg!(&repo_path);
     let path = PathBuf::from("/").join(path); // add the root /
 
     let data_stream = data.open(ByteUnit::Mebibyte(20));
@@ -569,4 +612,17 @@ async fn git_http_backend_cgi_post(
     response.read_to_end(&mut resp_buf).await?;
 
     Ok(GitHttpBackendResponder(status, response, resp_buf))
+}
+
+#[rocket::get("/<path..>")]
+async fn git_static_get(
+    path: PathBuf,
+    repo_path: RepoPath,
+    vcs_config: &State<Cfg<UpsilonVcsConfig>>,
+) -> Result<NamedFile, std::io::Error> {
+    dbg!(&repo_path);
+
+    let file_path = vcs_config.path.join(path);
+
+    NamedFile::open(file_path).await
 }
