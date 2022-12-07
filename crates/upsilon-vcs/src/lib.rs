@@ -319,6 +319,9 @@ pub enum Error {
 
     #[error("unknown object")]
     Unknown,
+
+    #[error("no such repo")]
+    NoSuchRepo,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -341,6 +344,20 @@ pub fn init_repo_absolute(
     repo_setup(config, path, &repo, &repo_config)?;
 
     Ok(Repository { repo })
+}
+
+fn check_repo_exists_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+
+    if !path.exists() {
+        return Err(Error::NoSuchRepo);
+    }
+
+    if !path.join(REPO_ID_FILE).exists() {
+        return Err(Error::NoSuchRepo);
+    }
+
+    Ok(())
 }
 
 const REPO_ID_FILE: &str = "upsilon-repoid";
@@ -372,7 +389,17 @@ pub async fn read_repo_id_absolute(
     config: &UpsilonVcsConfig,
     repo_path: impl AsRef<Path>,
 ) -> Result<String> {
-    Ok(tokio::fs::read_to_string(repo_path.as_ref().join(REPO_ID_FILE)).await?)
+    if !repo_path.as_ref().exists() {
+        return Err(Error::NoSuchRepo);
+    }
+
+    let repo_id_file = repo_path.as_ref().join(REPO_ID_FILE);
+
+    if !repo_id_file.exists() {
+        return Err(Error::NoSuchRepo);
+    }
+
+    Ok(tokio::fs::read_to_string(repo_id_file).await?)
 }
 
 pub async fn read_repo_id(
@@ -410,8 +437,12 @@ pub fn setup_mirror_absolute(
 }
 
 pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+    let repo_dir = config.repo_dir(path);
+
+    check_repo_exists_absolute(config, &repo_dir)?;
+
     Ok(Repository {
-        repo: git2::Repository::open_bare(config.repo_dir(path))?,
+        repo: git2::Repository::open_bare(repo_dir)?,
     })
 }
 

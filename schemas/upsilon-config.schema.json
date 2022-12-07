@@ -112,6 +112,23 @@
       ],
       "additionalProperties": false
     },
+    "vcs-errors": {
+      "type": "object",
+      "description": "The VCS error configuration",
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "Whether to show verbose error messages in HTTP replies (default is false in release)",
+          "default": true
+        },
+        "leak-hidden-repos": {
+          "type": "boolean",
+          "description": "Whether to leak hidden repositories in HTTP (default is false in release)",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
     "web": {
       "description": "Information about the server",
       "type": "object",

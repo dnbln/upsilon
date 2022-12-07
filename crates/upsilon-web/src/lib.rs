@@ -38,7 +38,7 @@ use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::sync::Mutex;
 use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
-use upsilon_core::config::Cfg;
+use upsilon_core::config::{Cfg, UsersConfig};
 use upsilon_data::upsilon_models::repo::{Repo, RepoId, RepoPermissions};
 use upsilon_data::{DataClient, DataClientMasterHolder, DataQueryMaster};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
@@ -52,7 +52,84 @@ pub struct Config {
     #[serde(rename = "data-backend")]
     data_backend: DataBackendConfig,
 
-    users: upsilon_core::config::UsersConfig,
+    users: UsersConfig,
+
+    #[serde(rename = "vcs-errors", default)]
+    vcs_errors: VcsErrorsConfig,
+}
+
+#[derive(Debug)]
+pub struct VcsErrorsConfig {
+    leak_hidden_repos: bool,
+    verbose: bool,
+}
+
+impl VcsErrorsConfig {
+    fn debug_default() -> Self {
+        Self {
+            leak_hidden_repos: true,
+            verbose: true,
+        }
+    }
+
+    fn release_default() -> Self {
+        Self {
+            leak_hidden_repos: false,
+            verbose: false,
+        }
+    }
+
+    fn if_verbose<T, F>(&self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+        T: for<'a> From<&'a str>,
+    {
+        if self.verbose {
+            f()
+        } else {
+            T::from("")
+        }
+    }
+}
+
+impl Default for VcsErrorsConfig {
+    fn default() -> Self {
+        #[cfg(debug_assertions)]
+        {
+            Self::debug_default()
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            Self::release_default()
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for VcsErrorsConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        struct VcsErrorsConfigPatch {
+            leak_hidden_repos: Option<bool>,
+            verbose: Option<bool>,
+        }
+
+        let patch = VcsErrorsConfigPatch::deserialize(deserializer)?;
+        let mut patched_value = Self::default();
+
+        if let Some(leak_hidden_repos) = patch.leak_hidden_repos {
+            patched_value.leak_hidden_repos = leak_hidden_repos;
+        }
+
+        if let Some(verbose) = patch.verbose {
+            patched_value.verbose = verbose;
+        }
+
+        Ok(patched_value)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +160,7 @@ impl<'de> Deserialize<'de> for InMemoryConfigSaveStrategy {
                 save: true,
                 path: None,
             } => Err(serde::de::Error::custom(
-                "Path is required when save is true",
+                "path is required when save is true",
             )),
             SaveStrategy {
                 save: false,
@@ -140,6 +217,7 @@ impl Fairing for ConfigManager {
             mut vcs,
             data_backend,
             users,
+            vcs_errors,
         } = app_config;
 
         rocket = match data_backend {
@@ -178,7 +256,10 @@ impl Fairing for ConfigManager {
             rocket = rocket.attach(GitHttpProtocolFairing);
         }
 
-        Ok(rocket.manage(Cfg::new(vcs)).manage(Cfg::new(users)))
+        Ok(rocket
+            .manage(Cfg::new(vcs))
+            .manage(Cfg::new(vcs_errors))
+            .manage(Cfg::new(users)))
     }
 
     async fn on_shutdown(&self, rocket: &Rocket<Orbit>) {
@@ -504,27 +585,44 @@ enum GitHttpBackendError {
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
+        let vcs_errors = request.rocket().state::<Cfg<VcsErrorsConfig>>().unwrap();
+
         match self {
-            GitHttpBackendError::HandleGitHttpBackend(_) => {
-                (Status::InternalServerError, self.to_string()).respond_to(request)
-            }
-            GitHttpBackendError::IO(_) => {
-                (Status::InternalServerError, self.to_string()).respond_to(request)
-            }
-            GitHttpBackendError::GetRepoError(_) => {
-                (Status::InternalServerError, self.to_string()).respond_to(request)
-            }
+            GitHttpBackendError::HandleGitHttpBackend(_) => (
+                Status::InternalServerError,
+                vcs_errors.if_verbose(|| self.to_string()),
+            )
+                .respond_to(request),
+            GitHttpBackendError::IO(_) => (
+                Status::InternalServerError,
+                vcs_errors.if_verbose(|| self.to_string()),
+            )
+                .respond_to(request),
+            GitHttpBackendError::GetRepoError(_) => (
+                Status::InternalServerError,
+                vcs_errors.if_verbose(|| self.to_string()),
+            )
+                .respond_to(request),
             GitHttpBackendError::AuthRequired => Response::build()
                 .status(Status::Unauthorized)
                 .header(Header::new("WWW-Authenticate", "Basic"))
                 .ok(),
-            GitHttpBackendError::HiddenRepo => (Status::NotFound, "").respond_to(request),
+            GitHttpBackendError::HiddenRepo => match vcs_errors.leak_hidden_repos {
+                true => (
+                    Status::Forbidden,
+                    "There appears to be a hidden repository here...",
+                )
+                    .respond_to(request),
+                false => (Status::NotFound, "").respond_to(request),
+            },
             GitHttpBackendError::MissingWritePermissions => {
                 (Status::Forbidden, self.to_string()).respond_to(request)
             }
-            GitHttpBackendError::DataBackendError(_) => {
-                (Status::InternalServerError, self.to_string()).respond_to(request)
-            }
+            GitHttpBackendError::DataBackendError(_) => (
+                Status::InternalServerError,
+                vcs_errors.if_verbose(|| self.to_string()),
+            )
+                .respond_to(request),
         }
     }
 }
