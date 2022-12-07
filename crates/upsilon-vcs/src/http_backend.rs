@@ -243,9 +243,8 @@ pub async fn handle<B: AsyncRead>(
             config
                 .get_path()
                 .join(
-                    req.path_info
-                        .strip_prefix("/")
-                        .expect("Missing leading slash"),
+                    // try to strip the leading `/` before joining
+                    req.path_info.strip_prefix("/").unwrap_or(&req.path_info),
                 )
                 .to_slash_lossy()
                 .as_ref(),

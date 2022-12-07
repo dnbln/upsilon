@@ -75,13 +75,14 @@ macro_rules! cmd {
 macro_rules! cmd_call {
     ($($args:expr),+ $(, @workdir = $wd:expr)? $(,)?) => {
         {
-            let v: $crate::cmd::CmdResult = try {
+            (|| -> $crate::cmd::CmdResult {
                 let exit_status = $crate::cmd::cmd_process!($($args),+ $(, @workdir = $wd)?).spawn()?.wait()?;
                 if !exit_status.success() {
                     Err::<(), _>($crate::cmd::CmdError::NotSuccess(exit_status))?
                 }
-            };
-            v
+
+                Ok(())
+            })()
         }
     };
 }
@@ -123,9 +124,7 @@ macro_rules! cargo_cmd {
 }
 
 pub(crate) fn cargo_path() -> PathBuf {
-    let p = PathBuf::from(env!("CARGO"));
-
-    p
+    PathBuf::from(env!("CARGO"))
 }
 
 #[derive(Debug)]

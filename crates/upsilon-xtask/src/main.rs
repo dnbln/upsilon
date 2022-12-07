@@ -14,8 +14,6 @@
  *    limitations under the License.
  */
 
-#![feature(try_blocks)]
-
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 

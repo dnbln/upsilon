@@ -298,15 +298,12 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
 }
 
 fn status_code_from_status_line(status_line: &str) -> Status {
-    Status::from_code(
-        status_line
-            .split(' ')
-            .next()
-            .expect("Missing code")
-            .parse()
-            .expect("Code is not a number"),
-    )
-    .expect("Invalid code")
+    let status_num = status_line
+        .bytes()
+        .position(|it| it == b' ')
+        .map_or(status_line, |it| &status_line[..it]);
+
+    Status::from_code(status_num.parse().expect("Code is not a number")).expect("Invalid code")
 }
 
 #[derive(Debug)]

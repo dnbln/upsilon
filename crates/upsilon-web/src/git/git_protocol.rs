@@ -43,11 +43,11 @@ impl Fairing for GitProtocolDaemonFairing {
     }
 
     async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
-        self.child
-            .lock()
-            .await
-            .kill()
-            .await
-            .expect("Failed to kill git daemon");
+        match self.child.lock().await.kill().await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Failed to kill git protocol daemon: {}", e);
+            }
+        }
     }
 }

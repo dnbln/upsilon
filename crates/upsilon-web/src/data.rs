@@ -15,8 +15,9 @@
  */
 
 use std::path::PathBuf;
+
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{Build, error, Orbit, Rocket};
+use rocket::{error, Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
 use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
@@ -29,8 +30,8 @@ pub enum InMemoryConfigSaveStrategy {
 
 impl<'de> Deserialize<'de> for InMemoryConfigSaveStrategy {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct SaveStrategy {
@@ -81,7 +82,6 @@ pub enum DataBackendConfig {
     #[serde(rename = "postgres")]
     Postgres(PostgresDataBackendConfig),
 }
-
 
 pub(crate) struct InMemoryDataBackendFairing(InMemoryDataBackendConfig);
 
@@ -164,9 +164,9 @@ impl Fairing for DataBackendShutdownFairing {
             .state::<DataClientMasterHolder>()
             .expect("Missing state");
 
-        holder
-            .on_shutdown()
-            .await
-            .expect("Data backend shutdown error");
+        match holder.on_shutdown().await {
+            Ok(_) => (),
+            Err(e) => error!("Failed to shutdown data backend: {}", e),
+        }
     }
 }
