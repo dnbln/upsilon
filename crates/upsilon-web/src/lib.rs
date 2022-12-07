@@ -34,6 +34,7 @@ use rocket::response::Responder;
 use rocket::{error, routes, Build, Data, Orbit, Request, Response, Rocket, State};
 use rocket_basicauth::{BasicAuth, BasicAuthError};
 use serde::{Deserialize, Deserializer};
+use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::sync::Mutex;
 use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
@@ -639,43 +640,17 @@ async fn git_http_backend_cgi_get(
 
     let auth_required_kind = req.auth_required_permissions_kind(vcs_config);
 
-    user_has_necessary_permissions(
+    auth_if_user_has_necessary_permissions(
         repo_perms_for_user,
         auth_required_kind,
         auth_token.is_some(),
+        &mut req,
     )?;
-
-    req.auth(); // if the previous line didn't error, we are authenticated,
-                // or at least authorized to perform the request
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
 
     Ok(GitHttpBackendResponder(status, response))
-}
-
-fn user_has_necessary_permissions(
-    user_permissions: RepoPermissions,
-    required_permissions: AuthRequiredPermissionsKind,
-    auth: bool,
-) -> Result<(), GitHttpBackendError> {
-    if required_permissions.read() && !user_permissions.can_read() {
-        if !auth {
-            Err(GitHttpBackendError::AuthRequired)?;
-        } else {
-            Err(GitHttpBackendError::HiddenRepo)?;
-        }
-    }
-
-    if required_permissions.write() && !user_permissions.can_write() {
-        if !auth {
-            Err(GitHttpBackendError::AuthRequired)?;
-        } else {
-            Err(GitHttpBackendError::MissingWritePermissions)?;
-        }
-    }
-
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -715,14 +690,12 @@ async fn git_http_backend_cgi_post(
 
     let auth_required_kind = req.auth_required_permissions_kind(vcs_config);
 
-    user_has_necessary_permissions(
+    auth_if_user_has_necessary_permissions(
         repo_perms_for_user,
         auth_required_kind,
         auth_token.is_some(),
+        &mut req,
     )?;
-
-    req.auth(); // if the previous line didn't error, we are authenticated,
-                // or at least authorized to perform the request
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
@@ -748,6 +721,7 @@ async fn git_static_get(
         None => repo.global_permissions,
     };
 
+    // we only need read perms to send static files
     if !repo_perms_for_user.can_read() {
         if auth.is_some() {
             Err(GitHttpBackendError::AuthRequired)?;
@@ -759,4 +733,33 @@ async fn git_static_get(
     let file_path = vcs_config.get_path().join(path);
 
     Ok(NamedFile::open(file_path).await?)
+}
+
+fn auth_if_user_has_necessary_permissions<B: AsyncRead>(
+    user_permissions: RepoPermissions,
+    required_permissions: AuthRequiredPermissionsKind,
+    auth: bool,
+    req: &mut GitBackendCgiRequest<B>,
+) -> Result<(), GitHttpBackendError> {
+    if required_permissions.read() && !user_permissions.can_read() {
+        if !auth {
+            Err(GitHttpBackendError::AuthRequired)?;
+        } else {
+            Err(GitHttpBackendError::HiddenRepo)?;
+        }
+    }
+
+    if required_permissions.write() && !user_permissions.can_write() {
+        if !auth {
+            Err(GitHttpBackendError::AuthRequired)?;
+        } else {
+            Err(GitHttpBackendError::MissingWritePermissions)?;
+        }
+    }
+
+    // if we got here, the user has all the necessary permissions,
+    // so authorize the request.
+    req.auth();
+
+    Ok(())
 }

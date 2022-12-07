@@ -85,6 +85,7 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
         }
     }
 
+    /// Authorize the request.
     pub fn auth(&mut self) {
         self.auth = true;
     }
