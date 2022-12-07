@@ -63,6 +63,8 @@ impl __InternalUUID {
     }
 }
 
+pub type FromStrError = uuid::Error;
+
 #[macro_export]
 macro_rules! id_ty {
     (

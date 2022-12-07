@@ -14,9 +14,15 @@
  *    limitations under the License.
  */
 
+use std::fmt;
+use std::fmt::Formatter;
+
+use bitflags::bitflags;
+
 use crate::namespace::{
     NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef
 };
+use crate::users::UserId;
 
 upsilon_id::id_ty! {
     #[uuid]
@@ -54,15 +60,66 @@ pub struct Repo {
     pub name: RepoName,
     pub namespace: RepoNamespace,
     pub display_name: Option<RepoDisplayName>,
+    /// Permissions all users have by default.
+    pub global_permissions: RepoPermissions,
 }
 
-impl Repo {
-    pub fn new(id: RepoId, name: RepoName, namespace: RepoNamespace) -> Self {
-        Self {
-            id,
-            name,
-            namespace,
-            display_name: None,
+bitflags! {
+    #[derive(Copy, Clone, Eq, PartialEq)]
+    pub struct RepoPermissions: u64 {
+        const NONE = 0;
+        const READ = 0b0000_0001;
+        const WRITE = 0b0000_0010;
+        const ADMIN = 0b0000_0100;
+    }
+}
+
+impl RepoPermissions {
+    pub fn can_read(&self) -> bool {
+        self.contains(RepoPermissions::READ)
+    }
+
+    pub fn can_write(&self) -> bool {
+        self.contains(RepoPermissions::WRITE)
+    }
+
+    pub fn has_admin(&self) -> bool {
+        self.contains(RepoPermissions::ADMIN)
+    }
+}
+
+impl fmt::Debug for RepoPermissions {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut wrote_any = false;
+
+        write!(f, "RepoPermissions(")?;
+        if self.contains(RepoPermissions::READ) {
+            write!(f, "READ")?;
+            wrote_any = true;
         }
+
+        if self.contains(RepoPermissions::WRITE) {
+            if wrote_any {
+                write!(f, ", ")?;
+            }
+            write!(f, "WRITE")?;
+            wrote_any = true;
+        }
+
+        if self.contains(RepoPermissions::ADMIN) {
+            if wrote_any {
+                write!(f, ", ")?;
+            }
+            write!(f, "ADMIN")?;
+            wrote_any = true;
+        }
+
+        if !wrote_any {
+            write!(f, "NONE")?;
+        }
+
+        write!(f, ")")?;
+
+        Ok(())
     }
 }

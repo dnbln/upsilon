@@ -231,6 +231,10 @@ query_impl_trait! {
         {into} repo_id: upsilon_models::repo::RepoId,
         {into} repo_name: upsilon_models::repo::RepoName,
     );
+    async fn query_repo_user_perms<'self_ref>(
+        {into} repo_id: upsilon_models::repo::RepoId,
+        {into} user_id: upsilon_models::users::UserId,
+    ) -> Option<upsilon_models::repo::RepoPermissions>;
 
     // ================================
     // ======== Organizations =========

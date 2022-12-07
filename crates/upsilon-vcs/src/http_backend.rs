@@ -89,15 +89,50 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
         self.auth = true;
     }
 
-    pub fn auth_required(&self, config: &UpsilonVcsConfig) -> bool {
-        let GitHttpProtocol::Enabled(config) = &config.http_protocol else {return false;};
-        config.push_auth_required
-            && (self
-                .query_string
-                .as_ref()
-                .map(|qs| qs.get("service").map(String::as_str) == Some("git-receive-pack"))
-                .unwrap_or(false)
-                || self.path_info.ends_with("/git-receive-pack"))
+    pub fn auth_required_permissions_kind(&self, config: &UpsilonVcsConfig) -> AuthRequiredPermissionsKind {
+        let GitHttpProtocol::Enabled(_config) = &config.http_protocol else {return AuthRequiredPermissionsKind::_none();};
+
+        let mut kind = AuthRequiredPermissionsKind::_read();
+        if self
+            .query_string
+            .as_ref()
+            .map(|qs| qs.get("service").map(String::as_str) == Some("git-receive-pack"))
+            .unwrap_or(false)
+            || self.path_info.ends_with("/git-receive-pack")
+        {
+            kind.write = true;
+        }
+
+        kind
+    }
+}
+
+pub struct AuthRequiredPermissionsKind {
+    read: bool,
+    write: bool,
+}
+
+impl AuthRequiredPermissionsKind {
+    pub fn read(&self) -> bool {
+        self.read
+    }
+
+    pub fn write(&self) -> bool {
+        self.write
+    }
+
+    fn _read() -> Self {
+        Self {
+            read: true,
+            write: false,
+        }
+    }
+
+    fn _none() -> Self {
+        Self {
+            read: false,
+            write: false,
+        }
     }
 }
 
@@ -193,7 +228,10 @@ pub async fn handle<B: AsyncRead>(
     let mut cmd = tokio::process::Command::new("git");
 
     cmd.arg("http-backend")
-        .env("GIT_PROJECT_ROOT", config.get_path().to_slash_lossy().as_ref())
+        .env(
+            "GIT_PROJECT_ROOT",
+            config.get_path().to_slash_lossy().as_ref(),
+        )
         .env("REQUEST_METHOD", req.method.as_str())
         .env("PATH_INFO", req.path_info.to_slash_lossy().as_ref())
         .env(
@@ -228,9 +266,7 @@ pub async fn handle<B: AsyncRead>(
         }
     }
 
-    let auth_req = req.auth_required(config);
-
-    if auth_req && !req.auth {
+    if !req.auth {
         Err(HandleError::NotAuthenticated)?;
     }
 

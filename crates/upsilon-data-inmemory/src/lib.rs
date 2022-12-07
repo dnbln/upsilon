@@ -29,7 +29,7 @@ use upsilon_models::namespace::{NamespaceId, NamespaceKind};
 use upsilon_models::organization::{
     Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, OrganizationNameRef, Team, TeamDisplayName, TeamId, TeamName, TeamNameRef
 };
-use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace};
+use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace, RepoPermissions};
 use upsilon_models::users::{User, UserId, Username, UsernameRef};
 use upsilon_stdx::TakeIfUnless;
 
@@ -83,6 +83,7 @@ struct InMemoryDataStore {
     organization_members:
         Arc<RwLock<BTreeMap<OrganizationId, BTreeMap<UserId, OrganizationMember>>>>,
     teams: Arc<RwLock<BTreeMap<TeamId, Team>>>,
+    repo_permissions: Arc<RwLock<BTreeMap<RepoId, BTreeMap<UserId, RepoPermissions>>>>,
 }
 
 impl InMemoryDataStore {
@@ -97,6 +98,7 @@ impl InMemoryDataStore {
             organizations: new_map(),
             organization_members: new_map(),
             teams: new_map(),
+            repo_permissions: new_map(),
         }
     }
 }
@@ -105,8 +107,8 @@ pub struct InMemoryDataClient(InMemoryStorageConfiguration, Box<InMemoryDataStor
 
 #[async_trait]
 impl DataClient for InMemoryDataClient {
-    type InnerConfiguration = InMemoryStorageConfiguration;
     type Error = InMemoryError;
+    type InnerConfiguration = InMemoryStorageConfiguration;
     type QueryImpl<'a> = InMemoryQueryImpl<'a>;
 
     async fn init_client(config: Self::InnerConfiguration) -> Result<Self, Self::Error>
@@ -561,6 +563,18 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .get_mut(&repo_id)
             .map(|repo| repo.name = repo_name)
             .ok_or(InMemoryError::RepoNotFound)
+    }
+
+    async fn query_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+    ) -> Result<Option<RepoPermissions>, Self::Error> {
+        let lock = self.store().repo_permissions.read().await;
+
+        Ok(lock
+            .get(&repo_id)
+            .and_then(|map| map.get(&user_id).cloned()))
     }
 
     async fn create_organization(&self, org: Organization) -> Result<(), Self::Error> {

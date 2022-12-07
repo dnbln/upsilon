@@ -11,6 +11,7 @@ thiserror.workspace = true
 rust-argon2 = "1"
 bcrypt = "0.13"
 juniper.workspace = true
+bitflags.workspace = true
 
 upsilon-core.workspace = true
 upsilon-id.workspace = true

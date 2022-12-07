@@ -26,7 +26,7 @@ use std::result::Result as StdResult;
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{ConfigLevel, TreeEntry, TreeIter};
 pub use http_backend::{
-    handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
+    handle as http_backend_handle, AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
 
 pub use self::config::UpsilonVcsConfig;
@@ -343,6 +343,8 @@ pub fn init_repo_absolute(
     Ok(Repository { repo })
 }
 
+const REPO_ID_FILE: &str = "upsilon-repoid";
+
 fn repo_setup(
     config: &UpsilonVcsConfig,
     path: impl AsRef<Path>,
@@ -361,7 +363,23 @@ fn repo_setup(
             .set_bool("http.receivepack", true)?;
     }
 
+    std::fs::write(path.as_ref().join(REPO_ID_FILE), &repo_config.id)?;
+
     Ok(())
+}
+
+pub async fn read_repo_id_absolute(
+    config: &UpsilonVcsConfig,
+    repo_path: impl AsRef<Path>,
+) -> Result<String> {
+    Ok(tokio::fs::read_to_string(repo_path.as_ref().join(REPO_ID_FILE)).await?)
+}
+
+pub async fn read_repo_id(
+    config: &UpsilonVcsConfig,
+    repo_path: impl AsRef<Path>,
+) -> Result<String> {
+    read_repo_id_absolute(config, config.repo_dir(repo_path)).await
 }
 
 pub fn setup_mirror(
@@ -379,9 +397,12 @@ pub fn setup_mirror_absolute(
     repo_config: &RepoConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
+    let mirror_url_clone = mirror_url.as_ref().to_string();
+    let path_clone = path.as_ref().to_path_buf();
+
     let repo = git2::build::RepoBuilder::new()
         .bare(true)
-        .clone(mirror_url.as_ref(), path.as_ref())?;
+        .clone(&mirror_url_clone, &path_clone)?;
 
     repo_setup(config, path.as_ref(), &repo, repo_config)?;
 
@@ -396,11 +417,15 @@ pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Rep
 
 pub struct RepoConfig {
     visibility: RepoVisibility,
+    id: String,
 }
 
 impl RepoConfig {
-    pub fn new(visibility: RepoVisibility) -> Self {
-        Self { visibility }
+    pub fn new(visibility: RepoVisibility, id: impl Into<String>) -> Self {
+        Self {
+            visibility,
+            id: id.into(),
+        }
     }
 }
 

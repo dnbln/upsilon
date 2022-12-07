@@ -34,7 +34,7 @@ use upsilon_models::namespace::NamespaceId;
 use upsilon_models::organization::{
     OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, Team, TeamDisplayName, TeamId, TeamName
 };
-use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace};
+use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace, RepoPermissions};
 use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
 use upsilon_models::users::{User, UserDisplayName, UserId, Username};
@@ -109,10 +109,13 @@ impl GraphQLContext {
     async fn init_repo(&self, repo_config: RepoConfig, path: PathBuf) -> FieldResult<()> {
         let vcs_config_clone = self.vcs_config.clone();
 
-        let _ = tokio::task::spawn_blocking(move || {
-            upsilon_vcs::init_repo_absolute(&vcs_config_clone, repo_config, &path)
+        tokio::task::spawn_blocking(move || {
+            let _ = upsilon_vcs::init_repo_absolute(&vcs_config_clone, repo_config, &path)?;
+            // drop the repository on the same thread
+
+            Ok::<_, FieldError>(())
         })
-        .await?;
+        .await??;
 
         Ok(())
     }
@@ -275,6 +278,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::User(auth.claims.sub)),
             name: name.clone(),
             display_name: None,
+            global_permissions: RepoPermissions::READ,
         };
 
         let repo_clone = repo.clone();
@@ -291,7 +295,10 @@ impl MutationRoot {
         tokio::fs::create_dir_all(&path).await?;
 
         context
-            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .init_repo(
+                RepoConfig::new(RepoVisibility::Public, repo.id.to_string()),
+                path,
+            )
             .await?;
 
         Ok(RepoRef(repo))
@@ -317,6 +324,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::Organization(organization_id)),
             name: name.clone(),
             display_name: None,
+            global_permissions: RepoPermissions::READ,
         };
 
         let repo_clone = repo.clone();
@@ -334,7 +342,10 @@ impl MutationRoot {
         tokio::fs::create_dir_all(&path).await?;
 
         context
-            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .init_repo(
+                RepoConfig::new(RepoVisibility::Public, repo.id.to_string()),
+                path,
+            )
             .await?;
 
         Ok(RepoRef(repo))
@@ -364,6 +375,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::Team(team.organization_id, team_id)),
             name: name.clone(),
             display_name: None,
+            global_permissions: RepoPermissions::READ,
         };
 
         let repo_clone = repo.clone();
@@ -381,7 +393,10 @@ impl MutationRoot {
 
         tokio::fs::create_dir_all(&path).await?;
         context
-            .init_repo(RepoConfig::new(RepoVisibility::Public), path)
+            .init_repo(
+                RepoConfig::new(RepoVisibility::Public, repo.id.to_string()),
+                path,
+            )
             .await?;
 
         Ok(RepoRef(repo))
@@ -398,21 +413,12 @@ impl MutationRoot {
 
         let vcs_config_clone = context.vcs_config.clone();
 
-        tokio::task::spawn_blocking(move || {
-            upsilon_vcs::setup_mirror_absolute(
-                &vcs_config_clone,
-                url,
-                &RepoConfig::new(RepoVisibility::Public),
-                path,
-            )
-        })
-        .await??;
-
         let repo = Repo {
             id: RepoId::new(),
             namespace: RepoNamespace(NamespaceId::GlobalNamespace),
             name: RepoName::from(name),
             display_name: None,
+            global_permissions: RepoPermissions::READ,
         };
 
         let repo_clone = repo.clone();
@@ -420,6 +426,20 @@ impl MutationRoot {
         context
             .query(|qm| async move { qm.create_repo(repo_clone).await })
             .await?;
+
+        let repo_id_string = repo.id.to_string();
+
+        tokio::task::spawn_blocking(move || {
+            let _ = upsilon_vcs::setup_mirror_absolute(
+                &vcs_config_clone,
+                url,
+                &RepoConfig::new(RepoVisibility::Public, repo_id_string),
+                path,
+            )?;
+
+            Ok::<_, FieldError>(())
+        })
+        .await??;
 
         Ok(RepoRef(repo))
     }
