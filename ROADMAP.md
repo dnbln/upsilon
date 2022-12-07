@@ -9,7 +9,7 @@ progress.
 - [x] `http://`
     - [x] `clone`s / `fetch`es
     - [x] `push`es
-- [ ] `ssh://`
+- [ ] `ssh://` (https://github.com/dnbln/upsilon/issues/1)
     - [ ] `clone`s / `fetch`es
     - [ ] `push`es
 
@@ -30,8 +30,7 @@ progress.
     - [x] Create organization
 - [ ] Teams
 
-## Frontend
-
+## Frontend (https://github.com/dnbln/upsilon/issues/3)
 - [ ] Users
 - [ ] Repositories
 - [ ] Organizations
