@@ -90,7 +90,10 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
         self.auth = true;
     }
 
-    pub fn auth_required_permissions_kind(&self, config: &UpsilonVcsConfig) -> AuthRequiredPermissionsKind {
+    pub fn auth_required_permissions_kind(
+        &self,
+        config: &UpsilonVcsConfig,
+    ) -> AuthRequiredPermissionsKind {
         let GitHttpProtocol::Enabled(_config) = &config.http_protocol else {return AuthRequiredPermissionsKind::_none();};
 
         let mut kind = AuthRequiredPermissionsKind::_read();

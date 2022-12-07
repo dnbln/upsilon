@@ -83,7 +83,10 @@ where
     }
 }
 
-impl<T> Clone for Cfg<T> where T: Send + Sync {
+impl<T> Clone for Cfg<T>
+where
+    T: Send + Sync,
+{
     fn clone(&self) -> Self {
         Self(Arc::clone(&self.0))
     }

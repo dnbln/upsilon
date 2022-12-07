@@ -5,6 +5,18 @@
   "description": "Upsilon configuration file format",
   "type": "object",
   "properties": {
+    "debug": {
+      "type": "object",
+      "description": "Debug options",
+      "properties": {
+        "debug-data": {
+          "type": "boolean",
+          "description": "Enable debug data",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "vcs": {
       "description": "The VCS configuration",
       "type": "object",

@@ -20,6 +20,7 @@ use std::convert::Infallible;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use lazy_static::lazy_static;
@@ -31,11 +32,11 @@ use rocket::http::uri::Origin;
 use rocket::http::{Header, HeaderMap, Status};
 use rocket::request::{FromRequest, Outcome};
 use rocket::response::Responder;
-use rocket::{error, routes, Build, Data, Orbit, Request, Response, Rocket, State};
+use rocket::{error, info, routes, trace, Build, Data, Orbit, Request, Response, Rocket, State};
 use rocket_basicauth::{BasicAuth, BasicAuthError};
 use serde::{Deserialize, Deserializer};
-use tokio::io::AsyncRead;
-use tokio::process::Child;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
 use upsilon_core::config::{Cfg, UsersConfig};
@@ -56,6 +57,19 @@ pub struct Config {
 
     #[serde(rename = "vcs-errors", default)]
     vcs_errors: VcsErrorsConfig,
+
+    debug: DebugConfig,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub struct DebugConfig {
+    #[serde(default = "false_f")]
+    debug_data: bool,
+}
+
+fn false_f() -> bool {
+    false
 }
 
 #[derive(Debug)]
@@ -218,16 +232,17 @@ impl Fairing for ConfigManager {
             data_backend,
             users,
             vcs_errors,
+            debug,
         } = app_config;
 
-        rocket = match data_backend {
+        match data_backend {
             DataBackendConfig::InMemory(config) => {
-                rocket.attach(InMemoryDataBackendFairing(config))
+                rocket = rocket.attach(InMemoryDataBackendFairing(config));
             }
             DataBackendConfig::Postgres(config) => {
-                rocket.attach(PostgresDataBackendFairing(config))
+                rocket = rocket.attach(PostgresDataBackendFairing(config));
             }
-        };
+        }
 
         match vcs.setup().await {
             Ok(_) => {}
@@ -254,6 +269,10 @@ impl Fairing for ConfigManager {
 
         if vcs.http_protocol_enabled() {
             rocket = rocket.attach(GitHttpProtocolFairing);
+        }
+
+        if debug.debug_data {
+            rocket = rocket.attach(DebugDataDriverFairing);
         }
 
         Ok(rocket
@@ -860,4 +879,88 @@ fn auth_if_user_has_necessary_permissions<B: AsyncRead>(
     req.auth();
 
     Ok(())
+}
+
+struct DebugDataDriverFairing;
+
+#[rocket::async_trait]
+impl Fairing for DebugDataDriverFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Debug Data Driver",
+            kind: Kind::Singleton | Kind::Liftoff,
+        }
+    }
+
+    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
+        let port = rocket.config().port;
+
+        async fn debug_data_driver_task(port: u16) -> Result<(), std::io::Error> {
+            let debug_data_driver = upsilon_core::alt_exe("upsilon-debug-data-driver");
+
+            let mut child = Command::new(debug_data_driver)
+                .arg("--port")
+                .arg(port.to_string())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .env("RUST_LOG", "INFO")
+                .spawn()?;
+
+            trace!("Waiting for debug data driver");
+
+            let exit_status = child.wait().await?;
+
+            info!("Debug data driver exited with status: {}", exit_status);
+
+            let stdout_pipe = child.stdout.as_mut().expect("failed to get stdout pipe");
+            let stderr_pipe = child.stderr.as_mut().expect("failed to get stderr pipe");
+
+            let mut stdout_str = String::new();
+            let mut stderr_str = String::new();
+
+            stdout_pipe.read_to_string(&mut stdout_str).await?;
+            stderr_pipe.read_to_string(&mut stderr_str).await?;
+
+            use std::io::Write;
+
+            let mut stdout = std::io::stdout();
+            let guard = "=".repeat(30);
+
+            if !stdout_str.is_empty() {
+                write!(
+                    &mut stdout,
+                    "Debug Data Driver stdout:\n{guard}\n{}{guard}\n",
+                    stdout_str,
+                    guard = guard
+                )?;
+            }
+
+            if !stderr_str.is_empty() {
+                write!(
+                    &mut stdout,
+                    "Debug Data Driver stderr:\n{guard}\n{}{guard}\n",
+                    stderr_str
+                )?;
+            }
+
+            if !exit_status.success() {
+                error!(
+                    "Debug data driver exited with non-zero status code: {}",
+                    exit_status
+                );
+            } else {
+                info!("Debug data driver finished successfully");
+            }
+
+            Ok(())
+        }
+
+        tokio::spawn(async move {
+            let result = debug_data_driver_task(port).await;
+
+            if let Err(e) = result {
+                error!("Failed to run debug data driver: {}", e);
+            }
+        });
+    }
 }

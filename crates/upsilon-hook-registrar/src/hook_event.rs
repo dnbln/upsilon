@@ -16,8 +16,8 @@
 
 use std::ops::Deref;
 
-use upsilon_models::users::User;
 use upsilon_models::repo::Repo;
+use upsilon_models::users::User;
 
 #[derive(Copy, Clone)]
 pub enum HookEvent<'a> {

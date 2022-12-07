@@ -18,6 +18,7 @@ pub extern crate upsilon_models;
 pub extern crate upsilon_procx;
 
 use std::sync::Arc;
+
 pub use async_trait::async_trait;
 
 pub trait CommonDataClientErrorExtractor {

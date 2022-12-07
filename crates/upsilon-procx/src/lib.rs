@@ -49,4 +49,3 @@ pub fn private_context(item: proc_macro::TokenStream) -> proc_macro::TokenStream
         }
     })
 }
-
