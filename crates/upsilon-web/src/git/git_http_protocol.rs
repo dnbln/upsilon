@@ -41,7 +41,7 @@ use upsilon_vcs::{
     AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, UpsilonVcsConfig
 };
 
-use crate::VcsErrorsConfig;
+use crate::config::VcsErrorsConfig;
 
 lazy_static! {
     // regexes from `git http-backend --help`

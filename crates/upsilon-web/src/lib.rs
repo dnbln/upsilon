@@ -14,112 +14,18 @@
  *    limitations under the License.
  */
 
+mod config;
+mod data;
+mod debug;
+mod git;
+
+use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{error, Build, Orbit, Rocket};
-use serde::{Deserialize, Deserializer};
-use upsilon_core::config::{Cfg, UsersConfig};
+use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
-
-#[derive(Deserialize, Debug)]
-pub struct Config {
-    vcs: UpsilonVcsConfig,
-    #[serde(rename = "data-backend")]
-    data_backend: DataBackendConfig,
-
-    users: UsersConfig,
-
-    #[serde(rename = "vcs-errors", default)]
-    vcs_errors: VcsErrorsConfig,
-
-    debug: DebugConfig,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "kebab-case")]
-pub struct DebugConfig {
-    #[serde(default = "false_f")]
-    debug_data: bool,
-}
-
-fn false_f() -> bool {
-    false
-}
-
-#[derive(Debug)]
-pub struct VcsErrorsConfig {
-    leak_hidden_repos: bool,
-    verbose: bool,
-}
-
-impl VcsErrorsConfig {
-    fn debug_default() -> Self {
-        Self {
-            leak_hidden_repos: true,
-            verbose: true,
-        }
-    }
-
-    fn release_default() -> Self {
-        Self {
-            leak_hidden_repos: false,
-            verbose: false,
-        }
-    }
-
-    fn if_verbose<T, F>(&self, f: F) -> T
-    where
-        F: FnOnce() -> T,
-        T: for<'a> From<&'a str>,
-    {
-        if self.verbose {
-            f()
-        } else {
-            T::from("")
-        }
-    }
-}
-
-impl Default for VcsErrorsConfig {
-    fn default() -> Self {
-        #[cfg(debug_assertions)]
-        {
-            Self::debug_default()
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            Self::release_default()
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for VcsErrorsConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "kebab-case")]
-        struct VcsErrorsConfigPatch {
-            leak_hidden_repos: Option<bool>,
-            verbose: Option<bool>,
-        }
-
-        let patch = VcsErrorsConfigPatch::deserialize(deserializer)?;
-        let mut patched_value = Self::default();
-
-        if let Some(leak_hidden_repos) = patch.leak_hidden_repos {
-            patched_value.leak_hidden_repos = leak_hidden_repos;
-        }
-
-        if let Some(verbose) = patch.verbose {
-            patched_value.verbose = verbose;
-        }
-
-        Ok(patched_value)
-    }
-}
 
 pub struct ConfigManager;
 
@@ -204,7 +110,3 @@ impl Fairing for ConfigManager {
         }
     }
 }
-
-mod data;
-mod debug;
-mod git;
