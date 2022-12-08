@@ -369,13 +369,12 @@ fn repo_setup(
     repo_config: &RepoConfig,
 ) -> Result<()> {
     let daemon_export = path.as_ref().join("git-daemon-export-ok");
-    let mut daemon_export_created = false;
+    let mut need_daemon_export = false;
 
     let mut repo_local_config = repo.config()?.open_level(ConfigLevel::Local)?;
 
     if let GitProtocol::Enabled(_) = &config.git_protocol {
-        std::fs::write(&daemon_export, "")?;
-        daemon_export_created = true;
+        need_daemon_export = true;
 
         if repo_config.visibility == RepoVisibility::Private {
             // disable git:// daemon services if private:
@@ -390,14 +389,16 @@ fn repo_setup(
     }
 
     if let GitHttpProtocol::Enabled(_) = &config.http_protocol {
-        if !daemon_export_created {
-            std::fs::write(&daemon_export, "")?;
-        }
+        need_daemon_export = true;
 
         // everything enabled on http://, middleware will handle auth.
         repo_local_config.set_bool("http.uploadpack", true)?;
         repo_local_config.set_bool("http.uploadarchive", true)?;
         repo_local_config.set_bool("http.receivepack", true)?;
+    }
+
+    if need_daemon_export {
+        std::fs::write(daemon_export, "")?;
     }
 
     std::fs::write(path.as_ref().join(REPO_ID_FILE), &repo_config.id)?;
