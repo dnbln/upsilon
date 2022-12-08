@@ -1,0 +1,13 @@
+[package]
+name = "upsilon-data-cache-inmemory"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+upsilon-data.workspace = true
+thiserror.workspace = true
+upsilon-models.workspace = true
+moka = { version = "0.9.6", features = ["future"] }
+tokio.workspace = true

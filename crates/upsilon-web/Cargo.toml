@@ -20,5 +20,6 @@ upsilon-core.workspace = true
 upsilon-data.workspace = true
 upsilon-data-inmemory.workspace = true
 upsilon-id.workspace = true
+upsilon-data-cache-inmemory.workspace = true
 upsilon-vcs.workspace = true
 

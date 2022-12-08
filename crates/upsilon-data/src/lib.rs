@@ -41,8 +41,8 @@ pub enum CommonDataClientError {
 
 #[async_trait]
 pub trait DataClient {
-    type InnerConfiguration;
     type Error: std::error::Error + CommonDataClientErrorExtractor;
+    type InnerConfiguration;
 
     type QueryImpl<'a>: DataClientQueryImpl<'a, Error = Self::Error>
     where
@@ -51,6 +51,7 @@ pub trait DataClient {
     async fn init_client(config: Self::InnerConfiguration) -> Result<Self, Self::Error>
     where
         Self: Sized;
+
     fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a>;
 }
 
@@ -153,7 +154,7 @@ macro_rules! query_impl_trait {
         #[macro_export]
         macro_rules! query_master_impl_trait {
             ($query_master_name:ident, $query_impl:ident) => {
-                pub struct $query_master_name<'a>($query_impl <'a>);
+                struct $query_master_name<'a>($query_impl <'a>);
 
                 $crate::upsilon_procx::private_context! {
                     use super::$query_master_name;

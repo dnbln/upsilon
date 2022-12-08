@@ -14,9 +14,12 @@
  *    limitations under the License.
  */
 
+use std::collections::HashMap;
+
 use clap::Parser;
 use log::info;
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::client::Client;
 
@@ -84,6 +87,50 @@ mutation {
         .await?;
 
     info!("Created github mirror");
+
+    info!("Testing cache ...");
+
+    #[derive(Deserialize)]
+    struct UserWithId {
+        id: String,
+    }
+
+    #[derive(Deserialize)]
+    struct UserByUsernameResponse {
+        #[serde(rename = "userByUsername")]
+        user_by_username: UserWithId,
+    }
+
+    // load user by username in the cache, with the first query
+    let id = client
+        .gql_query::<UserByUsernameResponse>(
+            r#"
+query {
+    userByUsername(username: "a") {
+        id
+    }
+}
+"#,
+        )
+        .await?
+        .user_by_username
+        .id;
+
+    // query the user again, this time it should be in the cache
+    client
+        .gql_query_with_variables::<any::Any>(
+            r#"
+query($id: UserId!) {
+    user(userId: $id) {
+        id
+    }
+}
+"#,
+            HashMap::from([("id", json!(id))]),
+        )
+        .await?;
+
+    info!("Successfully tried out cache");
 
     Ok(())
 }

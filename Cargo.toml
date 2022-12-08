@@ -27,6 +27,7 @@ upsilon-api = { path = "crates/upsilon-api" }
 upsilon-ci = { path = "crates/upsilon-ci" }
 upsilon-core = { path = "crates/upsilon-core" }
 upsilon-data = { path = "crates/upsilon-data" }
+upsilon-data-cache-inmemory = { path = "crates/upsilon-data-cache-inmemory" }
 upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
 upsilon-data-pg = { path = "crates/upsilon-data-pg" }
 upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }

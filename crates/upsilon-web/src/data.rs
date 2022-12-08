@@ -19,7 +19,8 @@ use std::path::PathBuf;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{error, Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
-use upsilon_data::{DataClient, DataClientMasterHolder};
+use upsilon_data::{DataClient, DataClientMaster, DataClientMasterHolder};
+use upsilon_data_cache_inmemory::CacheInMemoryConfig;
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
 
 #[derive(Debug, Clone)]
@@ -60,10 +61,45 @@ impl<'de> Deserialize<'de> for InMemoryConfigSaveStrategy {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct CacheInMemoryConfigSizes {
+    #[serde(default = "default_cache_size")]
+    pub max_users: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_repos: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_orgs: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_repo_permissions: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_org_members: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_teams: usize,
+}
+
+fn default_cache_size() -> usize {
+    10
+}
+
+impl From<CacheInMemoryConfigSizes> for upsilon_data_cache_inmemory::CacheInMemoryConfigSizes {
+    fn from(value: CacheInMemoryConfigSizes) -> Self {
+        Self {
+            max_users: value.max_users,
+            max_repos: value.max_repos,
+            max_orgs: value.max_orgs,
+            max_repo_permissions: value.max_repo_permissions,
+            max_org_members: value.max_org_members,
+            max_teams: value.max_teams,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct InMemoryDataBackendConfig {
     #[serde(flatten)]
     save_strategy: InMemoryConfigSaveStrategy,
+    cache: Option<CacheInMemoryConfigSizes>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -118,7 +154,25 @@ impl Fairing for InMemoryDataBackendFairing {
             }
         };
 
-        let client_master_holder = DataClientMasterHolder::new(client);
+        let client_master_holder = match self.0.cache {
+            None => DataClientMasterHolder::new(client),
+            Some(cache_sizes) => {
+                let client =
+                    match upsilon_data_cache_inmemory::CacheInMemoryDataClient::init_client(
+                        CacheInMemoryConfig::new(cache_sizes.into(), Box::new(client)),
+                    )
+                    .await
+                    {
+                        Ok(client) => client,
+                        Err(e) => {
+                            error!("Failed to initialize in-memory data backend: {}", e);
+                            return Err(rocket);
+                        }
+                    };
+
+                DataClientMasterHolder::new(client)
+            }
+        };
 
         Ok(rocket
             .manage(client_master_holder)

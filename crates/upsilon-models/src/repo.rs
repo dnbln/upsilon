@@ -22,7 +22,6 @@ use bitflags::bitflags;
 use crate::namespace::{
     NamespaceId, NamespaceKind, PlainNamespaceFragment, PlainNamespaceFragmentRef
 };
-use crate::users::UserId;
 
 upsilon_id::id_ty! {
     #[uuid]
