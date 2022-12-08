@@ -52,7 +52,7 @@ pub trait DataClient {
     where
         Self: Sized;
 
-    fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a>;
+    fn data_client_query_impl(&self) -> Self::QueryImpl<'_>;
 }
 
 #[async_trait]

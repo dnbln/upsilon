@@ -44,7 +44,7 @@ pub struct CacheInMemoryDataClient {
 #[async_trait]
 impl DataClientMaster for CacheInMemoryDataClient {
     fn query_master<'a>(&'a self) -> Box<dyn DataClientQueryMaster + 'a> {
-        Box::new(CacheInMemoryQueryMaster(self.data_client_query_impl()))
+        self.data_client_query_impl().into_query_master()
     }
 
     async fn on_shutdown(&self) -> Result<(), Box<dyn Error>> {
@@ -107,7 +107,7 @@ impl DataClient for CacheInMemoryDataClient {
         })
     }
 
-    fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a> {
+    fn data_client_query_impl(&self) -> Self::QueryImpl<'_> {
         CacheInMemoryQueryImpl {
             client: self,
             inner: self.inner.query_master(),
@@ -139,9 +139,7 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
     async fn query_user(&self, user_id: UserId) -> Result<User, Self::Error> {
         let users = &self.store().users;
         match users.get(&user_id) {
-            Some(user) => {
-                Ok(user)
-            },
+            Some(user) => Ok(user),
             None => {
                 let user = self.inner.query_user(user_id).await.convert_error()?;
                 users.insert(user_id, user.clone()).await;

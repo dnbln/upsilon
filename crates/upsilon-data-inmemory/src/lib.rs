@@ -118,8 +118,7 @@ impl DataClient for InMemoryDataClient {
         Ok(Self(config, Box::new(InMemoryDataStore::new())))
     }
 
-    #[allow(clippy::needless_lifetimes)] // async_trait changes lifetimes
-    fn data_client_query_impl<'a>(&'a self) -> Self::QueryImpl<'a> {
+    fn data_client_query_impl(&self) -> Self::QueryImpl<'_> {
         InMemoryQueryImpl(self)
     }
 }
