@@ -210,7 +210,7 @@ impl AsyncRead for GitBackendCgiResponse {
     }
 }
 
-const BUF_SIZE: usize = 16384;
+const BUF_SIZE: usize = 16 * 1024;
 
 pub async fn handle<B: AsyncRead>(
     config: &UpsilonVcsConfig,
@@ -307,9 +307,7 @@ pub async fn handle<B: AsyncRead>(
     let mut headers = headers
         .lines()
         .map(|line| {
-            let mut it = line.split(": ");
-            let k = it.next().expect("Missing key");
-            let v = it.next().expect("Missing value");
+            let (k, v) = line.split_once(": ").expect("Cannot split header");
             (k.to_lowercase(), v.to_string())
         })
         .collect::<Vec<_>>();
