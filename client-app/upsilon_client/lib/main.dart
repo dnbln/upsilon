@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() async {
   runApp(const MyApp());
@@ -58,7 +60,16 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  @override
+  void initState() {
+    super.initState();
+
+    _loadPassword();
+  }
+
   int _counter = 0;
+  String? _password;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   void _incrementCounter() {
     setState(() {
@@ -68,6 +79,20 @@ class _MyHomePageState extends State<MyHomePage> {
       // _counter without calling setState(), then the build method would not be
       // called again, and so nothing would appear to happen.
       _counter++;
+    });
+  }
+
+  Future<void> _loadPassword() async {
+    await _storage.write(key: "password", value: "aaaa");
+
+    var password = await _storage.read(key: "password");
+
+    if (kDebugMode) {
+      print("password is $password");
+    }
+
+    setState(() {
+      _password = password;
     });
   }
 
@@ -93,6 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
           const Text(
             'You have pushed the button this many times:',
           ),
+          Text("Password is $_password"),
           Center(
               child: Text(
             '$_counter',

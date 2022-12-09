@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 clap.workspace = true
 anyhow.workspace = true
-git2 = "0.15.0"
+git2.workspace = true
 zip = { version = "0.6.3", default-features = false, features = ["deflate"] }

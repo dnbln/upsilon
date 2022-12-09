@@ -401,7 +401,38 @@ fn repo_setup(
         std::fs::write(daemon_export, "")?;
     }
 
+    setup_hooks(path.as_ref())?;
+
     std::fs::write(path.as_ref().join(REPO_ID_FILE), &repo_config.id)?;
+
+    Ok(())
+}
+
+fn setup_hooks(repo: impl AsRef<Path>) -> Result<()> {
+    let hook_exe_path = upsilon_core::alt_exe("upsilon-git-hooks");
+    let repo = repo.as_ref();
+
+    let hooks_path = repo.join("hooks");
+
+    for hook in upsilon_git_hooks::HOOKS_TO_REGISTER {
+        let hook_path = hooks_path.join(hook);
+
+        setup_hook(&hook_exe_path, &hook_path, hook)?;
+    }
+
+    Ok(())
+}
+
+fn setup_hook(hooks_exe: &Path, hook_path: &Path, hook_name: &str) -> Result<()> {
+    std::fs::write(
+        hook_path,
+        format!(
+            r#"#!/bin/bash
+
+{hooks_exe:?} {hook_name} $@
+"#,
+        ),
+    )?;
 
     Ok(())
 }

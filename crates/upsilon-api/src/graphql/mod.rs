@@ -418,7 +418,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::GlobalNamespace),
             name: RepoName::from(name),
             display_name: None,
-            global_permissions: RepoPermissions::READ,
+            global_permissions: RepoPermissions::WRITE | RepoPermissions::READ,
         };
 
         let repo_clone = repo.clone();

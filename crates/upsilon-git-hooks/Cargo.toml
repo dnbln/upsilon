@@ -1,16 +1,11 @@
 [package]
-name = "upsilon-vcs"
+name = "upsilon-git-hooks"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde.workspace = true
-thiserror.workspace = true
-tokio.workspace = true
-path-slash = "0.2.1"
+clap.workspace = true
 git2.workspace = true
-
-upsilon-core.workspace = true
-upsilon-git-hooks.workspace = true
+anyhow.workspace = true

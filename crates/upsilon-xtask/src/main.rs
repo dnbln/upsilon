@@ -59,7 +59,10 @@ fn main() -> XtaskResult<()> {
             git_checks::linear_history(&repo)?;
         }
         App::RunDev => {
-            cargo_cmd!("build", "-p", "upsilon-debug-data-driver", @logging-error-and-returnok);
+            cargo_cmd!("build", "-p", "upsilon-debug-data-driver",
+                // "--features", "dump_gql_response",
+                @logging-error-and-returnok);
+            cargo_cmd!("build", "-p", "upsilon-git-hooks", @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon-git-protocol-accesshook", @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon-web", @logging-error-and-returnok);
             cargo_cmd!(

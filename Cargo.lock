@@ -2914,6 +2914,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "upsilon-git-hooks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "git2",
+]
+
+[[package]]
 name = "upsilon-git-protocol-accesshook"
 version = "0.1.0"
 dependencies = [
@@ -2978,6 +2987,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "upsilon-core",
+ "upsilon-git-hooks",
 ]
 
 [[package]]
