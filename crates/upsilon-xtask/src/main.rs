@@ -79,6 +79,7 @@ fn main() -> XtaskResult<()> {
             cargo_cmd!("build", "-p", "upsilon-web", "--bin", "upsilon-web", "--release", @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon", "--bin", "upsilon", "--release", @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon-git-protocol-accesshook", "--bin", "upsilon-git-protocol-accesshook", "--release", @logging-error-and-returnok);
+            cargo_cmd!("build", "-p", "upsilon-git-hooks", "--bin", "upsilon-git-hooks", "--features=build-bin", "--release", @logging-error-and-returnok);
 
             let release_zip_file = std::env::var("UPSILON_RELEASE_ZIP_PATH")
                 .map_or_else(|_| ws_path!("releases" / "release.zip"), PathBuf::from);
@@ -107,6 +108,12 @@ fn main() -> XtaskResult<()> {
                 &mut wr,
                 "bin/upsilon-git-protocol-accesshook",
                 ws_path!("target" / "release" / "upsilon-git-protocol-accesshook"),
+                options,
+            )?;
+            write_bin_file_to_zip(
+                &mut wr,
+                "bin/upsilon-git-hooks",
+                ws_path!("target" / "release" / "upsilon-git-hooks"),
                 options,
             )?;
 
