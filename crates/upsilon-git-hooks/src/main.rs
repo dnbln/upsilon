@@ -14,20 +14,11 @@
  *    limitations under the License.
  */
 
+use app::App;
 use clap::Parser;
 
-#[derive(Parser, Debug)]
-enum App {
-    #[clap(name = "pre-receive")]
-    PreReceive,
-    #[clap(name = "update")]
-    Update {
-        ref_name: String,
-        old_oid: String,
-        new_oid: String,
-    },
-    #[clap(name = "post-receive")]
-    PostReceive,
+mod app {
+    include!(concat!(env!("OUT_DIR"), "/app.rs"));
 }
 
 type GitHookResult<T> = anyhow::Result<T>;

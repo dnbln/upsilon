@@ -14,8 +14,8 @@
  *    limitations under the License.
  */
 
-pub const HOOKS_TO_REGISTER: &[&str] = &[
-    "pre-receive",
-    "update",
-    "post-receive",
-];
+mod hooks_rs {
+    include!(concat!(env!("OUT_DIR"), "/hooks.rs"));
+}
+
+pub use hooks_rs::HOOKS_TO_REGISTER;

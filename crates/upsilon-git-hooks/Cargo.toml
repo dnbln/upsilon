@@ -5,7 +5,23 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-clap.workspace = true
-git2.workspace = true
-anyhow.workspace = true
+[features]
+default = []
+build-bin = ["clap", "git2", "anyhow"]
+
+[dependencies.clap]
+workspace = true
+optional = true
+
+[dependencies.git2]
+workspace = true
+optional = true
+
+[dependencies.anyhow]
+workspace = true
+optional = true
+
+[[bin]]
+name = "upsilon-git-hooks"
+path = "src/main.rs"
+required-features = ["build-bin"]
