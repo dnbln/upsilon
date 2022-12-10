@@ -27,7 +27,7 @@ fn wait_loop(subproc: &Mutex<Option<Child>>) {
 
         if let Some(child) = subproc.as_mut() {
             if let Ok(Some(status)) = child.try_wait() {
-                println!("Subprocess exited with status: {:?}", status);
+                println!("Subprocess exited with status: {status:?}");
                 *subproc = None;
 
                 return;
@@ -43,15 +43,8 @@ fn main() {
     let subprocess = Arc::new(Mutex::new(None::<Child>));
 
     {
-        let subprocess = Arc::clone(&subprocess);
-
         ctrlc::set_handler(move || {
             println!("Ctrl-C pressed, exiting");
-
-            let mut subprocess = subprocess.lock().unwrap();
-            if let Some(mut subprocess) = subprocess.take() {
-                subprocess.kill().expect("Failed to kill subprocess");
-            }
         })
         .expect("Failed to set Ctrl-C handler");
     }

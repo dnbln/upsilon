@@ -2,7 +2,7 @@
 members = [
     "crates/*",
 ]
-default-members = ["crates/upsilon"]
+default-members = ["crates/cargo-run-guard"]
 
 [workspace.dependencies]
 bitflags = "2.0.0-rc.1"

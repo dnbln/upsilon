@@ -1,5 +1,6 @@
 [alias]
 xtask = "run --package upsilon-xtask --bin upsilon-xtask --"
+x = "xtask"
 
 [target.'cfg(all())']
 rustflags = [

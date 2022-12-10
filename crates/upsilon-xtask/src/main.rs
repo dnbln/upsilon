@@ -18,7 +18,7 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use upsilon_xtask::{cargo_cmd, cmd, cmd_call, ws_path, ws_root, XtaskResult};
+use upsilon_xtask::{cargo_cmd, cmd_call, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
 #[derive(Parser, Debug)]
@@ -30,6 +30,8 @@ enum App {
     #[clap(name = "git-checks")]
     GitChecks,
     #[clap(name = "run-dev")]
+    #[clap(alias = "run")]
+    #[clap(alias = "r")]
     RunDev,
     #[clap(name = "pack-release")]
     PackRelease,
