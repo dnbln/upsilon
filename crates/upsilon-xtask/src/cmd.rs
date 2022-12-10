@@ -102,14 +102,12 @@ macro_rules! cargo_cmd {
 
     ($($args:expr),+ $(, @workdir = $workdir:expr)?, @ignoring-error $(,)?) => {
         {
-            let __cargo_path = $crate::cmd::cargo_path();
             let _ = $crate::cargo_cmd!($($args,)+ $(@workdir = $workdir,)?);
         }
     };
 
     ($($args:expr),+ $(, @workdir = $workdir:expr)?, @logging-error $(,)?) => {
         {
-            let __cargo_path = $crate::cmd::cargo_path();
             if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
             }
@@ -118,7 +116,6 @@ macro_rules! cargo_cmd {
 
     ($($args:expr),+ $(, @workdir = $workdir:expr)?, @logging-error-and-returnok $(,)?) => {
         {
-            let __cargo_path = $crate::cmd::cargo_path();
             if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
 
