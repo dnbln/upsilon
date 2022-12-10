@@ -254,7 +254,8 @@ pub async fn handle<B: AsyncRead>(
             upsilon_git_hooks::repo_config::ENV_VAR_REPO_CONFIG,
             upsilon_git_hooks::repo_config::RepoConfig {
                 protected_branches: vec!["trunk".to_string()],
-            }.serialized(),
+            }
+            .serialized(),
         )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());

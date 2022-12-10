@@ -17,31 +17,33 @@
 use clap::Parser;
 use upsilon_git_hooks::repo_config::RepoConfig;
 
+use crate::app::GitHook;
 use crate::sha_sha_ref::ShaShaRefLines;
 use crate::GitHookResult;
 
-mod post_receive;
-mod pre_receive;
-mod update;
+#[derive(Parser, Debug)]
+pub struct PostReceive {
+    #[clap(skip = ShaShaRefLines::from_stdin())]
+    pub lines: ShaShaRefLines,
 
-pub use post_receive::PostReceive;
-pub use pre_receive::PreReceive;
-pub use update::Update;
-
-trait GitHook {
-    fn run(self) -> GitHookResult<()>;
+    #[clap(skip = RepoConfig::from_env())]
+    pub repo_config: RepoConfig,
 }
 
-macro_rules! defer_impl_to {
-    ($name:ident => $to:ident) => {
-        impl GitHook for $name {
-            fn run(self) -> GitHookResult<()> {
-                $to(self)
-            }
-        }
-    };
+fn run_hook(hook: PostReceive) -> GitHookResult<()> {
+    let PostReceive { lines, repo_config } = hook;
+
+    println!("post-receive");
+    dbg!(&repo_config);
+
+    for line in lines.iter() {
+        println!(
+            "post-receive: {} {} {}",
+            line.old_sha, line.new_sha, line.ref_name
+        );
+    }
+
+    Ok(())
 }
 
-use defer_impl_to;
-
-include!(concat!(env!("OUT_DIR"), "/app.rs"));
+super::defer_impl_to!(PostReceive => run_hook);

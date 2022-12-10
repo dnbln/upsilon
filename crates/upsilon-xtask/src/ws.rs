@@ -73,4 +73,3 @@ pub fn workspace_root() -> &'static Path {
     // parent of crates = workspace root
     xtask_dir.parent().unwrap().parent().unwrap()
 }
-

@@ -14,34 +14,45 @@
  *    limitations under the License.
  */
 
+use std::process::exit;
+
 use clap::Parser;
 use upsilon_git_hooks::repo_config::RepoConfig;
 
-use crate::sha_sha_ref::ShaShaRefLines;
+use crate::app::GitHook;
 use crate::GitHookResult;
 
-mod post_receive;
-mod pre_receive;
-mod update;
+#[derive(Parser, Debug)]
+pub struct Update {
+    pub ref_name: String,
+    pub old_oid: String,
+    pub new_oid: String,
 
-pub use post_receive::PostReceive;
-pub use pre_receive::PreReceive;
-pub use update::Update;
-
-trait GitHook {
-    fn run(self) -> GitHookResult<()>;
+    #[clap(skip = RepoConfig::from_env())]
+    pub repo_config: RepoConfig,
 }
 
-macro_rules! defer_impl_to {
-    ($name:ident => $to:ident) => {
-        impl GitHook for $name {
-            fn run(self) -> GitHookResult<()> {
-                $to(self)
-            }
-        }
-    };
+fn run_hook(hook: Update) -> GitHookResult<()> {
+    let Update {
+        ref_name,
+        old_oid,
+        new_oid,
+        repo_config,
+    } = hook;
+
+    println!("update {} {} {}", ref_name, old_oid, new_oid);
+    dbg!(&repo_config);
+
+    if repo_config
+        .protected_branches
+        .iter()
+        .any(|it| format!("refs/heads/{it}") == ref_name)
+    {
+        println!("update: protected branch");
+        exit(1);
+    }
+
+    Ok(())
 }
 
-use defer_impl_to;
-
-include!(concat!(env!("OUT_DIR"), "/app.rs"));
+super::defer_impl_to!(Update => run_hook);

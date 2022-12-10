@@ -41,6 +41,7 @@ fn main() {
 
     let mut hooks_to_register = String::new();
     let mut app_variants = String::new();
+    let mut run_hook_match_arms = String::new();
 
     for hook in HOOKS {
         hooks_to_register.push_str(&format!("{:?},", hook.name));
@@ -50,6 +51,12 @@ fn main() {
             #[clap(name = {git_hook_name:?})]
             {name}({name}),",
             git_hook_name = hook.name,
+            name = hook.rust_name,
+        ));
+
+        run_hook_match_arms.push_str(&format!(
+            "
+            App::{name}(hook) => hook.run(),",
             name = hook.rust_name,
         ));
     }
@@ -63,12 +70,19 @@ fn main() {
     std::fs::write(
         out_dir.join("app.rs"),
         format!(
-            "
+            r#"
             #[derive(clap::Parser, Debug)]
             pub enum App {{
                 {app_variants}
             }}
-            "
+
+
+            pub fn run_hook(app: App) -> GitHookResult<()> {{
+                match app {{
+                    {run_hook_match_arms}
+                }}
+            }}
+            "#
         ),
     )
     .expect("Failed to write app.rs");
