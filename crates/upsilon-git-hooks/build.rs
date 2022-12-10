@@ -19,42 +19,20 @@ use std::path::PathBuf;
 struct Hook {
     name: &'static str,
     rust_name: &'static str,
-    args: &'static [HookArg],
-}
-
-struct HookArg {
-    name: &'static str,
-    rust_type: &'static str,
 }
 
 const HOOKS: &[Hook] = &[
     Hook {
         name: "pre-receive",
         rust_name: "PreReceive",
-        args: &[],
     },
     Hook {
         name: "update",
         rust_name: "Update",
-        args: &[
-            HookArg {
-                name: "ref_name",
-                rust_type: "String",
-            },
-            HookArg {
-                name: "old_oid",
-                rust_type: "String",
-            },
-            HookArg {
-                name: "new_oid",
-                rust_type: "String",
-            },
-        ],
     },
     Hook {
         name: "post-receive",
         rust_name: "PostReceive",
-        args: &[],
     },
 ];
 
@@ -67,25 +45,12 @@ fn main() {
     for hook in HOOKS {
         hooks_to_register.push_str(&format!("{:?},", hook.name));
 
-        let mut args = String::new();
-
-        if !hook.args.is_empty() {
-            args.push_str(" {");
-        }
-
-        for arg in hook.args {
-            args.push_str(&format!("{}: {}, ", arg.name, arg.rust_type));
-        }
-
-        if !hook.args.is_empty() {
-            args.push('}');
-        }
-
         app_variants.push_str(&format!(
             "
-            #[clap(name = {:?})]
-            {}{},",
-            hook.name, hook.rust_name, args,
+            #[clap(name = {git_hook_name:?})]
+            {name}({name}),",
+            git_hook_name = hook.name,
+            name = hook.rust_name,
         ));
     }
 

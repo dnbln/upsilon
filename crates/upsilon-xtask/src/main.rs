@@ -62,7 +62,11 @@ fn main() -> XtaskResult<()> {
             cargo_cmd!("build", "-p", "upsilon-debug-data-driver",
                 // "--features", "dump_gql_response",
                 @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon-git-hooks", @logging-error-and-returnok);
+            cargo_cmd!(
+                "build", "-p", "upsilon-git-hooks",
+                "--bin", "upsilon-git-hooks",
+                "--features=build-bin",
+                @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon-git-protocol-accesshook", @logging-error-and-returnok);
             cargo_cmd!("build", "-p", "upsilon-web", @logging-error-and-returnok);
             cargo_cmd!(

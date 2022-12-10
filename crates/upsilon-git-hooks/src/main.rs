@@ -14,11 +14,54 @@
  *    limitations under the License.
  */
 
-use app::App;
+mod app;
+
 use clap::Parser;
 
-mod app {
-    include!(concat!(env!("OUT_DIR"), "/app.rs"));
+use crate::app::*;
+
+#[derive(Debug)]
+pub struct ShaShaRef {
+    pub old_sha: String,
+    pub new_sha: String,
+    pub ref_name: String,
+}
+
+#[derive(Debug)]
+pub struct ShaShaRefLines {
+    lines: Vec<ShaShaRef>,
+}
+
+impl ShaShaRefLines {
+    pub fn iter(&self) -> impl Iterator<Item = &ShaShaRef> {
+        self.lines.iter()
+    }
+}
+
+impl Default for ShaShaRefLines {
+    fn default() -> Self {
+        let mut lines = vec![];
+        for line in std::io::stdin().lines() {
+            let line = line.expect("Failed to read line from stdin");
+
+            if line.is_empty() {
+                break;
+            }
+
+            let mut split = line.splitn(3, ' ');
+            let old_sha = split.next().unwrap();
+            let new_sha = split.next().unwrap();
+            let ref_name = split.next().unwrap();
+
+            lines.push(ShaShaRef {
+                old_sha: old_sha.to_string(),
+                new_sha: new_sha.to_string(),
+                ref_name: ref_name.to_string(),
+            });
+        }
+
+        Self { lines }
+    }
 }
 
 type GitHookResult<T> = anyhow::Result<T>;
@@ -27,32 +70,31 @@ fn main() -> GitHookResult<()> {
     let app = App::parse();
 
     match app {
-        App::PreReceive => {
+        App::PreReceive(PreReceive { lines }) => {
             println!("pre-receive");
+
+            for line in lines.iter() {
+                println!(
+                    "pre-receive: {} {} {}",
+                    line.old_sha, line.new_sha, line.ref_name
+                );
+            }
         }
-        App::Update {
+        App::Update(Update {
             ref_name,
             old_oid,
             new_oid,
-        } => {
+        }) => {
             println!("update {} {} {}", ref_name, old_oid, new_oid);
         }
-        App::PostReceive => {
+        App::PostReceive(PostReceive { lines }) => {
             println!("post-receive");
 
-            for line in std::io::stdin().lines() {
-                let line = line?;
-
-                if line.is_empty() {
-                    break;
-                }
-
-                let mut split = line.splitn(3, ' ');
-                let old_oid = split.next().unwrap();
-                let new_oid = split.next().unwrap();
-                let ref_name = split.next().unwrap();
-
-                println!("post-receive {} {} {}", old_oid, new_oid, ref_name);
+            for line in lines.iter() {
+                println!(
+                    "post-receive: {} {} {}",
+                    line.old_sha, line.new_sha, line.ref_name
+                );
             }
         }
     }
