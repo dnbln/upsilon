@@ -14,8 +14,9 @@
  *    limitations under the License.
  */
 
-mod git_http_protocol;
-mod git_protocol;
+pub mod cmd;
+pub mod git_checks;
+pub mod result;
+pub mod ws;
 
-pub(crate) use git_http_protocol::GitHttpProtocolFairing;
-pub(crate) use git_protocol::GitProtocolDaemonFairing;
+pub use result::XtaskResult;

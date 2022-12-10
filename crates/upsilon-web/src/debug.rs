@@ -15,8 +15,9 @@
  */
 
 use std::process::Stdio;
+
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{error, info, Orbit, Rocket, trace};
+use rocket::{error, info, trace, Orbit, Rocket};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 

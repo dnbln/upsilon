@@ -14,8 +14,16 @@
  *    limitations under the License.
  */
 
-mod git_http_protocol;
-mod git_protocol;
+use upsilon_xtask::result::XtaskResult;
+use upsilon_xtask::{cargo_cmd, ws_root};
 
-pub(crate) use git_http_protocol::GitHttpProtocolFairing;
-pub(crate) use git_protocol::GitProtocolDaemonFairing;
+fn main() -> XtaskResult<()> {
+    cargo_cmd!(
+        "xtask",
+        "run-dev",
+        @workdir = ws_root!(),
+        @logging-error-and-returnok
+    );
+
+    Ok(())
+}

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 clap.workspace = true
 upsilon-core.workspace = true
+ctrlc = "3.1.7"

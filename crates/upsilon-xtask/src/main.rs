@@ -18,16 +18,8 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
+use upsilon_xtask::{cargo_cmd, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
-
-use crate::cmd::cargo_cmd;
-use crate::result::XtaskResult;
-use crate::ws::ws_path;
-
-mod cmd;
-mod git_checks;
-mod result;
-mod ws;
 
 #[derive(Parser, Debug)]
 enum App {
@@ -41,6 +33,8 @@ enum App {
     RunDev,
     #[clap(name = "pack-release")]
     PackRelease,
+    #[clap(name = "install-aliases")]
+    InstallAliases,
 }
 
 fn main() -> XtaskResult<()> {
@@ -48,27 +42,40 @@ fn main() -> XtaskResult<()> {
 
     match app {
         App::Fmt => {
-            cargo_cmd!("fmt", "--all")?;
+            cargo_cmd!("fmt", "--all", @workdir = ws_root!())?;
         }
         App::FmtCheck => {
-            cargo_cmd!("fmt", "--all", "--check")?;
+            cargo_cmd!("fmt", "--all", "--check", @workdir = ws_root!())?;
         }
         App::GitChecks => {
-            let repo = git_checks::get_repo()?;
+            let repo = upsilon_xtask::git_checks::get_repo(&ws_root!())?;
 
-            git_checks::linear_history(&repo)?;
+            upsilon_xtask::git_checks::linear_history(&repo)?;
         }
         App::RunDev => {
-            cargo_cmd!("build", "-p", "upsilon-debug-data-driver",
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-debug-data-driver",
                 // "--features", "dump_gql_response",
+                @workdir = ws_root!(),
                 @logging-error-and-returnok);
             cargo_cmd!(
-                "build", "-p", "upsilon-git-hooks",
+                "build",
+                "-p", "upsilon-git-hooks",
                 "--bin", "upsilon-git-hooks",
                 "--features=build-bin",
+                @workdir = ws_root!(),
                 @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon-git-protocol-accesshook", @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon-web", @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-git-protocol-accesshook",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-web",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
             cargo_cmd!(
                 "run",
                 "-p",
@@ -80,10 +87,35 @@ fn main() -> XtaskResult<()> {
             );
         }
         App::PackRelease => {
-            cargo_cmd!("build", "-p", "upsilon-web", "--bin", "upsilon-web", "--release", @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon", "--bin", "upsilon", "--release", @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon-git-protocol-accesshook", "--bin", "upsilon-git-protocol-accesshook", "--release", @logging-error-and-returnok);
-            cargo_cmd!("build", "-p", "upsilon-git-hooks", "--bin", "upsilon-git-hooks", "--features=build-bin", "--release", @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-web",
+                "--bin", "upsilon-web",
+                "--release",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon",
+                "--bin", "upsilon",
+                "--release",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-git-protocol-accesshook",
+                "--bin", "upsilon-git-protocol-accesshook",
+                "--release",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+            cargo_cmd!(
+                "build",
+                "-p", "upsilon-git-hooks",
+                "--bin", "upsilon-git-hooks",
+                "--features=build-bin",
+                "--release",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
 
             let release_zip_file = std::env::var("UPSILON_RELEASE_ZIP_PATH")
                 .map_or_else(|_| ws_path!("releases" / "release.zip"), PathBuf::from);
@@ -122,6 +154,13 @@ fn main() -> XtaskResult<()> {
             )?;
 
             wr.finish()?;
+        }
+        App::InstallAliases => {
+            cargo_cmd!(
+                "install",
+                "--bin", "uxrd",
+                "--path", ws_path!("crates" / "upsilon-xtask"),
+                @logging-error-and-returnok);
         }
     }
 

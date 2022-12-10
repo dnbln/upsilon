@@ -15,6 +15,8 @@
  */
 
 use std::path::Path;
+
+#[macro_export]
 macro_rules! ws_path {
     ($($s:literal)/ * ) => {
         {
@@ -28,12 +30,22 @@ macro_rules! ws_path {
     }
 }
 
+#[macro_export]
+macro_rules! ws_root {
+    () => {{
+        use std::borrow::ToOwned;
+        $crate::ws::workspace_root().to_owned()
+    }};
+}
+
+#[macro_export]
 macro_rules! ws_path_str {
     ($($s:literal)/ * ) => {
         $crate::ws::ws_path!($($s)/ *).to_str().unwrap().to_string()
     }
 }
 
+#[macro_export]
 macro_rules! ws_path_join {
     (#[clone] $root:ident / $($s:literal)/ *) => {
         {
@@ -62,4 +74,3 @@ pub fn workspace_root() -> &'static Path {
     xtask_dir.parent().unwrap().parent().unwrap()
 }
 
-pub(crate) use {ws_path, ws_path_join, ws_path_str};

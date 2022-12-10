@@ -14,13 +14,15 @@
  *    limitations under the License.
  */
 
+use std::path::Path;
+
 use anyhow::bail;
 use git2::{BranchType, Repository};
 
 use crate::result::XtaskResult;
 
-pub fn get_repo() -> XtaskResult<Repository> {
-    let repo = Repository::discover(std::env::current_dir()?)?;
+pub fn get_repo(path: &Path) -> XtaskResult<Repository> {
+    let repo = Repository::discover(path)?;
 
     Ok(repo)
 }
