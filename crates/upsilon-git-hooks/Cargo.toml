@@ -9,6 +9,10 @@ edition = "2021"
 default = []
 build-bin = ["clap", "git2", "anyhow"]
 
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
 [dependencies.clap]
 workspace = true
 optional = true

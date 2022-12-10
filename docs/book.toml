@@ -1,0 +1,14 @@
+[book]
+authors = ["Dinu Blanovschi"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The upsilon book"
+description = "A book about the upsilon git server"
+
+[rust]
+edition = "2021"
+
+[output.html]
+default-theme = "ayu"
+preferred-dark-theme = "ayu"

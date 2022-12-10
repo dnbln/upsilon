@@ -14,10 +14,20 @@
  *    limitations under the License.
  */
 
-mod hooks_rs {
-    include!(concat!(env!("OUT_DIR"), "/hooks.rs"));
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RepoConfig {
+    pub protected_branches: Vec<String>,
 }
 
-pub mod repo_config;
+impl RepoConfig {
+    pub fn from_env() -> Self {
+        let config = std::env::var(ENV_VAR_REPO_CONFIG).expect("UPSILON_REPO_CONFIG not set");
+        serde_json::from_str(&config).expect("Cannot parse UPSILON_REPO_CONFIG")
+    }
 
-pub use hooks_rs::HOOKS_TO_REGISTER;
+    pub fn serialized(&self) -> String {
+        serde_json::to_string(self).expect("Failed to serialize RepoConfig")
+    }
+}
+
+pub const ENV_VAR_REPO_CONFIG: &str = "UPSILON_REPO_CONFIG";

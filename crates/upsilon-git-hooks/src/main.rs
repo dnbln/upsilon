@@ -16,6 +16,8 @@
 
 mod app;
 
+use std::process::exit;
+
 use clap::Parser;
 
 use crate::app::*;
@@ -38,8 +40,8 @@ impl ShaShaRefLines {
     }
 }
 
-impl Default for ShaShaRefLines {
-    fn default() -> Self {
+impl ShaShaRefLines {
+    fn from_stdin() -> Self {
         let mut lines = vec![];
         for line in std::io::stdin().lines() {
             let line = line.expect("Failed to read line from stdin");
@@ -70,8 +72,9 @@ fn main() -> GitHookResult<()> {
     let app = App::parse();
 
     match app {
-        App::PreReceive(PreReceive { lines }) => {
+        App::PreReceive(PreReceive { lines, repo_config }) => {
             println!("pre-receive");
+            dbg!(&repo_config);
 
             for line in lines.iter() {
                 println!(
@@ -84,11 +87,23 @@ fn main() -> GitHookResult<()> {
             ref_name,
             old_oid,
             new_oid,
+            repo_config,
         }) => {
             println!("update {} {} {}", ref_name, old_oid, new_oid);
+            dbg!(&repo_config);
+
+            if repo_config
+                .protected_branches
+                .iter()
+                .any(|it| format!("refs/heads/{it}") == ref_name)
+            {
+                println!("update: protected branch");
+                exit(1);
+            }
         }
-        App::PostReceive(PostReceive { lines }) => {
+        App::PostReceive(PostReceive { lines, repo_config }) => {
             println!("post-receive");
+            dbg!(&repo_config);
 
             for line in lines.iter() {
                 println!(

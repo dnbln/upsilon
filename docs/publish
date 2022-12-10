@@ -1,0 +1,12 @@
+#!/bin/bash
+
+echo upsilon-docs.dnbln.dev > ./CNAME
+
+touch .nojekyll
+
+git init
+git add -A
+git commit -am 'Deploy docs'
+git branch gh-pages
+git remote add origin https://github.com/dnbln/upsilon
+git push -f origin gh-pages

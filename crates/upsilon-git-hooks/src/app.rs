@@ -15,13 +15,17 @@
  */
 
 use clap::Parser;
+use upsilon_git_hooks::repo_config::RepoConfig;
 
 use crate::ShaShaRefLines;
 
 #[derive(Parser, Debug)]
 pub struct PreReceive {
-    #[clap(skip)]
+    #[clap(skip = ShaShaRefLines::from_stdin())]
     pub lines: ShaShaRefLines,
+
+    #[clap(skip = RepoConfig::from_env())]
+    pub repo_config: RepoConfig,
 }
 
 #[derive(Parser, Debug)]
@@ -29,12 +33,18 @@ pub struct Update {
     pub ref_name: String,
     pub old_oid: String,
     pub new_oid: String,
+
+    #[clap(skip = RepoConfig::from_env())]
+    pub repo_config: RepoConfig,
 }
 
 #[derive(Parser, Debug)]
 pub struct PostReceive {
-    #[clap(skip)]
+    #[clap(skip = ShaShaRefLines::from_stdin())]
     pub lines: ShaShaRefLines,
+
+    #[clap(skip = RepoConfig::from_env())]
+    pub repo_config: RepoConfig,
 }
 
 include!(concat!(env!("OUT_DIR"), "/app.rs"));

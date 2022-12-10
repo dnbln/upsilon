@@ -18,7 +18,7 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use upsilon_xtask::{cargo_cmd, ws_path, ws_root, XtaskResult};
+use upsilon_xtask::{cargo_cmd, cmd, cmd_call, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
 #[derive(Parser, Debug)]
@@ -35,6 +35,15 @@ enum App {
     PackRelease,
     #[clap(name = "install-aliases")]
     InstallAliases,
+    #[clap(name = "build-docs")]
+    #[clap(alias = "bd")]
+    BuildDocs,
+    #[clap(name = "serve-docs")]
+    #[clap(alias = "d")]
+    ServeDocs,
+    #[clap(name = "publish-docs")]
+    #[clap(alias = "pd")]
+    PublishDocs,
 }
 
 fn main() -> XtaskResult<()> {
@@ -160,6 +169,39 @@ fn main() -> XtaskResult<()> {
                 "install",
                 "--bin", "uxrd",
                 "--path", ws_path!("crates" / "upsilon-xtask"),
+                @logging-error-and-returnok);
+        }
+        App::BuildDocs => {
+            cmd_call!(
+                "mdbook",
+                "build",
+                @workdir = ws_path!("docs"),
+                @logging-error-and-returnok);
+        }
+        App::ServeDocs => {
+            cmd_call!(
+                "mdbook",
+                "serve",
+                @workdir = ws_path!("docs"),
+                @logging-error-and-returnok);
+        }
+
+        App::PublishDocs => {
+            cmd_call!(
+                "mdbook",
+                "build",
+                @workdir = ws_path!("docs"),
+                @logging-error-and-returnok);
+
+            #[cfg(windows)]
+            cmd_call!(
+                "./publish.bat",
+                @workdir = ws_path!("docs"),
+                @logging-error-and-returnok);
+            #[cfg(not(windows))]
+            cmd_call!(
+                "./publish",
+                @workdir = ws_path!("docs"),
                 @logging-error-and-returnok);
         }
     }

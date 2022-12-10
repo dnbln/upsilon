@@ -89,6 +89,14 @@ macro_rules! cmd_call {
             })()
         }
     };
+
+    ($($args:expr),+ $(, @workdir = $wd:expr)?, @logging-error-and-returnok $(,)?) => {{
+        if let Err(__err) = $crate::cmd_call!($($args),+ $(, @workdir = $wd)?) {
+            eprintln!("Error: {}", __err);
+
+            return Ok(());
+        }
+    }};
 }
 
 #[macro_export]

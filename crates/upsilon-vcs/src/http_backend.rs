@@ -250,6 +250,12 @@ pub async fn handle<B: AsyncRead>(
                 .as_ref(),
         )
         .env("REMOTE_ADDR", req.remote_addr.ip().to_string())
+        .env(
+            upsilon_git_hooks::repo_config::ENV_VAR_REPO_CONFIG,
+            upsilon_git_hooks::repo_config::RepoConfig {
+                protected_branches: vec!["trunk".to_string()],
+            }.serialized(),
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());
 
