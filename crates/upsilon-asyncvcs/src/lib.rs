@@ -92,6 +92,9 @@ pub enum FlatMessage {
     CommitTree(CommitRef),
     TreeEntries(TreeRef),
     WholeTreeEntries(TreeRef),
+
+    #[doc(hidden)]
+    Close,
 }
 
 #[derive(Debug)]
@@ -108,6 +111,9 @@ pub enum FlatResponse {
     CommitTree(TreeRef),
     TreeEntries(Vec<(String, TreeEntryRef)>),
     Error(upsilon_vcs::Error),
+
+    #[doc(hidden)]
+    CloseRelay,
 }
 
 struct ChannelClient {
@@ -150,11 +156,24 @@ fn new_channel() -> (ChannelClient, ChannelServer) {
     )
 }
 
-#[derive(Clone)]
-pub struct Client {
+struct ClientState {
     message_consumers: Arc<tokio::sync::Mutex<BTreeMap<u32, Box<dyn FnOnce(FlatResponse) + Send>>>>,
     index: Arc<AtomicU32>,
     sender: std::sync::mpsc::SyncSender<FlatMessageAndId>,
+}
+
+impl Drop for ClientState {
+    fn drop(&mut self) {
+        let _ = self.sender.send(FlatMessageAndId {
+            id: 0,
+            message: FlatMessage::Close,
+        });
+    }
+}
+
+#[derive(Clone)]
+pub struct Client {
+    state: Arc<ClientState>,
 }
 
 impl Client {
@@ -163,8 +182,8 @@ impl Client {
         receiver: tokio::sync::mpsc::UnboundedReceiver<FlatResponseAndId>,
     ) -> ClientInner {
         ClientInner {
-            message_consumers: Arc::clone(&self.message_consumers),
-            index: Arc::clone(&self.index),
+            message_consumers: Arc::clone(&self.state.message_consumers),
+            index: Arc::clone(&self.state.index),
             receiver,
         }
     }
@@ -188,9 +207,11 @@ impl Client {
         let ChannelClient { receiver, sender } = channel_client;
 
         let client = Self {
-            message_consumers: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
-            index: Arc::new(AtomicU32::new(1)),
-            sender,
+            state: Arc::new(ClientState {
+                message_consumers: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
+                index: Arc::new(AtomicU32::new(1)),
+                sender,
+            }),
         };
 
         tokio::task::spawn_blocking(move || {
@@ -203,6 +224,11 @@ impl Client {
                 loop {
                     if let Some(message_and_id) = client.receiver.recv().await {
                         let FlatResponseAndId { id, response } = message_and_id;
+
+                        if let FlatResponse::CloseRelay = response {
+                            break;
+                        }
+
                         let mut message_consumers = client.message_consumers.lock().await;
                         let message_consumer = message_consumers.remove(&id).unwrap();
                         drop(message_consumers);
@@ -216,12 +242,12 @@ impl Client {
     }
 
     pub async fn send<M: Message>(&self, message: M) -> M::Res {
-        let id = self.index.fetch_add(1, Ordering::SeqCst);
+        let id = self.state.index.fetch_add(1, Ordering::SeqCst);
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
 
         {
-            let mut lock = self.message_consumers.lock().await;
+            let mut lock = self.state.message_consumers.lock().await;
 
             lock.insert(
                 id,
@@ -232,7 +258,7 @@ impl Client {
         }
 
         let message = message.to_flat_message();
-        let sender = self.sender.clone();
+        let sender = self.state.sender.clone();
 
         tokio::task::spawn_blocking(move || {
             // SyncSender::send is potentially blocking
@@ -396,6 +422,14 @@ impl Server {
                         Ok(()) => FlatResponse::TreeEntries(entries),
                         Err(e) => FlatResponse::Error(e.into()),
                     }
+                }
+                FlatMessage::Close => {
+                    let _ = self.channel_server.sender.send(FlatResponseAndId {
+                        id,
+                        response: FlatResponse::CloseRelay,
+                    });
+
+                    break;
                 }
             };
 

@@ -34,6 +34,8 @@ fn wait_loop(subproc: &Mutex<Option<Child>>) {
             }
         }
 
+        drop(subproc);
+
         std::thread::sleep(WAIT_DURATION);
     }
 }
