@@ -20,6 +20,7 @@ use std::sync::Arc;
 use juniper::{graphql_object, FieldResult};
 
 use super::GraphQLContext;
+use crate::graphql::UserRef;
 
 pub struct RepoGit(pub(crate) upsilon_asyncvcs::Client);
 
@@ -35,14 +36,14 @@ impl RepoGit {
         Ok(GitCommit(self.0.clone(), commit))
     }
 
-    async fn branch(&self, name: String) -> FieldResult<RepoBranch> {
+    async fn branch(&self, name: String) -> FieldResult<GitBranch> {
         let branch = self
             .0
             .send(upsilon_asyncvcs::branch::BranchQuery(name))
             .await
             .0?;
 
-        Ok(RepoBranch(self.0.clone(), branch))
+        Ok(GitBranch(self.0.clone(), branch))
     }
 }
 
@@ -106,20 +107,43 @@ pub struct GitSignature(
     upsilon_asyncvcs::refs::SignatureRef,
 );
 
-#[graphql_object(context = GraphQLContext)]
 impl GitSignature {
-    async fn name(&self) -> Option<String> {
+    async fn _name(&self) -> Option<String> {
         self.0
             .send(upsilon_asyncvcs::signature::SignatureNameQuery(self.1))
             .await
             .0
     }
 
-    async fn email(&self) -> Option<String> {
+    async fn _email(&self) -> Option<String> {
         self.0
             .send(upsilon_asyncvcs::signature::SignatureEmailQuery(self.1))
             .await
             .0
+    }
+}
+
+#[graphql_object(context = GraphQLContext)]
+impl GitSignature {
+    async fn name(&self) -> Option<String> {
+        self._name().await
+    }
+
+    async fn email(&self) -> Option<String> {
+        self._email().await
+    }
+
+    async fn user(&self, context: &GraphQLContext) -> FieldResult<Option<UserRef>> {
+        let email = match self._email().await {
+            Some(email) => email,
+            None => return Ok(None),
+        };
+
+        let user = context
+            .query(|qm| async move { qm.query_user_by_username_email(&email).await })
+            .await?;
+
+        Ok(user.map(UserRef))
     }
 
     // fn time(&self) -> GitTime {
@@ -194,10 +218,10 @@ impl GitTreeEntry {
 //     }
 // }
 
-pub struct RepoBranch(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::BranchRef);
+pub struct GitBranch(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::BranchRef);
 
 #[graphql_object(context = GraphQLContext)]
-impl RepoBranch {
+impl GitBranch {
     async fn name(&self) -> FieldResult<Option<String>> {
         Ok(self
             .0

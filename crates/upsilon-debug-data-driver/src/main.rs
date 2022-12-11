@@ -59,7 +59,7 @@ async fn main() -> DDDResult<()> {
         .gql_mutation::<CreateUserResponse>(
             r#"
 mutation {
-    createUser(username: "a", password: "b", email: "c")
+    createUser(username: "dinu", password: "aaa", email: "git@dnbln.dev")
 }
 "#,
         )
@@ -116,7 +116,7 @@ mutation {
         .gql_query::<UserByUsernameResponse>(
             r#"
 query {
-    userByUsername(username: "a") {
+    userByUsername(username: "dinu") {
         id
     }
 }
