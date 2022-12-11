@@ -290,9 +290,15 @@ pub struct TreeEntryRef<'tree, 'r> {
     entry: &'r git2::TreeEntry<'tree>,
 }
 
+impl<'tree, 'r> TreeEntryRef<'tree, 'r> {
+    pub fn name(&self) -> &str {
+        self.entry.name().unwrap_or("<invalid UTF-8>")
+    }
+}
+
 impl<'tree> TreeEntry<'tree> {
-    pub fn name(&self) -> Option<&str> {
-        self.entry.name()
+    pub fn name(&self) -> &str {
+        self.entry.name().unwrap_or("<invalid UTF-8>")
     }
 }
 

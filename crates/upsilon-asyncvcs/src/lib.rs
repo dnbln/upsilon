@@ -20,9 +20,11 @@ use std::ops::Index;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
+use upsilon_vcs::{TreeWalkMode, TreeWalkResult};
+
 use crate::message::Message;
 use crate::private::FromFlatResponse;
-use crate::refs::{BranchRef, CommitRef, SignatureKind, SignatureRef};
+use crate::refs::{BranchRef, CommitRef, SignatureKind, SignatureRef, TreeEntryRef, TreeRef};
 
 struct Store<'r> {
     branches: Vec<upsilon_vcs::Branch<'r>>,
@@ -46,6 +48,14 @@ impl<'r> Index<BranchRef> for Store<'r> {
     }
 }
 
+impl<'r> Index<TreeRef> for Store<'r> {
+    type Output = upsilon_vcs::Tree<'r>;
+
+    fn index(&self, index: TreeRef) -> &Self::Output {
+        &self.trees[index.id]
+    }
+}
+
 impl<'r> Store<'r> {
     fn get_sig(&self, sig: SignatureRef) -> upsilon_vcs::Signature {
         let commit = &self[sig.commit_id];
@@ -62,6 +72,7 @@ impl<'r> Store<'r> {
 pub mod branch;
 pub mod commit;
 pub mod signature;
+pub mod tree;
 
 pub mod message;
 pub mod refs;
@@ -78,6 +89,9 @@ pub enum FlatMessage {
     CommitCommitter(CommitRef),
     SignatureName(SignatureRef),
     SignatureEmail(SignatureRef),
+    CommitTree(CommitRef),
+    TreeEntries(TreeRef),
+    WholeTreeEntries(TreeRef),
 }
 
 #[derive(Debug)]
@@ -91,6 +105,8 @@ pub enum FlatResponse {
     CommitCommitter(SignatureRef),
     SignatureName(Option<String>),
     SignatureEmail(Option<String>),
+    CommitTree(TreeRef),
+    TreeEntries(Vec<(String, TreeEntryRef)>),
     Error(upsilon_vcs::Error),
 }
 
@@ -324,6 +340,62 @@ impl Server {
                     let sig = store.get_sig(signature);
 
                     FlatResponse::SignatureEmail(sig.email().map(ToString::to_string))
+                }
+                FlatMessage::CommitTree(commit) => {
+                    let c = &store[commit];
+
+                    match c.tree() {
+                        Ok(tree) => {
+                            let id = store.trees.len();
+                            store.trees.push(tree);
+                            FlatResponse::CommitTree(TreeRef { id })
+                        }
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
+                FlatMessage::TreeEntries(tree) => {
+                    let t = &store[tree];
+
+                    let mut entries = vec![];
+
+                    for entry in t.iter() {
+                        let name = entry.name().to_string();
+                        let name_clone = name.clone();
+
+                        entries.push((
+                            name_clone,
+                            TreeEntryRef {
+                                tree_id: tree,
+                                name,
+                            },
+                        ))
+                    }
+
+                    FlatResponse::TreeEntries(entries)
+                }
+                FlatMessage::WholeTreeEntries(tree) => {
+                    let t = &store[tree];
+
+                    let mut entries = vec![];
+
+                    match t.walk(TreeWalkMode::PreOrder, |name, entry| {
+                        let e = entry.name();
+                        let name = format!("{name}{e}");
+                        let name_clone = name.clone();
+
+                        entries.push((
+                            name_clone,
+                            TreeEntryRef {
+                                tree_id: tree,
+                                name,
+                            },
+                        ));
+
+                        TreeWalkResult::Ok
+                    }) {
+                        Ok(()) => FlatResponse::TreeEntries(entries),
+                        Err(e) => FlatResponse::Error(e.into()),
+                    }
                 }
             };
 

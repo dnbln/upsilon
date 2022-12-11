@@ -89,10 +89,16 @@ impl GitCommit {
     //
     //     parents
     // }
-    //
-    // fn tree(&self) -> FieldResult<GitTree<'r>> {
-    //     Ok(GitTree(Arc::new(self.0.tree()?)))
-    // }
+
+    async fn tree(&self) -> FieldResult<GitTree> {
+        let tree = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitTreeQuery(self.1))
+            .await
+            .0?;
+
+        Ok(GitTree(self.0.clone(), tree))
+    }
 }
 
 pub struct GitSignature(
@@ -121,17 +127,47 @@ impl GitSignature {
     // }
 }
 
-// pub struct GitTree<'r>(Arc<upsilon_vcs::Tree<'r>>);
-//
-// #[graphql_object(context = GraphQLContext)]
-// impl<'r> GitTree<'r> {
-//     fn entries(&self) -> Vec<GitTreeEntry<'_>> {
-//         let entries = self.0.iter().map(|e| GitTreeEntry(Arc::new(e))).collect();
-//
-//         entries
-//     }
-// }
-//
+pub struct GitTree(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::TreeRef);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitTree {
+    #[graphql(arguments(whole_tree(default = false)))]
+    async fn entries(&self, whole_tree: bool) -> FieldResult<Vec<GitTreeEntry>> {
+        let entries = match whole_tree {
+            true => {
+                self.0
+                    .send(upsilon_asyncvcs::tree::WholeTreeEntriesQuery(self.1))
+                    .await
+                    .0?
+            }
+            false => {
+                self.0
+                    .send(upsilon_asyncvcs::tree::TreeEntriesQuery(self.1))
+                    .await
+                    .0
+            }
+        };
+
+        Ok(entries
+            .into_iter()
+            .map(|(name, entry)| GitTreeEntry(self.0.clone(), name, entry))
+            .collect())
+    }
+}
+
+pub struct GitTreeEntry(
+    upsilon_asyncvcs::Client,
+    String,
+    upsilon_asyncvcs::refs::TreeEntryRef,
+);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitTreeEntry {
+    fn name(&self) -> String {
+        self.1.clone()
+    }
+}
+
 // pub struct GitTime(upsilon_vcs::Time);
 //
 // #[graphql_object(context = GraphQLContext)]

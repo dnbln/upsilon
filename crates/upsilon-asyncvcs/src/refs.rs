@@ -37,3 +37,11 @@ pub(crate) enum SignatureKind {
     Author,
     Committer,
 }
+
+refty!(TreeRef);
+
+#[derive(Clone, Debug)]
+pub struct TreeEntryRef {
+    pub(crate) tree_id: TreeRef,
+    pub(crate) name: String,
+}

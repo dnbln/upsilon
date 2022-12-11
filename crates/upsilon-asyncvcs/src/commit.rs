@@ -16,7 +16,7 @@
 
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
-use crate::refs::{CommitRef, SignatureRef};
+use crate::refs::{CommitRef, SignatureRef, TreeRef};
 use crate::{FlatMessage, FlatResponse};
 
 pub struct CommitQuery(pub String);
@@ -144,3 +144,29 @@ impl FromFlatResponse for CommitCommitterQueryResponse {
 }
 
 impl Response for CommitCommitterQueryResponse {}
+
+pub struct CommitTreeQuery(pub CommitRef);
+
+impl ToFlatMessage for CommitTreeQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitTree(self.0)
+    }
+}
+
+impl Message for CommitTreeQuery {
+    type Res = CommitTreeQueryResponse;
+}
+
+pub struct CommitTreeQueryResponse(pub upsilon_vcs::Result<TreeRef>);
+
+impl FromFlatResponse for CommitTreeQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitTree(t) => Self(Ok(t)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitTreeQueryResponse {}
