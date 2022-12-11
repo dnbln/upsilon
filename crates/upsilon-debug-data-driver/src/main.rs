@@ -147,14 +147,22 @@ query($id: UserId!) {
     client
         .gql_query_with_variables::<any::Any>(
             r#"
-query($repoId:RepoId!){
-    repo(repoId:$repoId) {
+query($repoId: RepoId!){
+    repo(repoId: $repoId) {
         id
         name
         git {
             commit(sha:"138f92b30c111f9e91005bc60b528fc76ab20692") {
                 sha
                 message
+            }
+
+            branch(name: "trunk") {
+                name
+                commit {
+                    sha
+                    message
+                }
             }
         }
     }

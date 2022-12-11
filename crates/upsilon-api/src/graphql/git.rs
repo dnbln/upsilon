@@ -35,15 +35,15 @@ impl RepoGit {
         Ok(GitCommit(self.0.clone(), commit))
     }
 
-    // async fn branch(&self, name: String) -> FieldResult<RepoBranch> {
-    //     let branch = self
-    //         .0
-    //         .send(upsilon_asyncvcs::branch::BranchQuery(name))
-    //         .await
-    //         .0?;
-    //
-    //     Ok(RepoBranch(branch))
-    // }
+    async fn branch(&self, name: String) -> FieldResult<RepoBranch> {
+        let branch = self
+            .0
+            .send(upsilon_asyncvcs::branch::BranchQuery(name))
+            .await
+            .0?;
+
+        Ok(RepoBranch(self.0.clone(), branch))
+    }
 }
 
 pub struct GitCommit(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::CommitRef);
@@ -140,3 +140,26 @@ impl GitCommit {
 //         self.0.name()
 //     }
 // }
+
+pub struct RepoBranch(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::BranchRef);
+
+#[graphql_object(context = GraphQLContext)]
+impl RepoBranch {
+    async fn name(&self) -> FieldResult<Option<String>> {
+        Ok(self
+            .0
+            .send(upsilon_asyncvcs::branch::BranchNameQuery(self.1))
+            .await
+            .0?)
+    }
+
+    async fn commit(&self) -> FieldResult<GitCommit> {
+        let commit = self
+            .0
+            .send(upsilon_asyncvcs::branch::BranchCommitQuery(self.1))
+            .await
+            .0?;
+
+        Ok(GitCommit(self.0.clone(), commit))
+    }
+}

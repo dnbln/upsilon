@@ -40,6 +40,14 @@ impl<'r> Index<CommitRef> for Store<'r> {
     }
 }
 
+impl<'r> Index<BranchRef> for Store<'r> {
+    type Output = upsilon_vcs::Branch<'r>;
+
+    fn index(&self, index: BranchRef) -> &Self::Output {
+        &self.branches[index.id]
+    }
+}
+
 pub mod branch;
 pub mod commit;
 pub mod message;
@@ -48,6 +56,8 @@ pub mod refs;
 #[derive(Debug)]
 enum FlatMessage {
     Branch(String),
+    BranchName(BranchRef),
+    BranchCommit(BranchRef),
     Commit(String),
     CommitSha(CommitRef),
     CommitMessage(CommitRef),
@@ -56,6 +66,7 @@ enum FlatMessage {
 #[derive(Debug)]
 enum FlatResponse {
     Branch(BranchRef),
+    BranchName(Option<String>),
     Commit(CommitRef),
     CommitSha(String),
     CommitMessage(Option<String>),
@@ -226,6 +237,25 @@ impl Server {
                             let id = store.branches.len();
                             store.branches.push(branch);
                             FlatResponse::Branch(BranchRef { id })
+                        }
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
+                FlatMessage::BranchName(branch) => {
+                    let b = &store[branch];
+
+                    match b.name() {
+                        Ok(name) => FlatResponse::BranchName(name.map(ToString::to_string)),
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
+                FlatMessage::BranchCommit(branch) => {
+                    let b = &store[branch];
+                    match b.get_commit() {
+                        Ok(commit) => {
+                            let id = store.commits.len();
+                            store.commits.push(commit);
+                            FlatResponse::Commit(CommitRef { id })
                         }
                         Err(e) => FlatResponse::Error(e),
                     }

@@ -16,7 +16,7 @@
 
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
-use crate::refs::BranchRef;
+use crate::refs::{BranchRef, CommitRef};
 use crate::{FlatMessage, FlatResponse};
 
 pub struct BranchQuery(pub String);
@@ -44,3 +44,55 @@ impl FromFlatResponse for BranchQueryResponse {
 }
 
 impl Response for BranchQueryResponse {}
+
+pub struct BranchNameQuery(pub BranchRef);
+
+impl ToFlatMessage for BranchNameQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::BranchName(self.0)
+    }
+}
+
+impl Message for BranchNameQuery {
+    type Res = BranchNameQueryResponse;
+}
+
+pub struct BranchNameQueryResponse(pub upsilon_vcs::Result<Option<String>>);
+
+impl FromFlatResponse for BranchNameQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::BranchName(b) => Self(Ok(b)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for BranchNameQueryResponse {}
+
+pub struct BranchCommitQuery(pub BranchRef);
+
+impl ToFlatMessage for BranchCommitQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::BranchCommit(self.0)
+    }
+}
+
+impl Message for BranchCommitQuery {
+    type Res = BranchCommitQueryResponse;
+}
+
+pub struct BranchCommitQueryResponse(pub upsilon_vcs::Result<CommitRef>);
+
+impl FromFlatResponse for BranchCommitQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::Commit(c) => Self(Ok(c)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for BranchCommitQueryResponse {}

@@ -101,7 +101,7 @@ impl<'r> Branch<'r> {
         Ok(self.branch.name()?)
     }
 
-    pub fn get_commit(&self) -> Result<Commit> {
+    pub fn get_commit(&self) -> Result<Commit<'r>> {
         Ok(Commit {
             commit: self.branch.get().peel_to_commit()?,
         })
