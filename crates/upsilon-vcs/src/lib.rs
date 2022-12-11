@@ -23,8 +23,8 @@ mod http_backend;
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 
+use git2::ConfigLevel;
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
-use git2::{ConfigLevel, TreeEntry, TreeIter};
 pub use http_backend::{
     handle as http_backend_handle, AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
@@ -114,6 +114,10 @@ pub struct Commit<'r> {
 }
 
 impl<'r> Commit<'r> {
+    pub fn sha(&self) -> String {
+        self.commit.id().to_string()
+    }
+
     pub fn message(&self) -> Option<&str> {
         self.commit.message()
     }
@@ -278,22 +282,58 @@ pub struct Tree<'r> {
     tree: git2::Tree<'r>,
 }
 
+pub struct TreeEntry<'tree> {
+    entry: git2::TreeEntry<'tree>,
+}
+
+pub struct TreeEntryRef<'tree, 'r> {
+    entry: &'r git2::TreeEntry<'tree>,
+}
+
+impl<'tree> TreeEntry<'tree> {
+    pub fn name(&self) -> Option<&str> {
+        self.entry.name()
+    }
+}
+
+pub struct TreeIter<'tree> {
+    inner: git2::TreeIter<'tree>,
+}
+
+impl<'tree> Iterator for TreeIter<'tree> {
+    type Item = TreeEntry<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|entry| TreeEntry { entry })
+    }
+}
+
+impl<'tree> DoubleEndedIterator for TreeIter<'tree> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(|entry| TreeEntry { entry })
+    }
+}
+
 impl<'r> Tree<'r> {
     pub fn iter(&self) -> TreeIter<'_> {
-        self.tree.iter()
+        TreeIter {
+            inner: self.tree.iter(),
+        }
     }
 
-    pub fn walk<C, T>(&self, mode: TreeWalkMode, callback: C) -> Result<()>
+    pub fn walk<C, T>(&self, mode: TreeWalkMode, mut callback: C) -> Result<()>
     where
-        C: FnMut(&str, &TreeEntry<'_>) -> T,
+        C: FnMut(&str, TreeEntryRef<'_, '_>) -> T,
         T: Into<i32>,
     {
-        Ok(self.tree.walk(mode, callback)?)
+        Ok(self
+            .tree
+            .walk(mode, |name, entry| callback(name, TreeEntryRef { entry }))?)
     }
 
     pub fn try_walk<C, T, E>(&self, mode: TreeWalkMode, mut callback: C) -> Result<StdResult<(), E>>
     where
-        C: FnMut(&str, &TreeEntry<'_>) -> StdResult<T, E>,
+        C: FnMut(&str, TreeEntryRef<'_, '_>) -> StdResult<T, E>,
         T: Into<TreeWalkResult>,
     {
         let mut all_result = Ok(());
@@ -491,10 +531,16 @@ pub fn setup_mirror_absolute(
 pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
     let repo_dir = config.repo_dir(path);
 
-    check_repo_exists_absolute(config, &repo_dir)?;
+    get_repo_absolute(config, repo_dir)
+}
+
+pub fn get_repo_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+    let path = path.as_ref();
+
+    check_repo_exists_absolute(config, path)?;
 
     Ok(Repository {
-        repo: git2::Repository::open_bare(repo_dir)?,
+        repo: git2::Repository::open_bare(path)?,
     })
 }
 

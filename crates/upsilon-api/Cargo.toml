@@ -18,6 +18,7 @@ jwt = { version = "0.16.0", features = ["openssl"] }
 openssl.workspace = true
 chrono.workspace = true
 
+upsilon-asyncvcs.workspace = true
 upsilon-core.workspace = true
 upsilon-data.workspace = true
 upsilon-models.workspace = true

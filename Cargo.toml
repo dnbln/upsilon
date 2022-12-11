@@ -25,6 +25,7 @@ async-trait = "0.1.59"
 git2 = "0.15"
 
 upsilon-api = { path = "crates/upsilon-api" }
+upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }
 upsilon-ci = { path = "crates/upsilon-ci" }
 upsilon-core = { path = "crates/upsilon-core" }
 upsilon-data = { path = "crates/upsilon-data" }

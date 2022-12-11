@@ -2870,10 +2870,19 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "upsilon-asyncvcs",
  "upsilon-core",
  "upsilon-data",
  "upsilon-models",
  "upsilon-procx",
+ "upsilon-vcs",
+]
+
+[[package]]
+name = "upsilon-asyncvcs"
+version = "0.1.0"
+dependencies = [
+ "tokio",
  "upsilon-vcs",
 ]
 

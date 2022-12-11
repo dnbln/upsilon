@@ -505,6 +505,46 @@ impl UserRef {
 
 struct RepoRef(Repo);
 
+impl RepoRef {
+    async fn ns_path(
+        &self,
+        qm: DataQueryMaster<'_>,
+    ) -> Result<PathBuf, upsilon_data::CommonDataClientError> {
+        let res = match self.0.namespace.0 {
+            NamespaceId::GlobalNamespace => {
+                let mut pb = PathBuf::new();
+                pb.push(self.0.name.as_str());
+                pb
+            }
+            NamespaceId::User(user) => {
+                let user = qm.query_user(user).await?;
+                let mut pb = PathBuf::new();
+                pb.push(user.username.as_str());
+                pb.push(self.0.name.as_str());
+                pb
+            }
+            NamespaceId::Organization(org) => {
+                let org = qm.query_organization(org).await?;
+                let mut pb = PathBuf::new();
+                pb.push(org.name.as_str());
+                pb.push(self.0.name.as_str());
+                pb
+            }
+            NamespaceId::Team(org, team) => {
+                let team = qm.query_team(team).await?;
+                let org = qm.query_organization(org).await?;
+                let mut pb = PathBuf::new();
+                pb.push(org.name.as_str());
+                pb.push(team.name.as_str());
+                pb.push(self.0.name.as_str());
+                pb
+            }
+        };
+
+        Ok(res)
+    }
+}
+
 #[graphql_object(name = "Repo", context = GraphQLContext)]
 impl RepoRef {
     fn id(&self) -> RepoId {
@@ -513,6 +553,17 @@ impl RepoRef {
 
     fn name(&self) -> &RepoName {
         &self.0.name
+    }
+
+    pub async fn git(&self, context: &GraphQLContext) -> FieldResult<git::RepoGit> {
+        let ns_path = self.ns_path(context.db.query_master()).await?;
+
+        let repo_dir = context.vcs_config.repo_dir(ns_path);
+        let vcs_config = context.vcs_config.clone();
+
+        Ok(git::RepoGit(upsilon_asyncvcs::Client::new(move || {
+            upsilon_vcs::get_repo_absolute(&vcs_config, &repo_dir).expect("Failed to get repo")
+        }).await))
     }
 }
 

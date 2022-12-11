@@ -74,8 +74,19 @@ mutation {
 
     info!("Creating github mirror...");
 
-    client
-        .gql_mutation::<any::Any>(
+    #[derive(Deserialize)]
+    struct GlobalMirrorId {
+        #[serde(rename = "globalMirror")]
+        global_mirror: IdHolder,
+    }
+
+    #[derive(Deserialize)]
+    struct IdHolder {
+        id: String,
+    }
+
+    let repo_id = client
+        .gql_mutation::<GlobalMirrorId>(
             r#"
 mutation {
     globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
@@ -84,21 +95,20 @@ mutation {
 }
 "#,
         )
-        .await?;
+        .await?
+        .global_mirror
+        .id;
+
+    println!("repo_id: {}", repo_id);
 
     info!("Created github mirror");
 
     info!("Testing cache ...");
 
     #[derive(Deserialize)]
-    struct UserWithId {
-        id: String,
-    }
-
-    #[derive(Deserialize)]
     struct UserByUsernameResponse {
         #[serde(rename = "userByUsername")]
-        user_by_username: UserWithId,
+        user_by_username: IdHolder,
     }
 
     // load user by username in the cache, with the first query

@@ -20,7 +20,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::daemon::GitDaemon;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct UpsilonVcsConfig {
     path: PathBuf,
     #[serde(skip_deserializing)]
@@ -66,7 +66,7 @@ impl UpsilonVcsConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GitProtocol {
     Enabled(GitProtocolConfig),
     Disabled,
@@ -103,13 +103,13 @@ impl<'de> Deserialize<'de> for GitProtocol {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct GitProtocolConfig {
     #[serde(rename = "git-daemon")]
     pub git_daemon: GitDaemon,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GitHttpProtocol {
     Enabled(GitHttpProtocolConfig),
     Disabled,
@@ -146,7 +146,7 @@ impl<'de> Deserialize<'de> for GitHttpProtocol {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct GitHttpProtocolConfig {
     #[serde(rename = "push-auth-required", default = "default_push_auth_required")]
     pub push_auth_required: bool,

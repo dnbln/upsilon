@@ -99,7 +99,7 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
     Ok(child)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum GitDaemon {
     Enabled(GitDaemonConfig),
     Disabled,
@@ -136,7 +136,7 @@ impl<'de> Deserialize<'de> for GitDaemon {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct GitDaemonConfig {
     #[serde(default = "default_git_daemon_port")]
     pub port: u16,
@@ -152,7 +152,7 @@ fn default_git_daemon_port() -> u16 {
     9418
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct GitDaemonServices {
     #[serde(default)]
@@ -179,7 +179,7 @@ fn receive_pack_default() -> GitDaemonService {
     })
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GitDaemonService {
     Enabled(GitDaemonServiceConfig),
     Disabled(GitDaemonServiceConfig),
@@ -218,13 +218,13 @@ impl Default for GitDaemonService {
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 pub struct GitDaemonServiceConfig {
     #[serde(rename = "override")]
     pub override_kind: GitDaemonServiceOverride,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Clone, Copy, Debug, Default)]
 pub enum GitDaemonServiceOverride {
     #[serde(rename = "allow")]
     Allow,
