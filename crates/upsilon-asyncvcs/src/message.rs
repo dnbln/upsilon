@@ -14,11 +14,10 @@
  *    limitations under the License.
  */
 
-use crate::{FlatMessage, FlatResponse, private};
+use crate::{private, FlatMessage, FlatResponse};
 
 pub trait Message: private::ToFlatMessage {
     type Res: Response;
 }
 
-pub trait Response: private::FromFlatResponse {
-}
+pub trait Response: private::FromFlatResponse {}

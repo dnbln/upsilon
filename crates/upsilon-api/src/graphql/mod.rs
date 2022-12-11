@@ -561,9 +561,12 @@ impl RepoRef {
         let repo_dir = context.vcs_config.repo_dir(ns_path);
         let vcs_config = context.vcs_config.clone();
 
-        Ok(git::RepoGit(upsilon_asyncvcs::Client::new(move || {
-            upsilon_vcs::get_repo_absolute(&vcs_config, &repo_dir).expect("Failed to get repo")
-        }).await))
+        Ok(git::RepoGit(
+            upsilon_asyncvcs::Client::new(move || {
+                upsilon_vcs::get_repo_absolute(&vcs_config, &repo_dir).expect("Failed to get repo")
+            })
+            .await,
+        ))
     }
 }
 

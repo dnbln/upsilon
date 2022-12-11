@@ -84,8 +84,10 @@ struct ChannelServer {
     receiver: std::sync::mpsc::Receiver<FlatMessageAndId>,
 }
 
-fn new_channel_and_server() -> (ChannelClient, ChannelServer) {
-    let (message_sender, message_receiver) = std::sync::mpsc::sync_channel(1024);
+const CHANNEL_BUFFER_SIZE: usize = 1024;
+
+fn new_channel() -> (ChannelClient, ChannelServer) {
+    let (message_sender, message_receiver) = std::sync::mpsc::sync_channel(CHANNEL_BUFFER_SIZE);
     let (response_sender, response_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     (
@@ -133,7 +135,7 @@ impl Client {
         F: Send,
         F: 'static,
     {
-        let (channel_client, channel_server) = new_channel_and_server();
+        let (channel_client, channel_server) = new_channel();
 
         let ChannelClient { receiver, sender } = channel_client;
 
@@ -181,12 +183,13 @@ impl Client {
             );
         }
 
-        self.sender
-            .send(FlatMessageAndId {
-                id,
-                message: message.to_flat_message(),
-            })
-            .unwrap();
+        let message = message.to_flat_message();
+        let sender = self.sender.clone();
+
+        tokio::task::spawn_blocking(move || {
+            // SyncSender::send is potentially blocking
+            sender.send(FlatMessageAndId { id, message }).unwrap()
+        });
 
         let response = receiver.await.unwrap();
 

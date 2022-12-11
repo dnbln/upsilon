@@ -14,8 +14,8 @@
  *    limitations under the License.
  */
 
-use crate::private::{FromFlatResponse, ToFlatMessage};
 use crate::message::{Message, Response};
+use crate::private::{FromFlatResponse, ToFlatMessage};
 use crate::refs::CommitRef;
 use crate::{FlatMessage, FlatResponse};
 
