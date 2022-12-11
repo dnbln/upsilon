@@ -16,7 +16,7 @@
 
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
-use crate::refs::CommitRef;
+use crate::refs::{CommitRef, SignatureRef};
 use crate::{FlatMessage, FlatResponse};
 
 pub struct CommitQuery(pub String);
@@ -94,3 +94,53 @@ impl FromFlatResponse for CommitMessageQueryResponse {
 }
 
 impl Response for CommitMessageQueryResponse {}
+
+pub struct CommitAuthorQuery(pub CommitRef);
+
+impl ToFlatMessage for CommitAuthorQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitAuthor(self.0)
+    }
+}
+
+impl Message for CommitAuthorQuery {
+    type Res = CommitAuthorQueryResponse;
+}
+
+pub struct CommitAuthorQueryResponse(pub SignatureRef);
+
+impl FromFlatResponse for CommitAuthorQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitAuthor(a) => Self(a),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitAuthorQueryResponse {}
+
+pub struct CommitCommitterQuery(pub CommitRef);
+
+impl ToFlatMessage for CommitCommitterQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitCommitter(self.0)
+    }
+}
+
+impl Message for CommitCommitterQuery {
+    type Res = CommitCommitterQueryResponse;
+}
+
+pub struct CommitCommitterQueryResponse(pub SignatureRef);
+
+impl FromFlatResponse for CommitCommitterQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitCommitter(c) => Self(c),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitCommitterQueryResponse {}

@@ -64,18 +64,26 @@ impl GitCommit {
             .0
     }
 
-    // fn author(&self) -> FieldResult<GitSignature> {
-    //     let sig = Arc::new(self.0.author());
-    //
-    //     Ok(GitSignature(sig))
-    // }
-    //
-    // fn committer(&self) -> FieldResult<GitSignature> {
-    //     let sig = Arc::new(self.0.committer());
-    //
-    //     Ok(GitSignature(sig))
-    // }
-    //
+    async fn author(&self) -> FieldResult<GitSignature> {
+        let author = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitAuthorQuery(self.1))
+            .await
+            .0;
+
+        Ok(GitSignature(self.0.clone(), author))
+    }
+
+    async fn committer(&self) -> FieldResult<GitSignature> {
+        let committer = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitCommitterQuery(self.1))
+            .await
+            .0;
+
+        Ok(GitSignature(self.0.clone(), committer))
+    }
+
     // fn parents(&self) -> Vec<GitCommit<'r>> {
     //     let parents = self.0.parents().map(|p| GitCommit(Arc::new(p))).collect();
     //
@@ -87,23 +95,32 @@ impl GitCommit {
     // }
 }
 
-// pub struct GitSignature<'r>(Arc<upsilon_vcs::Signature<'r>>);
-//
-// #[graphql_object(context = GraphQLContext)]
-// impl<'r> GitSignature<'r> {
-//     fn name(&self) -> Option<&str> {
-//         self.0.name()
-//     }
-//
-//     fn email(&self) -> Option<&str> {
-//         self.0.email()
-//     }
-//
-//     fn time(&self) -> GitTime {
-//         GitTime(self.0.when())
-//     }
-// }
-//
+pub struct GitSignature(
+    upsilon_asyncvcs::Client,
+    upsilon_asyncvcs::refs::SignatureRef,
+);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitSignature {
+    async fn name(&self) -> Option<String> {
+        self.0
+            .send(upsilon_asyncvcs::signature::SignatureNameQuery(self.1))
+            .await
+            .0
+    }
+
+    async fn email(&self) -> Option<String> {
+        self.0
+            .send(upsilon_asyncvcs::signature::SignatureEmailQuery(self.1))
+            .await
+            .0
+    }
+
+    // fn time(&self) -> GitTime {
+    //     GitTime(self.0.when())
+    // }
+}
+
 // pub struct GitTree<'r>(Arc<upsilon_vcs::Tree<'r>>);
 //
 // #[graphql_object(context = GraphQLContext)]

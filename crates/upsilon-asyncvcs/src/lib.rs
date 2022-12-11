@@ -22,9 +22,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::message::Message;
 use crate::private::FromFlatResponse;
-use crate::refs::{BranchRef, CommitRef};
-
-struct Repo(upsilon_vcs::Repository);
+use crate::refs::{BranchRef, CommitRef, SignatureKind, SignatureRef};
 
 struct Store<'r> {
     branches: Vec<upsilon_vcs::Branch<'r>>,
@@ -48,28 +46,51 @@ impl<'r> Index<BranchRef> for Store<'r> {
     }
 }
 
+impl<'r> Store<'r> {
+    fn get_sig(&self, sig: SignatureRef) -> upsilon_vcs::Signature {
+        let commit = &self[sig.commit_id];
+
+        let signature = match sig.kind {
+            SignatureKind::Author => commit.author(),
+            SignatureKind::Committer => commit.committer(),
+        };
+
+        signature
+    }
+}
+
 pub mod branch;
 pub mod commit;
+pub mod signature;
+
 pub mod message;
 pub mod refs;
 
 #[derive(Debug)]
-enum FlatMessage {
+pub enum FlatMessage {
     Branch(String),
     BranchName(BranchRef),
     BranchCommit(BranchRef),
     Commit(String),
     CommitSha(CommitRef),
     CommitMessage(CommitRef),
+    CommitAuthor(CommitRef),
+    CommitCommitter(CommitRef),
+    SignatureName(SignatureRef),
+    SignatureEmail(SignatureRef),
 }
 
 #[derive(Debug)]
-enum FlatResponse {
+pub enum FlatResponse {
     Branch(BranchRef),
     BranchName(Option<String>),
     Commit(CommitRef),
     CommitSha(String),
     CommitMessage(Option<String>),
+    CommitAuthor(SignatureRef),
+    CommitCommitter(SignatureRef),
+    SignatureName(Option<String>),
+    SignatureEmail(Option<String>),
     Error(upsilon_vcs::Error),
 }
 
@@ -278,6 +299,32 @@ impl Server {
                 FlatMessage::CommitMessage(commit_ref) => FlatResponse::CommitMessage(
                     store[commit_ref].message().map(ToString::to_string),
                 ),
+                FlatMessage::CommitAuthor(commit) => {
+                    let c = &store[commit];
+                    let sig = c.author();
+                    FlatResponse::CommitAuthor(SignatureRef {
+                        commit_id: commit,
+                        kind: SignatureKind::Author,
+                    })
+                }
+                FlatMessage::CommitCommitter(commit) => {
+                    let c = &store[commit];
+                    let sig = c.committer();
+                    FlatResponse::CommitCommitter(SignatureRef {
+                        commit_id: commit,
+                        kind: SignatureKind::Committer,
+                    })
+                }
+                FlatMessage::SignatureName(signature) => {
+                    let sig = store.get_sig(signature);
+
+                    FlatResponse::SignatureName(sig.name().map(ToString::to_string))
+                }
+                FlatMessage::SignatureEmail(signature) => {
+                    let sig = store.get_sig(signature);
+
+                    FlatResponse::SignatureEmail(sig.email().map(ToString::to_string))
+                }
             };
 
             self.channel_server

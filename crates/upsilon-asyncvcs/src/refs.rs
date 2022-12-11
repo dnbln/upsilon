@@ -18,10 +18,22 @@ macro_rules! refty {
     ($name:ident) => {
         #[derive(Copy, Clone, Debug)]
         pub struct $name {
-            pub id: usize,
+            pub(crate) id: usize,
         }
     };
 }
 
 refty!(BranchRef);
 refty!(CommitRef);
+
+#[derive(Copy, Clone, Debug)]
+pub struct SignatureRef {
+    pub(crate) commit_id: CommitRef,
+    pub(crate) kind: SignatureKind,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum SignatureKind {
+    Author,
+    Committer,
+}
