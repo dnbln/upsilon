@@ -18,6 +18,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use juniper::{graphql_object, FieldResult};
+use upsilon_asyncvcs::refs::SignatureRef;
 
 use super::GraphQLContext;
 use crate::graphql::UserRef;
@@ -238,5 +239,47 @@ impl GitBranch {
             .0?;
 
         Ok(GitCommit(self.0.clone(), commit))
+    }
+
+    async fn contributors(&self) -> FieldResult<Vec<GitSignatureContributions>> {
+        let contributors = self
+            .0
+            .send(upsilon_asyncvcs::branch::BranchContributorsQuery(self.1))
+            .await
+            .0?
+            .into_iter()
+            .map(|(email, count)| GitSignatureContributions(self.0.clone(), email, count))
+            .collect::<Vec<_>>();
+
+        Ok(contributors)
+    }
+}
+
+pub struct GitSignatureContributions(upsilon_asyncvcs::Client, String, usize);
+
+impl GitSignatureContributions {
+    fn _email(&self) -> &str {
+        &self.1
+    }
+}
+
+#[graphql_object(context = GraphQLContext)]
+impl GitSignatureContributions {
+    fn email(&self) -> &str {
+        self._email()
+    }
+
+    async fn user(&self, context: &GraphQLContext) -> FieldResult<Option<UserRef>> {
+        let email = self._email();
+
+        let user = context
+            .query(|qm| async move { qm.query_user_by_username_email(email).await })
+            .await?;
+
+        Ok(user.map(UserRef))
+    }
+
+    fn contributions(&self) -> i32 {
+        self.2 as i32
     }
 }

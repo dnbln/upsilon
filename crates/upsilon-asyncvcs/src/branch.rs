@@ -14,9 +14,10 @@
  *    limitations under the License.
  */
 
+use std::collections::BTreeMap;
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
-use crate::refs::{BranchRef, CommitRef};
+use crate::refs::{BranchRef, CommitRef, SignatureRef};
 use crate::{FlatMessage, FlatResponse};
 
 pub struct BranchQuery(pub String);
@@ -96,3 +97,30 @@ impl FromFlatResponse for BranchCommitQueryResponse {
 }
 
 impl Response for BranchCommitQueryResponse {}
+
+pub struct BranchContributorsQuery(pub BranchRef);
+
+impl ToFlatMessage for BranchContributorsQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::BranchContributors(self.0)
+    }
+}
+
+impl Message for BranchContributorsQuery {
+    type Res = BranchContributorsQueryResponse;
+}
+
+// map of `email => number of commits`
+pub struct BranchContributorsQueryResponse(pub upsilon_vcs::Result<BTreeMap<String, usize>>);
+
+impl FromFlatResponse for BranchContributorsQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::BranchContributors(c) => Self(Ok(c)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for BranchContributorsQueryResponse {}

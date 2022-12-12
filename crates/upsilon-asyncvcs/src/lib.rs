@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::ops::Index;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -67,6 +67,17 @@ impl<'r> Store<'r> {
 
         signature
     }
+
+    fn push_commit(&mut self, commit: upsilon_vcs::Commit<'r>) -> CommitRef {
+        let commit_sha = commit.sha();
+        if let Some(pos) = self.commits.iter().position(|c| c.sha() == commit_sha) {
+            return CommitRef { id: pos };
+        }
+
+        let id = self.commits.len();
+        self.commits.push(commit);
+        CommitRef { id }
+    }
 }
 
 pub mod branch;
@@ -82,6 +93,7 @@ pub enum FlatMessage {
     Branch(String),
     BranchName(BranchRef),
     BranchCommit(BranchRef),
+    BranchContributors(BranchRef),
     Commit(String),
     CommitSha(CommitRef),
     CommitMessage(CommitRef),
@@ -101,6 +113,7 @@ pub enum FlatMessage {
 pub enum FlatResponse {
     Branch(BranchRef),
     BranchName(Option<String>),
+    BranchContributors(BTreeMap<String, usize>),
     Commit(CommitRef),
     CommitSha(String),
     CommitMessage(Option<String>),
@@ -323,15 +336,65 @@ impl Server {
                         Err(e) => FlatResponse::Error(e),
                     }
                 }
+                FlatMessage::BranchContributors(branch) => {
+                    fn branch_contributors<'r>(
+                        store: &mut Store<'r>,
+                        contributors: &mut BTreeMap<String, usize>,
+                        passed_commits: &mut BTreeSet<CommitRef>,
+                        commit: upsilon_vcs::Commit<'r>,
+                    ) -> Option<upsilon_vcs::Error> {
+                        let commit_ref = store.push_commit(commit.clone());
+
+                        if !passed_commits.insert(commit_ref) {
+                            return None;
+                        }
+
+                        *contributors
+                            .entry(
+                                commit
+                                    .author()
+                                    .email()
+                                    .unwrap_or("<invalid email>")
+                                    .to_string(),
+                            )
+                            .or_insert(0) += 1;
+
+                        for parent_commit in commit.parents() {
+                            if let Some(e) = branch_contributors(
+                                store,
+                                contributors,
+                                passed_commits,
+                                parent_commit,
+                            ) {
+                                return Some(e);
+                            }
+                        }
+
+                        None
+                    }
+
+                    let b = &store[branch];
+                    match b.get_commit() {
+                        Ok(commit) => {
+                            let mut contributors = BTreeMap::new();
+                            match branch_contributors(
+                                &mut store,
+                                &mut contributors,
+                                &mut BTreeSet::new(),
+                                commit,
+                            ) {
+                                Some(e) => FlatResponse::Error(e),
+                                None => FlatResponse::BranchContributors(contributors),
+                            }
+                        }
+                        Err(err) => FlatResponse::Error(err),
+                    }
+                }
                 FlatMessage::Commit(commit_sha) => {
                     let commit = self.repo.find_commit(&commit_sha);
 
                     match commit {
-                        Ok(commit) => {
-                            let id = store.commits.len();
-                            store.commits.push(commit);
-                            FlatResponse::Commit(CommitRef { id })
-                        }
+                        Ok(commit) => FlatResponse::Commit(store.push_commit(commit)),
                         Err(e) => FlatResponse::Error(e),
                     }
                 }
