@@ -408,6 +408,17 @@ fn check_repo_exists_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>)
 
 const REPO_ID_FILE: &str = "upsilon-repoid";
 
+pub fn silent_setup_repo_absolute(
+    config: &UpsilonVcsConfig,
+    path: impl AsRef<Path>,
+    repo: &Repository,
+    repo_config: &RepoConfig,
+) -> Result<()> {
+    repo_setup(config, path, &repo.repo, repo_config)?;
+
+    Ok(())
+}
+
 fn repo_setup(
     config: &UpsilonVcsConfig,
     path: impl AsRef<Path>,
@@ -545,10 +556,17 @@ pub fn get_repo_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> R
 
     check_repo_exists_absolute(config, path)?;
 
+    get_repo_absolute_no_check(config, path)
+}
+
+pub fn get_repo_absolute_no_check(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+    let path = path.as_ref();
+
     Ok(Repository {
         repo: git2::Repository::open_bare(path)?,
     })
 }
+
 
 pub struct RepoConfig {
     visibility: RepoVisibility,

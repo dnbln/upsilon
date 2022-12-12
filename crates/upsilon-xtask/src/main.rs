@@ -67,7 +67,7 @@ fn main() -> XtaskResult<()> {
             cargo_cmd!(
                 "build",
                 "-p", "upsilon-debug-data-driver",
-                // "--features", "dump_gql_response",
+                "--features", "dump_gql_response",
                 @workdir = ws_root!(),
                 @logging-error-and-returnok);
             cargo_cmd!(

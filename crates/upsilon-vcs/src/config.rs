@@ -34,7 +34,7 @@ pub struct UpsilonVcsConfig {
 }
 
 fn false_f() -> bool {
-    true
+    false
 }
 
 impl UpsilonVcsConfig {

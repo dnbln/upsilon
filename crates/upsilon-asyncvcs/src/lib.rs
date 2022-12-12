@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::future::Future;
 use std::ops::Index;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -328,11 +328,7 @@ impl Server {
                 FlatMessage::BranchCommit(branch) => {
                     let b = &store[branch];
                     match b.get_commit() {
-                        Ok(commit) => {
-                            let id = store.commits.len();
-                            store.commits.push(commit);
-                            FlatResponse::Commit(CommitRef { id })
-                        }
+                        Ok(commit) => FlatResponse::Commit(store.push_commit(commit)),
                         Err(e) => FlatResponse::Error(e),
                     }
                 }
@@ -340,33 +336,23 @@ impl Server {
                     fn branch_contributors<'r>(
                         store: &mut Store<'r>,
                         contributors: &mut BTreeMap<String, usize>,
-                        passed_commits: &mut BTreeSet<CommitRef>,
                         commit: upsilon_vcs::Commit<'r>,
                     ) -> Option<upsilon_vcs::Error> {
-                        let commit_ref = store.push_commit(commit.clone());
+                        let mut passed_commits = BTreeSet::new();
+                        let mut commit_queue = VecDeque::new();
+                        commit_queue.push_back(commit);
 
-                        if !passed_commits.insert(commit_ref) {
-                            return None;
-                        }
+                        while let Some(c) = commit_queue.pop_front() {
+                            if !passed_commits.insert(c.sha()) {
+                                continue;
+                            }
 
-                        *contributors
-                            .entry(
-                                commit
-                                    .author()
-                                    .email()
-                                    .unwrap_or("<invalid email>")
-                                    .to_string(),
-                            )
-                            .or_insert(0) += 1;
+                            *contributors
+                                .entry(c.author().email().unwrap_or("<invalid email>").to_string())
+                                .or_insert(0) += 1;
 
-                        for parent_commit in commit.parents() {
-                            if let Some(e) = branch_contributors(
-                                store,
-                                contributors,
-                                passed_commits,
-                                parent_commit,
-                            ) {
-                                return Some(e);
+                            for parent_commit in c.parents() {
+                                commit_queue.push_back(parent_commit);
                             }
                         }
 
@@ -377,12 +363,7 @@ impl Server {
                     match b.get_commit() {
                         Ok(commit) => {
                             let mut contributors = BTreeMap::new();
-                            match branch_contributors(
-                                &mut store,
-                                &mut contributors,
-                                &mut BTreeSet::new(),
-                                commit,
-                            ) {
+                            match branch_contributors(&mut store, &mut contributors, commit) {
                                 Some(e) => FlatResponse::Error(e),
                                 None => FlatResponse::BranchContributors(contributors),
                             }

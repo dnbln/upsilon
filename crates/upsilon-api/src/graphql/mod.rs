@@ -443,6 +443,44 @@ impl MutationRoot {
 
         Ok(RepoRef(repo))
     }
+
+    async fn silent_init_global(name: String, context: &GraphQLContext) -> FieldResult<RepoRef> {
+        let path = context.vcs_config.repo_dir(&name);
+
+        let vcs_config_clone = context.vcs_config.clone();
+
+        let repo = Repo {
+            id: RepoId::new(),
+            namespace: RepoNamespace(NamespaceId::GlobalNamespace),
+            name: RepoName::from(name),
+            display_name: None,
+            global_permissions: RepoPermissions::WRITE | RepoPermissions::READ,
+        };
+
+        let repo_clone = repo.clone();
+
+        context
+            .query(|qm| async move { qm.create_repo(repo_clone).await })
+            .await?;
+
+        let repo_id_string = repo.id.to_string();
+
+        tokio::task::spawn_blocking(move || {
+            let repo = upsilon_vcs::get_repo_absolute_no_check(&vcs_config_clone, &path)?;
+
+            upsilon_vcs::silent_setup_repo_absolute(
+                &vcs_config_clone,
+                &path,
+                &repo,
+                &RepoConfig::new(RepoVisibility::Public, repo_id_string),
+            )?;
+
+            Ok::<_, FieldError>(())
+        })
+        .await??;
+
+        Ok(RepoRef(repo))
+    }
 }
 
 pub struct SubscriptionRoot;

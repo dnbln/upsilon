@@ -85,23 +85,63 @@ mutation {
         id: String,
     }
 
+//     let repo_id = client
+//         .gql_mutation::<GlobalMirrorId>(
+//             r#"
+// mutation {
+//     globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
+//         id
+//     }
+// }
+// "#,
+//         )
+//         .await?
+//         .global_mirror
+//         .id;
+
     let repo_id = client
-        .gql_mutation::<GlobalMirrorId>(
+        .gql_mutation::<SilentInitGlobal>(
             r#"
 mutation {
-    globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
+    silentInitGlobal(name: "upsilon") {
         id
     }
 }
 "#,
         )
         .await?
-        .global_mirror
+        .silent_init_global
         .id;
 
-    println!("repo_id: {}", repo_id);
+    println!("repo_id: {repo_id}");
 
     info!("Created github mirror");
+
+    info!("Initializing linux repo...");
+
+    #[derive(Deserialize)]
+    struct SilentInitGlobal {
+        #[serde(rename = "silentInitGlobal")]
+        silent_init_global: IdHolder,
+    }
+
+    let linux_repo_id = client
+        .gql_mutation::<SilentInitGlobal>(
+            r#"
+mutation {
+    silentInitGlobal(name: "linux") {
+        id
+    }
+}
+"#,
+        )
+        .await?
+        .silent_init_global
+        .id;
+
+    info!("Initialized linux repo");
+
+    println!("linux_repo_id: {linux_repo_id}");
 
     info!("Testing cache ...");
 
