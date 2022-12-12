@@ -20,6 +20,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{error, info, trace, Orbit, Rocket};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
+use upsilon_core::config::Cfg;
 
 pub(crate) struct DebugDataDriverFairing;
 
@@ -33,18 +34,39 @@ impl Fairing for DebugDataDriverFairing {
     }
 
     async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
+        let vcs_cfg = rocket
+            .state::<Cfg<upsilon_vcs::UpsilonVcsConfig>>()
+            .expect("Missing vcs config");
+
+        let linux_exists = upsilon_vcs::exists_global(vcs_cfg, "linux");
+        let upsilon_exists = upsilon_vcs::exists_global(vcs_cfg, "upsilon");
+
         let port = rocket.config().port;
 
-        async fn debug_data_driver_task(port: u16) -> Result<(), std::io::Error> {
+        async fn debug_data_driver_task(
+            port: u16,
+            linux_exists: bool,
+            upsilon_exists: bool,
+        ) -> Result<(), std::io::Error> {
             let debug_data_driver = upsilon_core::alt_exe("upsilon-debug-data-driver");
 
-            let mut child = Command::new(debug_data_driver)
-                .arg("--port")
+            let mut cmd = Command::new(debug_data_driver);
+
+            cmd.arg("--port")
                 .arg(port.to_string())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .env("RUST_LOG", "INFO")
-                .spawn()?;
+                .env("RUST_LOG", "INFO");
+
+            if linux_exists {
+                cmd.arg("--linux-repo-exists");
+            }
+
+            if upsilon_exists {
+                cmd.arg("--upsilon-repo-exists");
+            }
+
+            let mut child = cmd.spawn()?;
 
             trace!("Waiting for debug data driver");
 
@@ -96,7 +118,7 @@ impl Fairing for DebugDataDriverFairing {
         }
 
         tokio::spawn(async move {
-            let result = debug_data_driver_task(port).await;
+            let result = debug_data_driver_task(port, linux_exists, upsilon_exists).await;
 
             if let Err(e) = result {
                 error!("Failed to run debug data driver: {}", e);

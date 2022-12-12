@@ -568,6 +568,12 @@ pub fn get_repo_absolute_no_check(config: &UpsilonVcsConfig, path: impl AsRef<Pa
 }
 
 
+pub fn exists_global(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> bool {
+    let path = config.repo_dir(path);
+
+    path.exists()
+}
+
 pub struct RepoConfig {
     visibility: RepoVisibility,
     id: String,

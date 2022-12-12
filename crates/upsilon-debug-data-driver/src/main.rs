@@ -27,6 +27,12 @@ use crate::client::Client;
 struct App {
     #[clap(short, long, default_value_t = 8000)]
     port: u16,
+
+    #[clap(short, long)]
+    linux_repo_exists: bool,
+
+    #[clap(short, long)]
+    upsilon_repo_exists: bool,
 }
 
 mod any;
@@ -72,8 +78,6 @@ mutation {
 
     println!("token: {}", token.token);
 
-    info!("Creating github mirror...");
-
     #[derive(Deserialize)]
     struct GlobalMirrorId {
         #[serde(rename = "globalMirror")]
@@ -81,67 +85,81 @@ mutation {
     }
 
     #[derive(Deserialize)]
+    struct SilentInitGlobal {
+        #[serde(rename = "silentInitGlobal")]
+        silent_init_global: IdHolder,
+    }
+
+    #[derive(Deserialize)]
     struct IdHolder {
         id: String,
     }
 
-//     let repo_id = client
-//         .gql_mutation::<GlobalMirrorId>(
-//             r#"
-// mutation {
-//     globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
-//         id
-//     }
-// }
-// "#,
-//         )
-//         .await?
-//         .global_mirror
-//         .id;
+    let repo_id = if app.upsilon_repo_exists {
+        info!("Upsilon repo already exists, initializing...");
 
-    let repo_id = client
-        .gql_mutation::<SilentInitGlobal>(
-            r#"
+        let repo_id = client
+            .gql_mutation::<SilentInitGlobal>(
+                r#"
 mutation {
     silentInitGlobal(name: "upsilon") {
         id
     }
 }
 "#,
-        )
-        .await?
-        .silent_init_global
-        .id;
+            )
+            .await?
+            .silent_init_global
+            .id;
+
+        info!("Initialized");
+
+        repo_id
+    } else {
+        info!("Creating github mirror...");
+
+        let repo_id = client
+            .gql_mutation::<GlobalMirrorId>(
+                r#"
+mutation {
+    globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
+        id
+    }
+}
+"#,
+            )
+            .await?
+            .global_mirror
+            .id;
+
+        info!("Created github mirror");
+
+        repo_id
+    };
 
     println!("repo_id: {repo_id}");
 
-    info!("Created github mirror");
+    if app.linux_repo_exists {
+        info!("Initializing linux repo...");
 
-    info!("Initializing linux repo...");
-
-    #[derive(Deserialize)]
-    struct SilentInitGlobal {
-        #[serde(rename = "silentInitGlobal")]
-        silent_init_global: IdHolder,
-    }
-
-    let linux_repo_id = client
-        .gql_mutation::<SilentInitGlobal>(
-            r#"
+        let linux_repo_id = client
+            .gql_mutation::<SilentInitGlobal>(
+                r#"
 mutation {
     silentInitGlobal(name: "linux") {
         id
     }
 }
 "#,
-        )
-        .await?
-        .silent_init_global
-        .id;
+            )
+            .await?
+            .silent_init_global
+            .id;
 
-    info!("Initialized linux repo");
+        info!("Initialized linux repo");
 
-    println!("linux_repo_id: {linux_repo_id}");
+        println!("linux_repo_id: {linux_repo_id}");
+    }
 
     info!("Testing cache ...");
 

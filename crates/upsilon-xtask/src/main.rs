@@ -32,7 +32,10 @@ enum App {
     #[clap(name = "run-dev")]
     #[clap(alias = "run")]
     #[clap(alias = "r")]
-    RunDev,
+    RunDev {
+        #[clap(short, long)]
+        dgql: bool,
+    },
     #[clap(name = "pack-release")]
     PackRelease,
     #[clap(name = "install-aliases")]
@@ -63,13 +66,21 @@ fn main() -> XtaskResult<()> {
 
             upsilon_xtask::git_checks::linear_history(&repo)?;
         }
-        App::RunDev => {
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-debug-data-driver",
-                "--features", "dump_gql_response",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
+        App::RunDev { dgql } => {
+            if dgql {
+                cargo_cmd!(
+                    "build",
+                    "-p", "upsilon-debug-data-driver",
+                    "--features", "dump_gql_response",
+                    @workdir = ws_root!(),
+                    @logging-error-and-returnok);
+            } else {
+                cargo_cmd!(
+                    "build",
+                    "-p", "upsilon-debug-data-driver",
+                    @workdir = ws_root!(),
+                    @logging-error-and-returnok);
+            }
             cargo_cmd!(
                 "build",
                 "-p", "upsilon-git-hooks",
