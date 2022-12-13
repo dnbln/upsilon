@@ -105,7 +105,7 @@ impl Fairing for ConfigManager {
         match vcs_config.shutdown().await {
             Ok(_) => {}
             Err(e) => {
-                panic!("Failed to shutdown git backend: {}", e);
+                error!("Failed to shutdown git backend: {}", e);
             }
         }
     }
