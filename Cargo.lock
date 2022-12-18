@@ -290,6 +290,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-guard"
+version = "0.1.0"
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,10 +301,6 @@ checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "cargo-run-guard"
-version = "0.1.0"
 
 [[package]]
 name = "cargo_metadata"
@@ -3014,6 +3014,38 @@ dependencies = [
 [[package]]
 name = "upsilon-stdx"
 version = "0.1.0"
+
+[[package]]
+name = "upsilon-test-support"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "upsilon-test-support-macros",
+]
+
+[[package]]
+name = "upsilon-test-support-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "upsilon-testsuite"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "serde",
+ "tokio",
+ "upsilon-test-support",
+]
 
 [[package]]
 name = "upsilon-vcs"

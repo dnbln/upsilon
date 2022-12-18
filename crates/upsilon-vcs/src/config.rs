@@ -49,7 +49,7 @@ impl UpsilonVcsConfig {
     pub async fn setup(&mut self) -> crate::Result<()> {
         if self.jailed {
             self.actual_path = self.path.join(format!("vcs-jail-{}", std::process::id()));
-            tokio::fs::create_dir(&self.actual_path).await?;
+            tokio::fs::create_dir_all(&self.actual_path).await?;
         } else {
             self.actual_path = self.path.clone();
         }

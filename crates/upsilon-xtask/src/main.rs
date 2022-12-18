@@ -36,6 +36,19 @@ enum App {
         #[clap(short, long)]
         dgql: bool,
     },
+    #[clap(name = "build-dev")]
+    #[clap(alias = "build")]
+    #[clap(alias = "b")]
+    BuildDev {
+        #[clap(short, long)]
+        dgql: bool,
+    },
+    #[clap(name = "test")]
+    #[clap(alias = "t")]
+    Test {
+        #[clap(short, long)]
+        dgql: bool,
+    },
     #[clap(name = "pack-release")]
     PackRelease,
     #[clap(name = "install-aliases")]
@@ -49,6 +62,49 @@ enum App {
     #[clap(name = "publish-docs")]
     #[clap(alias = "pd")]
     PublishDocs,
+}
+
+fn build_dev(dgql: bool) -> XtaskResult<()> {
+    if dgql {
+        cargo_cmd!(
+                    "build",
+                    "-p", "upsilon-debug-data-driver",
+                    "--features", "dump_gql_response",
+                    @workdir = ws_root!(),
+                    @logging-error-and-returnok);
+    } else {
+        cargo_cmd!(
+                    "build",
+                    "-p", "upsilon-debug-data-driver",
+                    @workdir = ws_root!(),
+                    @logging-error-and-returnok);
+    }
+    cargo_cmd!(
+                "build",
+                "-p", "upsilon-git-hooks",
+                "--bin", "upsilon-git-hooks",
+                "--features=build-bin",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+    cargo_cmd!(
+                "build",
+                "-p", "upsilon-git-protocol-accesshook",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+    cargo_cmd!(
+                "build",
+                "-p", "upsilon-web",
+                @workdir = ws_root!(),
+                @logging-error-and-returnok);
+
+    cargo_cmd!(
+        "build",
+        "-p",
+        "upsilon",
+        @logging-error-and-returnok,
+    );
+
+    Ok(())
 }
 
 fn main() -> XtaskResult<()> {
@@ -66,38 +122,12 @@ fn main() -> XtaskResult<()> {
 
             upsilon_xtask::git_checks::linear_history(&repo)?;
         }
+        App::BuildDev { dgql } => {
+            build_dev(dgql)?;
+        }
         App::RunDev { dgql } => {
-            if dgql {
-                cargo_cmd!(
-                    "build",
-                    "-p", "upsilon-debug-data-driver",
-                    "--features", "dump_gql_response",
-                    @workdir = ws_root!(),
-                    @logging-error-and-returnok);
-            } else {
-                cargo_cmd!(
-                    "build",
-                    "-p", "upsilon-debug-data-driver",
-                    @workdir = ws_root!(),
-                    @logging-error-and-returnok);
-            }
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-hooks",
-                "--bin", "upsilon-git-hooks",
-                "--features=build-bin",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-protocol-accesshook",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-web",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            build_dev(dgql)?;
+
             cargo_cmd!(
                 "run",
                 "-p",
@@ -105,6 +135,18 @@ fn main() -> XtaskResult<()> {
                 "--",
                 "web",
                 @workdir = ws_path!("testenv"),
+                @logging-error-and-returnok,
+            );
+        }
+        App::Test { dgql } => {
+            build_dev(dgql)?;
+
+            cargo_cmd!(
+                "nextest",
+                "run",
+                "--all",
+                @env "UPSILON_TEST_GUARD" => "1",
+                @workdir = ws_root!(),
                 @logging-error-and-returnok,
             );
         }

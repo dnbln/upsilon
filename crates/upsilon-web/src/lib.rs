@@ -19,9 +19,10 @@ mod data;
 mod debug;
 mod git;
 
+use std::path::PathBuf;
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{error, Build, Orbit, Rocket};
+use rocket::{error, Build, Orbit, Rocket, async_trait};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
@@ -107,6 +108,29 @@ impl Fairing for ConfigManager {
             Err(e) => {
                 error!("Failed to shutdown git backend: {}", e);
             }
+        }
+    }
+}
+
+pub struct PortFileWriter(pub PathBuf);
+
+#[async_trait]
+impl Fairing for PortFileWriter {
+    fn info(&self) -> Info {
+        Info {
+            name: "Port file writer fairing",
+            kind: Kind::Liftoff,
+        }
+    }
+
+    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
+        let port = rocket.config().port;
+        let port_file = &self.0;
+
+        dbg!(port);
+
+        if let Err(e) = tokio::fs::write(port_file, port.to_string()).await {
+            error!("Failed to write port file: {}", e);
         }
     }
 }
