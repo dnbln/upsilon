@@ -127,8 +127,6 @@ impl Fairing for PortFileWriter {
         let port = rocket.config().port;
         let port_file = &self.0;
 
-        dbg!(port);
-
         if let Err(e) = tokio::fs::write(port_file, port.to_string()).await {
             error!("Failed to write port file: {}", e);
         }
