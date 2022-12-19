@@ -39,20 +39,20 @@ async fn get_last_commit_on_branch_same_as_cloned_info(
         .with_client(|cl| async move {
             cl.gql_query_with_variables::<serde_json::Value>(
                 r#"
-            query($repoId: RepoId!, $branch: String!) {
-              repo(repoId: $repoId) {
-                name
-                git {
-                  branch(name: $branch) {
-                    commit {
-                      sha
-                      message
-                    }
-                  }
-                }
-              }
-            }
-            "#,
+query($repoId: RepoId!, $branch: String!) {
+  repo(repoId: $repoId) {
+    name
+    git {
+      branch(name: $branch) {
+        commit {
+          sha
+          message
+        }
+      }
+    }
+  }
+}
+"#,
                 HashMap::from([
                     ("repoId".to_string(), json!(&global_mirror_id)),
                     ("branch".to_string(), json!("trunk")),

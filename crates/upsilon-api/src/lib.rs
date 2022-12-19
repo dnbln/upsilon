@@ -78,3 +78,13 @@ async fn post_graphql_handler(
 ) -> juniper_rocket::GraphQLResponse {
     request.execute(&**schema, &context).await
 }
+
+pub fn graphql_schema() -> String {
+    let schema = graphql::Schema::new(
+        graphql::QueryRoot,
+        graphql::MutationRoot,
+        graphql::SubscriptionRoot,
+    );
+
+    schema.as_schema_language()
+}

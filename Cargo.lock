@@ -2877,6 +2877,7 @@ name = "upsilon-api"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "clap",
  "futures",
  "juniper",
  "juniper_rocket",

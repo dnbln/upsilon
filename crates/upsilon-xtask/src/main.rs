@@ -62,6 +62,9 @@ enum App {
     #[clap(name = "publish-docs")]
     #[clap(alias = "pd")]
     PublishDocs,
+    #[clap(name = "graphql-schema")]
+    #[clap(alias = "gqls")]
+    GraphQLSchema,
 }
 
 fn build_dev(dgql: bool) -> XtaskResult<()> {
@@ -295,6 +298,15 @@ fn main() -> XtaskResult<()> {
             cmd_call!(
                 "./publish",
                 @workdir = ws_path!("docs"),
+                @logging-error-and-returnok);
+        }
+        App::GraphQLSchema => {
+            cargo_cmd!(
+                "run",
+                "-p", "upsilon-api",
+                "--bin", "dump_graphql_schema",
+                "--", ws_path!("schemas" / "graphql" / "schema.graphql"),
+                @workdir = ws_root!(),
                 @logging-error-and-returnok);
         }
     }

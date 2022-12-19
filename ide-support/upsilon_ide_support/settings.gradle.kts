@@ -1,0 +1,1 @@
+rootProject.name = "upsilon_ide_support"

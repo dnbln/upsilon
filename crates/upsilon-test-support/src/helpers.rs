@@ -32,10 +32,10 @@ pub async fn register_dummy_user(cx: &mut TestCx) {
         .with_client(|c| async move {
             c.gql_query::<CreateUserResponse>(
                 r#"
-            mutation {
-                createUser(username: "test", password: "test", email: "test")
-            }
-            "#,
+mutation {
+  createUser(username: "test", password: "test", email: "test")
+}
+"#,
             )
             .await
         })
@@ -100,15 +100,15 @@ pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<Strin
         .with_client(|cl| async move {
             cl.gql_query::<GlobalMirror>(
                 r#"
-                mutation {
-                    globalMirror(
-                        name: "upsilon",
-                        url: "https://github.com/dnbln/upsilon"
-                    ) {
-                        id
-                    }
-                }
-                "#,
+mutation {
+  globalMirror(
+    name: "upsilon",
+    url: "https://github.com/dnbln/upsilon"
+  ) {
+    id
+  }
+}
+"#,
             )
             .await
         })
@@ -133,11 +133,12 @@ pub async fn make_global_mirror_from_local(cx: &mut TestCx) -> TestResult<String
         .with_client(|cl| async move {
             cl.gql_query_with_variables::<CopyRepoFromLocalPath>(
                 r#"
-                mutation($localPath: String!) {
-                    cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
-                        id
-                    }
-                }"#,
+mutation($localPath: String!) {
+  cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
+    id
+  }
+}
+"#,
                 HashMap::from([("localPath".to_string(), json!(upsilon_repo))]),
             )
             .await

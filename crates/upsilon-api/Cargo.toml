@@ -11,6 +11,7 @@ serde.workspace = true
 thiserror.workspace = true
 futures.workspace = true
 tokio = { workspace = true, features = ["full"] }
+clap.workspace = true
 linkme = "0.3"
 juniper.workspace = true
 juniper_rocket = "0.8.2"

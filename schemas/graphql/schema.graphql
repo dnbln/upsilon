@@ -1,0 +1,143 @@
+scalar UserId
+
+type OrganizationMember {
+  userId: UserId!
+  organizationId: OrganizationId!
+  teamIds: [TeamId!]!
+  user: User!
+  organization: Organization!
+  teams: [Team!]!
+}
+
+type SubscriptionRoot {
+  helloWorld: String!
+}
+
+scalar PlainPassword
+
+scalar ImageAssetId
+
+type Repo {
+  id: RepoId!
+  name: RepoName!
+  git: RepoGit!
+}
+
+type GitCommit {
+  sha: String!
+  message: String
+  author: GitSignature!
+  committer: GitSignature!
+  tree: GitTree!
+}
+
+scalar Email
+
+scalar TeamName
+
+type MutationRoot {
+  createUser(username: Username!, email: Email!, password: PlainPassword!): String!
+  login(usernameOrEmail: String!, password: PlainPassword!): String!
+  createOrganization(name: OrganizationName!): Organization!
+  createRepo(name: RepoName!): Repo!
+  createRepoInOrganization(name: RepoName!, organizationId: OrganizationId!): Repo!
+  createRepoInTeam(name: RepoName!, teamId: TeamId!): Repo!
+  globalMirror(name: String!, url: String!): Repo!
+  silentInitGlobal(name: String!): Repo!
+  cpGlrFromLocal(name: String!, localPath: String!): Repo!
+}
+
+scalar UserDisplayName
+
+scalar Username
+
+type RepoGit {
+  commit(sha: String!): GitCommit!
+  branch(name: String!): GitBranch!
+}
+
+type GitBranch {
+  name: String
+  commit: GitCommit!
+  contributors: [GitSignatureContributions!]!
+}
+
+scalar TeamDisplayName
+
+type GitTreeEntry {
+  name: String!
+}
+
+type QueryRoot {
+  apiVersion: String!
+  user(userId: UserId!): User!
+  userByUsername(username: Username!): User
+  organization(orgId: OrganizationId!): Organization!
+  organizationByName(name: OrganizationName!): Organization
+  repo(repoId: RepoId!): Repo!
+}
+
+type GitSignature {
+  name: String
+  email: String
+  user: User
+}
+
+scalar OrganizationDisplayName
+
+type GitTree {
+  entries(wholeTree: Boolean = false): [GitTreeEntry!]!
+}
+
+scalar OrganizationId
+
+scalar OrganizationName
+
+type Team {
+  id: TeamId!
+  name: TeamName!
+  displayName: TeamDisplayName
+  organizationId: OrganizationId!
+  organization: Organization!
+  members: [OrganizationMember!]!
+  repo(name: RepoName!): Repo
+}
+
+type Organization {
+  id: OrganizationId!
+  name: OrganizationName!
+  displayName: OrganizationDisplayName
+  ownerId: UserId!
+  owner: User!
+  members: [OrganizationMember!]!
+  teams: [Team!]!
+  repo(name: RepoName!): Repo
+}
+
+scalar RepoName
+
+scalar RepoId
+
+type User {
+  id: UserId!
+  username: Username!
+  publicEmail: Email
+  avatar: ImageAssetId
+  displayName: UserDisplayName
+  repo(name: RepoName!): Repo
+  organizations: [OrganizationMember!]!
+}
+
+type GitSignatureContributions {
+  email: String!
+  user: User
+  contributions: Int!
+}
+
+scalar TeamId
+
+schema {
+  query: QueryRoot
+  mutation: MutationRoot
+  subscription: SubscriptionRoot
+}
