@@ -404,6 +404,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
+]
+
+[[package]]
 name = "combine"
 version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2387,6 +2398,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "similar"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "420acb44afdae038210c99e69aae24109f32f15500aa708e81d46c9f29d55fcf"
+
+[[package]]
 name = "skeptic"
 version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3020,10 +3037,12 @@ name = "upsilon-test-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "colored",
  "git2",
  "reqwest",
  "serde",
  "serde_json",
+ "similar",
  "tokio",
  "upsilon-test-support-macros",
 ]
@@ -3043,6 +3062,7 @@ version = "0.1.0"
 dependencies = [
  "git2",
  "serde",
+ "serde_json",
  "tokio",
  "upsilon-test-support",
 ]

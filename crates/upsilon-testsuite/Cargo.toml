@@ -10,5 +10,6 @@ edition = "2021"
 [dev-dependencies]
 tokio.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 git2.workspace = true
 upsilon-test-support.workspace = true

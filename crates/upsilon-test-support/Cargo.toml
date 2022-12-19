@@ -12,4 +12,6 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 git2.workspace = true
+similar = "2.2"
+colored = "2.0"
 upsilon-test-support-macros = { path = "upsilon-test-support-macros" }

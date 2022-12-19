@@ -54,6 +54,12 @@ impl TestCx {
     pub async fn init(config: TestCxConfig) -> Self {
         let workdir = config.workdir();
 
+        if workdir.exists() {
+            tokio::fs::remove_dir_all(&workdir)
+                .await
+                .expect("Failed to clean workdir");
+        }
+
         tokio::fs::create_dir_all(&workdir)
             .await
             .expect("Failed to create workdir");
@@ -274,3 +280,14 @@ pub struct IdHolder {
 }
 
 pub mod helpers;
+
+pub mod json_diff;
+
+pub mod prelude {
+    pub use anyhow::bail;
+
+    pub use crate::helpers::{make_global_mirror, register_dummy_user, upsilon_basic_config};
+    pub use crate::{
+        assert_json_eq, upsilon_test, Anything, IdHolder, TestCx, TestCxConfig, TestResult
+    };
+}

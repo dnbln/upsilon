@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-use crate::TestCx;
+use crate::{IdHolder, TestCx, TestCxConfig, TestResult};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
     #[derive(serde::Deserialize)]
@@ -38,4 +38,76 @@ pub async fn register_dummy_user(cx: &mut TestCx) {
         .expect("Failed to create user");
 
     cx.client.set_token(response.token);
+}
+
+pub fn upsilon_basic_config(cfg: &mut TestCxConfig) {
+    cfg.with_config(
+        r#"
+vcs:
+  path: ./vcs/repos
+  jailed: true
+  git-protocol:
+    enable: false
+  http-protocol:
+    enable: true
+    push-auth-required: true
+
+vcs-errors:
+  leak-hidden-repos: true
+  verbose: true
+
+web:
+  api:
+    origin: "https://api.upsilon.dnbln.dev"
+  web-interface:
+    origin: "https://upsilon.dnbln.dev"
+  docs:
+    origin: "https://docs.upsilon.dnbln.dev"
+
+debug:
+  debug-data: false
+
+data-backend:
+  type: in-memory
+  save: false
+
+  cache:
+    max-users: 1
+
+users:
+  register:
+    enabled: true
+  auth:
+    password:
+      type: argon2
+    "#,
+    );
+}
+
+pub async fn make_global_mirror(cx: &mut TestCx) -> TestResult<String> {
+    #[derive(serde::Deserialize)]
+    struct GlobalMirror {
+        #[serde(rename = "globalMirror")]
+        global_mirror: IdHolder,
+    }
+
+    let result = cx
+        .with_client(|cl| async move {
+            cl.gql_query::<GlobalMirror>(
+                r#"
+                mutation {
+                    globalMirror(
+                        name: "upsilon",
+                        url: "https://github.com/dnbln/upsilon"
+                    ) {
+                        id
+                    }
+                }
+                "#,
+            )
+            .await
+        })
+        .await?;
+
+    Ok(result.global_mirror.id)
 }

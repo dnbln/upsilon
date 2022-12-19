@@ -18,6 +18,8 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
+use crate::TestResult;
+
 pub struct Client {
     root: String,
     gql: String,
@@ -49,7 +51,7 @@ impl Client {
         &self,
         query: &str,
         variables: HashMap<String, serde_json::Value>,
-    ) -> Result<T, reqwest::Error> {
+    ) -> TestResult<T> {
         let mut req = self.inner.post(&self.gql);
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);
@@ -60,24 +62,30 @@ impl Client {
             data: T,
         }
 
-        let data = req
+        let res = req
             .json(&serde_json::json!({
                 "query": query,
                 "variables": variables,
             }))
             .send()
-            .await?
-            .json::<GqlResponse<T>>()
-            .await?
-            .data;
+            .await?;
+
+        #[cfg(debug_assertions)]
+        let data = {
+            let t = res.text().await?;
+
+            println!("GQL response: {t}");
+
+            serde_json::from_str::<GqlResponse<T>>(&t)?.data
+        };
+
+        #[cfg(not(debug_assertions))]
+        let data = res.json::<GqlResponse<T>>().await?.data;
 
         Ok(data)
     }
 
-    pub async fn gql_query<T: for<'de> Deserialize<'de>>(
-        &self,
-        query: &str,
-    ) -> Result<T, reqwest::Error> {
+    pub async fn gql_query<T: for<'de> Deserialize<'de>>(&self, query: &str) -> TestResult<T> {
         self.gql_query_with_variables(query, HashMap::new()).await
     }
 
@@ -85,7 +93,7 @@ impl Client {
         &self,
         query: &str,
         variables: HashMap<String, serde_json::Value>,
-    ) -> Result<T, reqwest::Error> {
+    ) -> TestResult<T> {
         self._gql_query(query, variables).await
     }
 }

@@ -145,6 +145,7 @@ fn main() -> XtaskResult<()> {
                 "nextest",
                 "run",
                 "--all",
+                @env "CLICOLOR_FORCE" => "1",
                 @env "UPSILON_TEST_GUARD" => "1",
                 @workdir = ws_root!(),
                 @logging-error-and-returnok,

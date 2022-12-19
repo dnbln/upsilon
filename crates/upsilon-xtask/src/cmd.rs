@@ -72,7 +72,7 @@ macro_rules! cmd_process {
 
 #[macro_export]
 macro_rules! cmd {
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $wd:expr)? $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)? $(,)?) => {
         $crate::cmd_process!($($args),+ $(@env $env_name => $env_var_value,)* $(, @workdir = $wd)?)
             .output()
             .expect("failed to execute process")
@@ -81,7 +81,7 @@ macro_rules! cmd {
 
 #[macro_export]
 macro_rules! cmd_call {
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $wd:expr)? $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)? $(,)?) => {
         {
             (|| -> $crate::cmd::CmdResult {
                 let exit_status = $crate::cmd_process!($($args),+ $(, @env $env_name => $env_var_value)* $(, @workdir = $wd)?).spawn()?.wait()?;
@@ -94,7 +94,7 @@ macro_rules! cmd_call {
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $wd:expr)?, @logging-error-and-returnok $(,)?) => {{
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)?, @logging-error-and-returnok $(,)?) => {{
         if let Err(__err) = $crate::cmd_call!($($args),+ $(, @env $env_name => $env_var_value)* $(, @workdir = $wd)?) {
             eprintln!("Error: {}", __err);
 
@@ -105,20 +105,20 @@ macro_rules! cmd_call {
 
 #[macro_export]
 macro_rules! cargo_cmd {
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $workdir:expr)? $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)? $(,)?) => {
         {
             let __cargo_path = $crate::cmd::cargo_path();
             $crate::cmd_call!(__cargo_path, $($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?)
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $workdir:expr)?, @ignoring-error $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @ignoring-error $(,)?) => {
         {
             let _ = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?);
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $workdir:expr)?, @logging-error $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @logging-error $(,)?) => {
         {
             if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
@@ -126,7 +126,7 @@ macro_rules! cargo_cmd {
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr),* $(, @workdir = $workdir:expr)?, @logging-error-and-returnok $(,)?) => {
+    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @logging-error-and-returnok $(,)?) => {
         {
             if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
@@ -151,8 +151,8 @@ pub enum CmdError {
 impl fmt::Display for CmdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IoError(err) => write!(f, "io error: {}", err),
-            Self::NotSuccess(status) => write!(f, "not success: {}", status),
+            Self::IoError(err) => write!(f, "io error: {err}"),
+            Self::NotSuccess(status) => write!(f, "not success: {status}"),
         }
     }
 }
