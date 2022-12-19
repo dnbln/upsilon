@@ -27,6 +27,7 @@ use rocket::{async_trait, error, Build, Orbit, Rocket};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
+use crate::config::DebugConfig;
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
 
 pub struct ConfigManager;
@@ -91,13 +92,19 @@ impl Fairing for ConfigManager {
             rocket = rocket.attach(git::GitHttpProtocolFairing);
         }
 
-        if debug.debug_data {
+        let DebugConfig {
+            debug_data,
+            graphql,
+        } = debug;
+
+        if debug_data {
             rocket = rocket.attach(debug::DebugDataDriverFairing);
         }
 
         Ok(rocket
             .manage(Cfg::new(vcs))
             .manage(Cfg::new(vcs_errors))
+            .manage(Cfg::new(graphql))
             .manage(Cfg::new(users)))
     }
 
@@ -126,9 +133,9 @@ impl Fairing for PortFileWriter {
 
     async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
         let port = rocket.config().port;
-        let port_file = &self.0;
+        let portfile = &self.0;
 
-        if let Err(e) = tokio::fs::write(port_file, port.to_string()).await {
+        if let Err(e) = tokio::fs::write(portfile, port.to_string()).await {
             error!("Failed to write port file: {}", e);
         }
     }

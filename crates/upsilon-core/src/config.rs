@@ -64,6 +64,24 @@ pub struct UsersConfig {
     pub auth: UsersAuthConfig,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct GqlDebugConfig {
+    #[serde(rename = "enabled", default = "default_gql_debug_enabled")]
+    pub debug_enabled: bool,
+}
+
+fn default_gql_debug_enabled() -> bool {
+    false
+}
+
+impl Default for GqlDebugConfig {
+    fn default() -> Self {
+        Self {
+            debug_enabled: default_gql_debug_enabled(),
+        }
+    }
+}
+
 pub struct Cfg<T: Send + Sync>(Arc<T>);
 
 impl<T: Send + Sync> Cfg<T> {

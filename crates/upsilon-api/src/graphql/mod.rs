@@ -26,7 +26,7 @@ use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
 use rocket::{Ignite, Request, Rocket, Sentinel, State};
-use upsilon_core::config::{Cfg, UsersConfig};
+use upsilon_core::config::{Cfg, GqlDebugConfig, UsersConfig};
 use upsilon_data::DataQueryMaster;
 use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
@@ -50,6 +50,7 @@ pub struct GraphQLContext {
     db: upsilon_data::DataClientMasterHolder,
     vcs_config: Cfg<UpsilonVcsConfig>,
     users_config: Cfg<UsersConfig>,
+    debug_config: Cfg<GqlDebugConfig>,
     auth_context: AuthContext,
     auth: Option<AuthToken>,
 }
@@ -66,6 +67,7 @@ impl<'r> FromRequest<'r> for GraphQLContext {
         );
         let vcs_config = try_outcome!(request.guard::<&State<Cfg<UpsilonVcsConfig>>>().await);
         let users_config = try_outcome!(request.guard::<&State<Cfg<UsersConfig>>>().await);
+        let debug_config = try_outcome!(request.guard::<&State<Cfg<GqlDebugConfig>>>().await);
         let auth_context = try_outcome!(request.guard::<&State<AuthContext>>().await);
         let auth = request.guard::<Option<AuthToken>>().await.unwrap();
 
@@ -73,6 +75,7 @@ impl<'r> FromRequest<'r> for GraphQLContext {
             db: db.inner().clone(),
             vcs_config: vcs_config.inner().clone(),
             users_config: users_config.inner().clone(),
+            debug_config: debug_config.inner().clone(),
             auth_context: auth_context.inner().clone(),
             auth,
         })
@@ -83,6 +86,7 @@ impl Sentinel for GraphQLContext {
     fn abort(rocket: &Rocket<Ignite>) -> bool {
         <&State<upsilon_data::DataClientMasterHolder>>::abort(rocket)
             || <&State<Cfg<UpsilonVcsConfig>>>::abort(rocket)
+            || <&State<Cfg<GqlDebugConfig>>>::abort(rocket)
             || <&State<Cfg<UsersConfig>>>::abort(rocket)
             || <&State<AuthContext>>::abort(rocket)
     }
@@ -119,7 +123,19 @@ impl GraphQLContext {
 
         Ok(())
     }
+
+    fn require_debug(&self) -> FieldResult<()> {
+        if !self.debug_config.debug_enabled {
+            Err(DebugModeNotEnabled)?;
+        }
+
+        Ok(())
+    }
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("Debug mode is not enabled")]
+struct DebugModeNotEnabled;
 
 impl juniper::Context for GraphQLContext {}
 
@@ -446,15 +462,21 @@ impl MutationRoot {
         Ok(RepoRef(repo))
     }
 
+    #[graphql(name = "_debug__globalMirror")]
     async fn global_mirror(
         context: &GraphQLContext,
         name: String,
         url: String,
     ) -> FieldResult<RepoRef> {
+        context.require_debug()?;
+
         Self::make_global_mirror(context, name, url).await
     }
 
+    #[graphql(name = "_debug__silentInitGlobal")]
     async fn silent_init_global(name: String, context: &GraphQLContext) -> FieldResult<RepoRef> {
+        context.require_debug()?;
+
         let path = context.vcs_config.repo_dir(&name);
 
         let vcs_config_clone = context.vcs_config.clone();
@@ -492,12 +514,14 @@ impl MutationRoot {
         Ok(RepoRef(repo))
     }
 
-    #[cfg(test)]
+    #[graphql(name = "_debug__cpGlrFromLocal")]
     async fn cp_glr_from_local(
         context: &GraphQLContext,
         name: String,
         local_path: String,
     ) -> FieldResult<RepoRef> {
+        context.require_debug()?;
+
         let local_path = PathBuf::from(local_path);
 
         Self::make_global_mirror(

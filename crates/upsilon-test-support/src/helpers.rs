@@ -92,7 +92,7 @@ users:
 pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
     #[derive(serde::Deserialize)]
     struct GlobalMirror {
-        #[serde(rename = "globalMirror")]
+        #[serde(rename = "_debug__globalMirror")]
         global_mirror: IdHolder,
     }
 
@@ -101,7 +101,7 @@ pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<Strin
             cl.gql_query::<GlobalMirror>(
                 r#"
 mutation {
-  globalMirror(
+  _debug__globalMirror(
     name: "upsilon",
     url: "https://github.com/dnbln/upsilon"
   ) {
@@ -125,7 +125,7 @@ pub async fn make_global_mirror_from_local(cx: &mut TestCx) -> TestResult<String
 
     #[derive(serde::Deserialize)]
     struct CopyRepoFromLocalPath {
-        #[serde(rename = "cpGlrFromLocal")]
+        #[serde(rename = "_debug__cpGlrFromLocal")]
         copy: IdHolder,
     }
 
@@ -134,7 +134,7 @@ pub async fn make_global_mirror_from_local(cx: &mut TestCx) -> TestResult<String
             cl.gql_query_with_variables::<CopyRepoFromLocalPath>(
                 r#"
 mutation($localPath: String!) {
-  cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
+  _debug__cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
     id
   }
 }

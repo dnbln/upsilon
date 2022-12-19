@@ -42,9 +42,9 @@ type MutationRoot {
   createRepo(name: RepoName!): Repo!
   createRepoInOrganization(name: RepoName!, organizationId: OrganizationId!): Repo!
   createRepoInTeam(name: RepoName!, teamId: TeamId!): Repo!
-  globalMirror(name: String!, url: String!): Repo!
-  silentInitGlobal(name: String!): Repo!
-  cpGlrFromLocal(name: String!, localPath: String!): Repo!
+  _debug__globalMirror(name: String!, url: String!): Repo!
+  _debug__silentInitGlobal(name: String!): Repo!
+  _debug__cpGlrFromLocal(name: String!, localPath: String!): Repo!
 }
 
 scalar UserDisplayName

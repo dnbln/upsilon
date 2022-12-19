@@ -80,13 +80,13 @@ mutation {
 
     #[derive(Deserialize)]
     struct GlobalMirrorId {
-        #[serde(rename = "globalMirror")]
+        #[serde(rename = "_debug__globalMirror")]
         global_mirror: IdHolder,
     }
 
     #[derive(Deserialize)]
     struct SilentInitGlobal {
-        #[serde(rename = "silentInitGlobal")]
+        #[serde(rename = "_debug__silentInitGlobal")]
         silent_init_global: IdHolder,
     }
 
@@ -102,7 +102,7 @@ mutation {
             .gql_mutation::<SilentInitGlobal>(
                 r#"
 mutation {
-    silentInitGlobal(name: "upsilon") {
+    _debug__silentInitGlobal(name: "upsilon") {
         id
     }
 }
@@ -122,7 +122,7 @@ mutation {
             .gql_mutation::<GlobalMirrorId>(
                 r#"
 mutation {
-    globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
+    _debug__globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
         id
     }
 }
@@ -146,7 +146,7 @@ mutation {
             .gql_mutation::<SilentInitGlobal>(
                 r#"
 mutation {
-    silentInitGlobal(name: "linux") {
+    _debug__silentInitGlobal(name: "linux") {
         id
     }
 }

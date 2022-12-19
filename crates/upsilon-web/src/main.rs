@@ -49,18 +49,18 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .merge(Yaml::file(Env::var_or("UPSILON_ROCKET_CONFIG", "upsilon-rocket.yaml")).nested())
         .merge(Yaml::file(Env::var_or("UPSILON_CONFIG", "upsilon.dev.yaml")).profile(DEV_PROFILE))
         .merge(Yaml::file(Env::var_or("UPSILON_CONFIG", "upsilon.yaml")).profile(RELEASE_PROFILE))
-        .merge(Env::prefixed("UPSILON_").ignore(&["PROFILE"]).global())
+        .merge(Env::prefixed("UPSILON_").ignore(&["PROFILE"]).global().split("_"))
         .select(profile);
 
-    let port_file = std::env::var("UPSILON_PORT_FILE").ok();
+    let portfile = std::env::var("UPSILON_PORTFILE").ok();
 
     let mut rocket = rocket::custom(figment)
         .attach(upsilon_api::GraphQLApiConfigurator)
         .attach(upsilon_web::ConfigManager);
 
-    if let Some(port_file) = port_file {
+    if let Some(portfile) = portfile {
         rocket = rocket.attach(upsilon_web::PortFileWriter(std::path::PathBuf::from(
-            &port_file,
+            &portfile,
         )));
     }
 

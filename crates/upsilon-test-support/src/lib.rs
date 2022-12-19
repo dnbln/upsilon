@@ -84,17 +84,18 @@ impl TestCx {
             path
         };
 
-        let port_file_path = workdir.join(".port");
+        let portfile_path = workdir.join(".port");
 
-        if port_file_path.exists() {
-            tokio::fs::remove_file(&port_file_path)
+        if portfile_path.exists() {
+            tokio::fs::remove_file(&portfile_path)
                 .await
                 .expect("Failed to remove port file");
         }
 
         let mut child = tokio::process::Command::new(path)
             .env("UPSILON_PORT", config.port.to_string())
-            .env("UPSILON_PORT_FILE", &port_file_path)
+            .env("UPSILON_PORTFILE", &portfile_path)
+            .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .kill_on_drop(true)
             .current_dir(&workdir)
             .spawn()
@@ -118,7 +119,7 @@ impl TestCx {
         }
 
         let wait_for_port_file_fut = WaitForPortFileFuture {
-            port_file_path: port_file_path.clone(),
+            port_file_path: portfile_path.clone(),
         };
 
         struct WaitForWebServerExitFuture<'a> {
@@ -173,7 +174,7 @@ impl TestCx {
             }
         }
 
-        let port = tokio::fs::read_to_string(port_file_path)
+        let port = tokio::fs::read_to_string(portfile_path)
             .await
             .expect("Failed to read port file");
 

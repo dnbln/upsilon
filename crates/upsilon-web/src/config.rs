@@ -15,7 +15,7 @@
  */
 
 use serde::{Deserialize, Deserializer};
-use upsilon_core::config::UsersConfig;
+use upsilon_core::config::{GqlDebugConfig, UsersConfig};
 use upsilon_vcs::UpsilonVcsConfig;
 
 use crate::data::DataBackendConfig;
@@ -39,6 +39,9 @@ pub struct Config {
 pub struct DebugConfig {
     #[serde(default = "false_f")]
     pub debug_data: bool,
+
+    #[serde(default)]
+    pub graphql: GqlDebugConfig,
 }
 
 fn false_f() -> bool {
