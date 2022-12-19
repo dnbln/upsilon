@@ -23,7 +23,7 @@ async fn can_clone_to_local(
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {
-    make_global_mirror(cx).await?;
+    make_global_mirror_from_local(cx).await?;
 
     let (_, clone) = cx.clone("clone-upsilon", "upsilon").await?;
 
@@ -36,7 +36,7 @@ async fn clone_twice_same_result(
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {
-    make_global_mirror(cx).await?;
+    make_global_mirror_from_local(cx).await?;
 
     let (_, clone1) = cx.clone("clone-upsilon-1", "upsilon").await?;
     let (_, clone2) = cx.clone("clone-upsilon-2", "upsilon").await?;

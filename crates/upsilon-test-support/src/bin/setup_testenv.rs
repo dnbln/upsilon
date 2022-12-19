@@ -14,15 +14,15 @@
  *    limitations under the License.
  */
 
-use upsilon_test_support::prelude::*;
+use std::path::PathBuf;
+use upsilon_test_support::helpers::upsilon_cloned_repo_path;
 
-#[upsilon_test]
-async fn github_mirror(
-    #[cfg_setup(upsilon_basic_config)]
-    #[setup(register_dummy_user)]
-    cx: &mut TestCx,
-) -> TestResult {
-    let global_mirror_id = make_global_mirror_from_github(cx).await?;
+fn main() {
+    let upsilon_repo = upsilon_cloned_repo_path();
+    if !upsilon_repo.exists() {
+        std::fs::create_dir_all(&upsilon_repo).expect("Failed to create upsilon repo directory");
+    }
 
-    Ok(())
+    git2::Repository::clone("https://github.com/dnbln/upsilon", &upsilon_repo)
+        .expect("Failed to clone Upsilon repository");
 }

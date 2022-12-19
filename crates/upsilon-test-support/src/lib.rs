@@ -286,7 +286,7 @@ pub mod json_diff;
 pub mod prelude {
     pub use anyhow::bail;
 
-    pub use crate::helpers::{make_global_mirror, register_dummy_user, upsilon_basic_config};
+    pub use crate::helpers::*;
     pub use crate::{
         assert_json_eq, upsilon_test, Anything, IdHolder, TestCx, TestCxConfig, TestResult
     };

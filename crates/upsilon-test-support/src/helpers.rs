@@ -14,6 +14,11 @@
  *    limitations under the License.
  */
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use serde_json::json;
+
 use crate::{IdHolder, TestCx, TestCxConfig, TestResult};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
@@ -84,7 +89,7 @@ users:
     );
 }
 
-pub async fn make_global_mirror(cx: &mut TestCx) -> TestResult<String> {
+pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
     #[derive(serde::Deserialize)]
     struct GlobalMirror {
         #[serde(rename = "globalMirror")]
@@ -110,4 +115,45 @@ pub async fn make_global_mirror(cx: &mut TestCx) -> TestResult<String> {
         .await?;
 
     Ok(result.global_mirror.id)
+}
+
+pub async fn make_global_mirror_from_local(cx: &mut TestCx) -> TestResult<String> {
+    let upsilon_repo = upsilon_cloned_repo_path();
+    if !upsilon_repo.exists() {
+        panic!("Upsilon repository not found. Use `cargo xtask test` to run the tests.");
+    }
+
+    #[derive(serde::Deserialize)]
+    struct CopyRepoFromLocalPath {
+        #[serde(rename = "cpGlrFromLocal")]
+        copy: IdHolder,
+    }
+
+    let id = cx
+        .with_client(|cl| async move {
+            cl.gql_query_with_variables::<CopyRepoFromLocalPath>(
+                r#"
+                mutation($localPath: String!) {
+                    cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
+                        id
+                    }
+                }"#,
+                HashMap::from([("localPath".to_string(), json!(upsilon_repo))]),
+            )
+            .await
+        })
+        .await?
+        .copy
+        .id;
+
+    Ok(id)
+}
+
+pub fn upsilon_cloned_repo_path() -> PathBuf {
+    let setup_env = std::env::var("UPSILON_SETUP_TESTENV")
+        .expect("UPSILON_SETUP_TESTENV not set; did you use `cargo xtask test` to run the tests?");
+
+    let setup_env = PathBuf::from(setup_env);
+
+    setup_env.join("repo/upsilon")
 }

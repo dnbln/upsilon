@@ -40,17 +40,17 @@ impl fmt::Display for JsonDiffResult {
         for (tag, line, old_index, new_index) in &self.lines {
             use colored::Colorize;
 
-            let line_num = match (old_index, new_index) {
-                (Some(old), Some(new)) => format!("{:>2} {:>2}", old, new),
-                (Some(old), None) => format!("{:>2}   ", old),
-                (None, Some(new)) => format!("   {:>2}", new),
+            let line_nums = match (old_index, new_index) {
+                (Some(old), Some(new)) => format!("{old:>2} {new:>2}"),
+                (Some(old), None) => format!("{old:>2}   "),
+                (None, Some(new)) => format!("   {new:>2}"),
                 (None, None) => unreachable!("Both indices are None"),
             };
 
             match tag {
-                ChangeTag::Added => write!(f, "{}", format!("{line_num} + {line}").green())?,
-                ChangeTag::Removed => write!(f, "{}", format!("{line_num} - {line}").red())?,
-                ChangeTag::Equal => write!(f, "{line_num}   {line}")?,
+                ChangeTag::Added => write!(f, "{}", format!("{line_nums} + {line}").green())?,
+                ChangeTag::Removed => write!(f, "{}", format!("{line_nums} - {line}").red())?,
+                ChangeTag::Equal => write!(f, "{line_nums}   {line}")?,
             }
         }
         Ok(())

@@ -67,42 +67,61 @@ enum App {
 fn build_dev(dgql: bool) -> XtaskResult<()> {
     if dgql {
         cargo_cmd!(
-                    "build",
-                    "-p", "upsilon-debug-data-driver",
-                    "--features", "dump_gql_response",
-                    @workdir = ws_root!(),
-                    @logging-error-and-returnok);
+            "build",
+            "-p", "upsilon-debug-data-driver",
+            "--features", "dump_gql_response",
+            @workdir = ws_root!(),
+        )?;
     } else {
         cargo_cmd!(
-                    "build",
-                    "-p", "upsilon-debug-data-driver",
-                    @workdir = ws_root!(),
-                    @logging-error-and-returnok);
+            "build",
+            "-p", "upsilon-debug-data-driver",
+            @workdir = ws_root!(),
+        )?;
     }
     cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-hooks",
-                "--bin", "upsilon-git-hooks",
-                "--features=build-bin",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
-    cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-protocol-accesshook",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
-    cargo_cmd!(
-                "build",
-                "-p", "upsilon-web",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok);
-
+        "build",
+        "-p", "upsilon-git-hooks",
+        "--bin", "upsilon-git-hooks",
+        "--features=build-bin",
+        @workdir = ws_root!(),
+    )?;
     cargo_cmd!(
         "build",
+        "-p", "upsilon-git-protocol-accesshook",
+        @workdir = ws_root!(),
+    )?;
+    cargo_cmd!(
+        "build",
+        "-p", "upsilon-web",
+        @workdir = ws_root!(),
+    )?;
+
+    cargo_cmd!("build", "-p", "upsilon")?;
+
+    Ok(())
+}
+
+fn run_tests(setup_testenv: &Path) -> XtaskResult<()> {
+    cargo_cmd!(
+        "run",
         "-p",
-        "upsilon",
-        @logging-error-and-returnok,
-    );
+        "upsilon-test-support",
+        "--bin",
+        "setup_testenv",
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @workdir = ws_root!(),
+    )?;
+
+    cargo_cmd!(
+        "nextest",
+        "run",
+        "--all",
+        @env "CLICOLOR_FORCE" => "1",
+        @env "UPSILON_TEST_GUARD" => "1",
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @workdir = ws_root!(),
+    )?;
 
     Ok(())
 }
@@ -123,10 +142,16 @@ fn main() -> XtaskResult<()> {
             upsilon_xtask::git_checks::linear_history(&repo)?;
         }
         App::BuildDev { dgql } => {
-            build_dev(dgql)?;
+            if let Err(e) = build_dev(dgql) {
+                eprintln!("Build failed: {e}");
+                std::process::exit(1)
+            }
         }
         App::RunDev { dgql } => {
-            build_dev(dgql)?;
+            if let Err(e) = build_dev(dgql) {
+                eprintln!("Build failed: {e}");
+                return Ok(());
+            }
 
             cargo_cmd!(
                 "run",
@@ -139,17 +164,29 @@ fn main() -> XtaskResult<()> {
             );
         }
         App::Test { dgql } => {
-            build_dev(dgql)?;
+            if let Err(e) = build_dev(dgql) {
+                eprintln!("Build failed: {e}");
+                return Ok(());
+            }
 
-            cargo_cmd!(
-                "nextest",
-                "run",
-                "--all",
-                @env "CLICOLOR_FORCE" => "1",
-                @env "UPSILON_TEST_GUARD" => "1",
-                @workdir = ws_root!(),
-                @logging-error-and-returnok,
-            );
+            let testenv_tests = ws_path!("testenv_tests");
+
+            let setup_testenv = testenv_tests.join(std::process::id().to_string());
+
+            if setup_testenv.exists() {
+                std::fs::remove_dir_all(&setup_testenv)?;
+            }
+
+            std::fs::create_dir_all(&setup_testenv)?;
+
+            let result = run_tests(&setup_testenv);
+
+            std::fs::remove_dir_all(&testenv_tests)?;
+
+            if let Err(e) = result {
+                eprintln!("Running tests failed: {e}");
+                return Ok(());
+            }
         }
         App::PackRelease => {
             cargo_cmd!(

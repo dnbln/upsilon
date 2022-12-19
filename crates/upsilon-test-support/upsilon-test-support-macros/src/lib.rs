@@ -30,6 +30,12 @@ pub fn upsilon_test(
 ) -> proc_macro::TokenStream {
     let mut fun = syn::parse_macro_input!(item as syn::ItemFn);
 
+    let guard = quote! {
+        if !::std::env::var("UPSILON_TEST_GUARD").is_ok() {
+            panic!("UPSILON_TEST_GUARD not set; did you use `cargo xtask test` to run the tests?");
+        }
+    };
+
     let rt = &mut fun.sig.output;
 
     match rt {
@@ -86,6 +92,8 @@ pub fn upsilon_test(
     let ts = proc_macro::TokenStream::from(quote! {
         #[tokio::test]
         #vis async fn #name () {
+            #guard
+
             #body
         }
     });
