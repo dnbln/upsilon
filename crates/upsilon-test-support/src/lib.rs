@@ -16,11 +16,10 @@
 
 #![feature(inherent_associated_types)]
 
-pub extern crate upsilon_test_support_macros;
-pub extern crate git2;
 pub extern crate anyhow;
+pub extern crate git2;
+pub extern crate upsilon_test_support_macros;
 
-use std::cell::RefCell;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -87,7 +86,7 @@ impl TestCx {
                 .expect("Failed to remove port file");
         }
 
-        let child = tokio::process::Command::new(path)
+        let mut child = tokio::process::Command::new(path)
             .env("UPSILON_PORT", config.port.to_string())
             .env("UPSILON_PORT_FILE", &port_file_path)
             .kill_on_drop(true)
@@ -116,8 +115,32 @@ impl TestCx {
             port_file_path: port_file_path.clone(),
         };
 
+        struct WaitForWebServerExitFuture<'a> {
+            child: &'a mut tokio::process::Child,
+        }
+
+        impl<'a> Future for WaitForWebServerExitFuture<'a> {
+            type Output = std::io::Result<std::process::ExitStatus>;
+
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let result = self.get_mut().child.try_wait();
+
+                match result {
+                    Ok(Some(status)) => Poll::Ready(Ok(status)),
+                    Ok(None) => {
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    }
+                    Err(e) => Poll::Ready(Err(e)),
+                }
+            }
+        }
+
+        let wait_for_web_server_exit_fut = WaitForWebServerExitFuture { child: &mut child };
+
         enum Done {
             PortFile,
+            WebServerExit(std::io::Result<std::process::ExitStatus>),
             Timeout,
         }
 
@@ -125,12 +148,24 @@ impl TestCx {
 
         let done = tokio::select! {
             _ = wait_for_port_file_fut => {Done::PortFile}
+            status = wait_for_web_server_exit_fut => {Done::WebServerExit(status)}
             _ = tokio::time::sleep(PORT_FILE_TIMEOUT) => {Done::Timeout}
         };
 
-        let Done::PortFile = done else {
-            panic!("Failed to start web server in {} seconds", PORT_FILE_TIMEOUT.as_secs());
-        };
+        match done {
+            Done::PortFile => {}
+            Done::WebServerExit(exit_status) => {
+                let exit_status = exit_status.expect("Failed to get web server exit status");
+
+                panic!("Web server exited with status {exit_status}");
+            }
+            Done::Timeout => {
+                panic!(
+                    "Failed to start web server in {} seconds",
+                    PORT_FILE_TIMEOUT.as_secs()
+                );
+            }
+        }
 
         let port = tokio::fs::read_to_string(port_file_path)
             .await
