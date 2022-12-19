@@ -23,10 +23,12 @@
     <depends>com.intellij.modules.lang</depends>
     <depends>org.rust.lang</depends>
     <depends>com.intellij.lang.jsgraphql</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <multiHostInjector implementation="dev.dnbln.upsilon_ide_support.GraphQLQueryInjector"/>
+        <multiHostInjector implementation="dev.dnbln.upsilon_ide_support.ConfigYAMLInjector"/>
     </extensions>
 </idea-plugin>
