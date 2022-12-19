@@ -559,14 +559,16 @@ pub fn get_repo_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> R
     get_repo_absolute_no_check(config, path)
 }
 
-pub fn get_repo_absolute_no_check(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
+pub fn get_repo_absolute_no_check(
+    config: &UpsilonVcsConfig,
+    path: impl AsRef<Path>,
+) -> Result<Repository> {
     let path = path.as_ref();
 
     Ok(Repository {
         repo: git2::Repository::open_bare(path)?,
     })
 }
-
 
 pub fn exists_global(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> bool {
     let path = config.repo_dir(path);

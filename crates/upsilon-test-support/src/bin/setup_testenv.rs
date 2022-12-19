@@ -15,6 +15,7 @@
  */
 
 use std::path::PathBuf;
+
 use upsilon_test_support::helpers::upsilon_cloned_repo_path;
 
 fn main() {

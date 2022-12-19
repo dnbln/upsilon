@@ -20,9 +20,10 @@ mod debug;
 mod git;
 
 use std::path::PathBuf;
+
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{error, Build, Orbit, Rocket, async_trait};
+use rocket::{async_trait, error, Build, Orbit, Rocket};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
