@@ -64,16 +64,13 @@ impl TestCx {
             .await
             .expect("Failed to create workdir");
 
-        if let Some(cfg) = &config.config {
-            #[cfg(debug_assertions)]
-            const CONFIG_FILE: &str = "upsilon.dev.yaml";
-            #[cfg(not(debug_assertions))]
-            const CONFIG_FILE: &str = "upsilon.yaml";
+        const CONFIG_FILE: &str = "upsilon.yaml";
 
-            let config_path = workdir.join(CONFIG_FILE);
+        let config_path = workdir.join(CONFIG_FILE);
 
-            std::fs::write(&config_path, cfg).expect("Failed to write config file");
-        }
+        tokio::fs::write(&config_path, &config.config)
+            .await
+            .expect("Failed to write config file");
 
         let path = {
             let mut path = std::env::current_exe().unwrap();
@@ -95,6 +92,7 @@ impl TestCx {
         let mut child = tokio::process::Command::new(path)
             .env("UPSILON_PORT", config.port.to_string())
             .env("UPSILON_PORTFILE", &portfile_path)
+            .env("UPSILON_CONFIG", &config_path)
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .kill_on_drop(true)
             .current_dir(&workdir)
@@ -236,7 +234,7 @@ pub struct CxConfigVars {
 
 pub struct TestCxConfig {
     port: u16,
-    config: Option<String>,
+    config: String,
     tempdir: PathBuf,
     source_file_path_hash: u64,
     test_name: &'static str,
@@ -244,13 +242,17 @@ pub struct TestCxConfig {
 
 impl TestCxConfig {
     pub fn new(vars: &CxConfigVars) -> Self {
-        Self {
+        let mut test_cx_config = Self {
             port: 0,
-            config: None,
+            config: "".to_string(),
             tempdir: vars.workdir.clone(),
             source_file_path_hash: vars.source_file_path_hash,
             test_name: vars.test_name,
-        }
+        };
+
+        helpers::upsilon_basic_config(&mut test_cx_config);
+
+        test_cx_config
     }
 
     pub fn with_port(&mut self, port: u16) -> &mut Self {
@@ -259,7 +261,7 @@ impl TestCxConfig {
     }
 
     pub fn with_config(&mut self, config: impl Into<String>) -> &mut Self {
-        self.config = Some(config.into());
+        self.config = config.into();
         self
     }
 

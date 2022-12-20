@@ -19,7 +19,6 @@ use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
 async fn can_clone_to_local(
-    #[cfg_setup(upsilon_basic_config)]
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {
@@ -32,7 +31,6 @@ async fn can_clone_to_local(
 
 #[upsilon_test]
 async fn clone_twice_same_result(
-    #[cfg_setup(upsilon_basic_config)]
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {

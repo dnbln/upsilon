@@ -22,7 +22,6 @@ use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
 async fn get_last_commit_on_branch_same_as_cloned_info(
-    #[cfg_setup(upsilon_basic_config)]
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {

@@ -18,7 +18,6 @@ use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
 async fn github_mirror(
-    #[cfg_setup(upsilon_basic_config)]
     #[setup(register_dummy_user)]
     cx: &mut TestCx,
 ) -> TestResult {
