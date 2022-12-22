@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin-repository>
+    <idea-plugin>
+        <id>com.almightyalpaca.intellij.plugins.discord</id>
+        <name>Discord Integration</name>
+        <vendor email="aljoschagrebe@gmail.com" url="https://github.com/Almighty-Alpaca">Almighty Alpaca</vendor>
+        <version>1.11.0+4</version>
+
+        <idea-version since-build="223"/>
+
+        <depends>com.intellij.modules.lang</depends>
+        <depends optional="true">Git4Idea</depends>
+        <download-url>./JetBrains-Discord-Integration-1.11.0+4.zip</download-url>
+    </idea-plugin>
+</plugin-repository>

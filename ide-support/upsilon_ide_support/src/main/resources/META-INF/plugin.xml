@@ -25,6 +25,8 @@
     <depends>com.intellij.lang.jsgraphql</depends>
     <depends>org.jetbrains.plugins.yaml</depends>
 
+    <depends optional="true" config-file="with-discord.xml">com.almightyalpaca.intellij.plugins.discord</depends>
+
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">

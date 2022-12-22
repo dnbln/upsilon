@@ -1,0 +1,1 @@
+fun getJetBrainsDiscordIntegrationRepo(): String = "https://static.dnbln.dev/jbplugins/plugins.xml"

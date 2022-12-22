@@ -1,0 +1,5 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.almightyalpaca.intellij.plugins.discord">
+        <customVariableProvider implementation="dev.dnbln.upsilon_ide_support.DiscordCustomVariableProvider"/>
+    </extensions>
+</idea-plugin>

@@ -17,11 +17,17 @@ intellij {
     version.set("2022.3")
     type.set("IC") // Target IDE Platform
 
+    pluginsRepositories {
+        custom(getJetBrainsDiscordIntegrationRepo())
+        marketplace()
+    }
+
     plugins.set(
         listOf(
             "org.rust.lang:0.4.185.5086-223",
             "com.intellij.lang.jsgraphql:3.3.0",
             "org.jetbrains.plugins.yaml:223.7571.125",
+            "com.almightyalpaca.intellij.plugins.discord:1.11.0+4",
         )
     )
 }
