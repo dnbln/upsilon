@@ -16,6 +16,7 @@
 
 #![feature(inherent_associated_types)]
 
+pub extern crate serde_json;
 pub extern crate anyhow;
 pub extern crate git2;
 pub extern crate upsilon_test_support_macros;
@@ -288,6 +289,7 @@ pub mod json_diff;
 
 pub mod prelude {
     pub use anyhow::bail;
+    pub use serde_json::json;
 
     pub use crate::helpers::*;
     pub use crate::{

@@ -28,6 +28,7 @@ enum App {
     #[clap(name = "fmt-check")]
     FmtCheck,
     #[clap(name = "git-checks")]
+    #[clap(alias = "gchk")]
     GitChecks,
     #[clap(name = "run-dev")]
     #[clap(alias = "run")]
@@ -128,6 +129,8 @@ fn run_tests(setup_testenv: &Path) -> XtaskResult<()> {
 
     Ok(())
 }
+
+const ALIASES: &[&str] = &["uxrd"];
 
 fn main() -> XtaskResult<()> {
     let app: App = App::parse();
@@ -261,11 +264,13 @@ fn main() -> XtaskResult<()> {
             wr.finish()?;
         }
         App::InstallAliases => {
-            cargo_cmd!(
-                "install",
-                "--bin", "uxrd",
-                "--path", ws_path!("crates" / "upsilon-xtask"),
-                @logging-error-and-returnok);
+            for alias in ALIASES {
+                cargo_cmd!(
+                    "install",
+                    "--bin", alias,
+                    "--path", ws_path!("crates" / "upsilon-xtask"),
+                    @logging-error-and-returnok);
+            }
         }
         App::BuildDocs => {
             cmd_call!(

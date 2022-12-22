@@ -19,9 +19,22 @@ use std::fmt;
 use serde_json::Value;
 
 #[macro_export]
+macro_rules! expanded_json {
+    ($it:ident) => {
+        &$it
+    };
+    ($it:tt) => {
+        $crate::serde_json::json!($it)
+    };
+}
+
+#[macro_export]
 macro_rules! assert_json_eq {
-    ($actual:expr, $expected:expr) => {{
-        $crate::json_diff::_assert_same_json(&$actual, &$expected);
+    ($actual:tt, $expected:tt) => {{
+        let actual = $crate::expanded_json!($actual);
+        let expected = $crate::expanded_json!($expected);
+
+        $crate::json_diff::_assert_same_json(&actual, &expected);
     }};
 }
 
