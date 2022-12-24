@@ -150,6 +150,43 @@ mutation($localPath: String!) {
     Ok(id)
 }
 
+pub async fn make_global_mirror_from_host_repo(cx: &mut TestCx) -> TestResult<String> {
+    let upsilon_repo = upsilon_host_repo_git();
+    if !upsilon_repo.exists() {
+        panic!(
+            "\
+Upsilon repository .git folder not found. Use `cargo xtask test` to run the tests,
+and make sure to do so in a valid git directory."
+        );
+    }
+
+    #[derive(serde::Deserialize)]
+    struct CopyRepoFromLocalPath {
+        #[serde(rename = "_debug__cpGlrFromLocal")]
+        copy: IdHolder,
+    }
+
+    let id = cx
+        .with_client(|cl| async move {
+            cl.gql_query_with_variables::<CopyRepoFromLocalPath>(
+                r#"
+mutation($localPath: String!) {
+    _debug__cpGlrFromLocal(name: "upsilon", localPath: $localPath) {
+        id
+    }
+}
+"#,
+                HashMap::from([("localPath".to_string(), json!(upsilon_repo))]),
+            )
+            .await
+        })
+        .await?
+        .copy
+        .id;
+
+    Ok(id)
+}
+
 pub fn upsilon_cloned_repo_path() -> PathBuf {
     let setup_env = std::env::var("UPSILON_SETUP_TESTENV")
         .expect("UPSILON_SETUP_TESTENV not set; did you use `cargo xtask test` to run the tests?");
@@ -157,4 +194,13 @@ pub fn upsilon_cloned_repo_path() -> PathBuf {
     let setup_env = PathBuf::from(setup_env);
 
     setup_env.join("repo/upsilon")
+}
+
+fn upsilon_host_repo_git() -> PathBuf {
+    let host_repo_path = std::env::var("UPSILON_HOST_REPO_GIT")
+        .expect("UPSILON_HOST_REPO_GIT not set; did you use `cargo xtask test` to run the tests?");
+
+    let host_repo_pathbuf = PathBuf::from(host_repo_path);
+
+    host_repo_pathbuf
 }

@@ -49,6 +49,8 @@ enum App {
     Test {
         #[clap(short, long)]
         dgql: bool,
+        #[clap(short, long)]
+        offline: bool,
     },
     #[clap(name = "pack-release")]
     PackRelease,
@@ -106,7 +108,7 @@ fn build_dev(dgql: bool) -> XtaskResult<()> {
     Ok(())
 }
 
-fn run_tests(setup_testenv: &Path) -> XtaskResult<()> {
+fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
         "-p",
@@ -114,17 +116,21 @@ fn run_tests(setup_testenv: &Path) -> XtaskResult<()> {
         "--bin",
         "setup_testenv",
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
         @workdir = ws_root!(),
     )?;
 
     cargo_cmd!(
-        "nextest",
-        "run",
-        "--all",
-        @env "CLICOLOR_FORCE" => "1",
-        @env "UPSILON_TEST_GUARD" => "1",
-        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
-        @workdir = ws_root!(),
+            "nextest",
+            "run",
+            "--all",
+            "--offline" => @if offline,
+            @env "CLICOLOR_FORCE" => "1",
+            @env "UPSILON_TEST_GUARD" => "1",
+            @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+            @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+            @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
+            @workdir = ws_root!(),
     )?;
 
     Ok(())
@@ -169,7 +175,7 @@ fn main() -> XtaskResult<()> {
                 @logging-error-and-returnok,
             );
         }
-        App::Test { dgql } => {
+        App::Test { dgql, offline } => {
             if let Err(e) = build_dev(dgql) {
                 eprintln!("Build failed: {e}");
                 return Ok(());
@@ -185,7 +191,7 @@ fn main() -> XtaskResult<()> {
 
             std::fs::create_dir_all(&setup_testenv)?;
 
-            let result = run_tests(&setup_testenv);
+            let result = run_tests(&setup_testenv, offline);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 

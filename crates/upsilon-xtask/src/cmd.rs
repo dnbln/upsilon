@@ -20,15 +20,33 @@ use std::{fmt, io};
 
 #[macro_export]
 macro_rules! cmd_process {
-    ($s:expr $(, $($args:expr),+)? $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)? $(,)?) => {{
+    (@@if_cmd_arg $cmd:expr, $arg:expr, $arg_condition:expr) => {
+        if $arg_condition {
+            $cmd.arg($arg);
+        }
+    };
+    (@@if_cmd_arg $cmd:expr, $arg:expr, ) => {
+        $cmd.arg($arg);
+    };
+    (@@if_cmd_env $cmd:expr, $env_name:expr, $env_value:expr, $env_condition:expr) => {
+        if $env_condition {
+            $cmd.env($env_name, $env_value);
+        }
+    };
+    (@@if_cmd_env $cmd:expr, $env_name:expr, $env_value:expr, ) => {
+        $cmd.env($env_name, $env_value);
+    };
+    ($s:expr $(, $($args:expr $(=> @if $arg_condition:expr)?),+)? $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $wd:expr)? $(,)?) => {{
         #[allow(unused_mut)]
         let mut cmd = ::std::process::Command::new($s);
 
         $(
-            $(cmd.arg($args);)+
+            $(
+                $crate::cmd_process!(@@if_cmd_arg cmd, $args, $($arg_condition)?);
+            )+
         )?
         $(
-            cmd.env($env_name, $env_var_value);
+            $crate::cmd_process!(@@if_cmd_env cmd, $env_name, $env_var_value, $($env_condition)?);
         )*
         $(cmd.current_dir($wd);)?
 
@@ -81,10 +99,10 @@ macro_rules! cmd {
 
 #[macro_export]
 macro_rules! cmd_call {
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)? $(,)?) => {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $wd:expr)? $(,)?) => {
         {
             (|| -> $crate::cmd::CmdResult {
-                let exit_status = $crate::cmd_process!($($args),+ $(, @env $env_name => $env_var_value)* $(, @workdir = $wd)?).spawn()?.wait()?;
+                let exit_status = $crate::cmd_process!($($args $(=> @if $arg_condition)?),+ $(, @env $env_name => $env_var_value $(=> @if $env_condition)?)* $(, @workdir = $wd)?).spawn()?.wait()?;
                 if !exit_status.success() {
                     Err::<(), _>($crate::cmd::CmdError::NotSuccess(exit_status))?
                 }
@@ -94,8 +112,8 @@ macro_rules! cmd_call {
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $wd:expr)?, @logging-error-and-returnok $(,)?) => {{
-        if let Err(__err) = $crate::cmd_call!($($args),+ $(, @env $env_name => $env_var_value)* $(, @workdir = $wd)?) {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $wd:expr)?, @logging-error-and-returnok $(,)?) => {{
+        if let Err(__err) = $crate::cmd_call!($($args $(=> @if $arg_condition)?),+ $(, @env $env_name => $env_var_value $(=> @if $env_condition)?)* $(, @workdir = $wd)?) {
             eprintln!("Error: {}", __err);
 
             return Ok(());
@@ -105,30 +123,30 @@ macro_rules! cmd_call {
 
 #[macro_export]
 macro_rules! cargo_cmd {
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)? $(,)?) => {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $workdir:expr)? $(,)?) => {
         {
             let __cargo_path = $crate::cmd::cargo_path();
-            $crate::cmd_call!(__cargo_path, $($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?)
+            $crate::cmd_call!(__cargo_path, $($args $(=> @if $arg_condition)?,)+ $(@env $env_name => $env_var_value $(=> @if $env_condition)?,)* $(@workdir = $workdir,)?)
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @ignoring-error $(,)?) => {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $workdir:expr)?, @ignoring-error $(,)?) => {
         {
-            let _ = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?);
+            let _ = $crate::cargo_cmd!($($args $(=> @if $arg_condition)?,)+ $(@env $env_name => $env_var_value $(=> @if $env_condition)?,)* $(@workdir = $workdir,)?);
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @logging-error $(,)?) => {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $workdir:expr)?, @logging-error $(,)?) => {
         {
-            if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?) {
+            if let Err(__err) = $crate::cargo_cmd!($($args $(=> @if $arg_condition)?,)+ $(@env $env_name => $env_var_value $(=> @if $env_condition)?,)* $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
             }
         }
     };
 
-    ($($args:expr),+ $(, @env $env_name:expr => $env_var_value:expr)* $(, @workdir = $workdir:expr)?, @logging-error-and-returnok $(,)?) => {
+    ($($args:expr $(=> @if $arg_condition:expr)?),+ $(, @env $env_name:expr => $env_var_value:expr $(=> @if $env_condition:expr)?)* $(, @workdir = $workdir:expr)?, @logging-error-and-returnok $(,)?) => {
         {
-            if let Err(__err) = $crate::cargo_cmd!($($args,)+ $(@env $env_name => $env_var_value,)* $(@workdir = $workdir,)?) {
+            if let Err(__err) = $crate::cargo_cmd!($($args $(=> @if $arg_condition)?,)+ $(@env $env_name => $env_var_value $(=> @if $env_condition)?,)* $(@workdir = $workdir,)?) {
                 eprintln!("Error while running cargo command: {}", __err);
 
                 return Ok(());

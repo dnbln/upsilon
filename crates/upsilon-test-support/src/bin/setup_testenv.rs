@@ -14,11 +14,9 @@
  *    limitations under the License.
  */
 
-use std::path::PathBuf;
-
 use upsilon_test_support::helpers::upsilon_cloned_repo_path;
 
-fn main() {
+fn setup_local_clone() {
     let upsilon_repo = upsilon_cloned_repo_path();
     if !upsilon_repo.exists() {
         std::fs::create_dir_all(&upsilon_repo).expect("Failed to create upsilon repo directory");
@@ -26,4 +24,10 @@ fn main() {
 
     git2::Repository::clone("https://github.com/dnbln/upsilon", &upsilon_repo)
         .expect("Failed to clone Upsilon repository");
+}
+
+fn main() {
+    if let Err(std::env::VarError::NotPresent) = std::env::var("UPSILON_TESTSUITE_OFFLINE") {
+        setup_local_clone();
+    }
 }

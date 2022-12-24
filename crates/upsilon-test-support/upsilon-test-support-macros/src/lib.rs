@@ -15,6 +15,7 @@
  */
 
 #![feature(proc_macro_span)]
+#![feature(drain_filter)]
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens, TokenStreamExt};
@@ -25,11 +26,17 @@ use syn::{Attribute, FnArg, ReturnType, Stmt, Type};
 
 #[proc_macro_attribute]
 pub fn upsilon_test(
-    _attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let mut fun = syn::parse_macro_input!(item as syn::ItemFn);
+        attr: proc_macro::TokenStream,
+        item: proc_macro::TokenStream,
+        ) -> proc_macro::TokenStream {
+    let fun = syn::parse_macro_input!(item as syn::ItemFn);
 
+    expand_upsilon_test(attr.into(), fun)
+    .unwrap_or_else(syn::Error::into_compile_error)
+    .into()
+}
+
+fn expand_upsilon_test(attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
     let guard = quote! {
         if !::std::env::var("UPSILON_TEST_GUARD").is_ok() {
             panic!("UPSILON_TEST_GUARD not set; did you use `cargo xtask test` to run the tests?");
@@ -40,9 +47,10 @@ pub fn upsilon_test(
 
     match rt {
         ReturnType::Default => {
-            return syn::Error::new(fun.sig.span(), "need return type to be TestResult")
-                .into_compile_error()
-                .into();
+            return Err(syn::Error::new(
+                fun.sig.span(),
+                "need return type to be TestResult",
+            ));
         }
         ReturnType::Type(_, _) => {}
     }
@@ -78,6 +86,40 @@ pub fn upsilon_test(
         })
         .collect::<Vec<_>>();
 
+    let mut test_attrs = TokenStream::new();
+    let mut works_offline_opt = None;
+
+    for attr in fun.attrs.drain_filter(|attr| attr.path.is_ident("offline")) {
+        if attr.path.is_ident("offline") {
+            let works_offline = if attr.tokens.is_empty() {
+                true
+            } else {
+                let ident = attr.parse_args::<Ident>()?;
+
+                if ident == "ignore" {
+                    false
+                } else if ident == "run" {
+                    true
+                } else {
+                    return Err(syn::Error::new(ident.span(), "Should be `ignore` or `run`"));
+                }
+            };
+
+            if works_offline_opt.is_some() {
+                return Err(syn::Error::new(
+                    attr.span(),
+                    "Multiple #[offline] attributes",
+                ));
+            }
+
+            works_offline_opt = Some(works_offline);
+        }
+    }
+
+    if matches!(works_offline_opt, Some(false) | None) {
+        test_attrs.append_all(quote! {#[cfg_attr(offline, ignore)]})
+    }
+
     let mut body = quote! { #fun };
 
     let inner_fn_call = InnerFnCall {
@@ -89,16 +131,19 @@ pub fn upsilon_test(
 
     body.append_all(quote! { #inner_fn_call });
 
-    let ts = proc_macro::TokenStream::from(quote! {
+    let ts = quote! {
         #[tokio::test]
+        #test_attrs
         #vis async fn #name () {
             #guard
 
             #body
         }
-    });
+    };
 
-    ts
+    eprintln!("{ts}");
+
+    Ok(ts)
 }
 
 struct InnerFnCall {
