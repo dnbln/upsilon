@@ -1,0 +1,3 @@
+[[profile.default.overrides]]
+filter = 'test(/^tests::/)'
+threads-required = 4

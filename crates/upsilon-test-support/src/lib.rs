@@ -95,6 +95,7 @@ impl TestCx {
             .env("UPSILON_PORTFILE", &portfile_path)
             .env("UPSILON_CONFIG", &config_path)
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
+            .env("UPSILON_WORKERS", "3")
             .kill_on_drop(true)
             .current_dir(&workdir)
             .spawn()
