@@ -38,7 +38,7 @@ impl Client {
         let root = root.into();
         Self {
             core: Arc::new(ClientCore {
-                gql: format!("{}/graphql", root),
+                gql: format!("{root}/graphql"),
                 root,
                 inner: reqwest::Client::new(),
             }),
@@ -101,6 +101,17 @@ impl Client {
         variables: HashMap<String, serde_json::Value>,
     ) -> TestResult<T> {
         self._gql_query(query, variables).await
+    }
+
+    pub async fn post_empty(&self, path: &str) -> TestResult<()> {
+        self.core
+            .inner
+            .post(format!("{}{path}", self.core.root))
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(())
     }
 }
 

@@ -23,7 +23,7 @@ use std::path::PathBuf;
 
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{async_trait, error, Build, Orbit, Rocket};
+use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
@@ -95,10 +95,15 @@ impl Fairing for ConfigManager {
         let DebugConfig {
             debug_data,
             graphql,
+            shutdown_endpoint,
         } = debug;
 
         if debug_data {
             rocket = rocket.attach(debug::DebugDataDriverFairing);
+        }
+
+        if shutdown_endpoint {
+            rocket = rocket.mount("/", rocket::routes![shutdown_endpoint]);
         }
 
         Ok(rocket
@@ -139,4 +144,9 @@ impl Fairing for PortFileWriter {
             error!("Failed to write port file: {}", e);
         }
     }
+}
+
+#[rocket::post("/api/shutdown")]
+async fn shutdown_endpoint(shutdown: Shutdown) {
+    shutdown.notify();
 }

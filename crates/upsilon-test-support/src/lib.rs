@@ -48,6 +48,7 @@ pub struct Token(String);
 pub struct TestCx {
     client: Client,
     root: String,
+    git_protocol_root: String,
     child: tokio::process::Child,
     config: TestCxConfig,
 
@@ -102,8 +103,7 @@ impl TestCx {
             .expect("Failed to write config file");
 
         let path = {
-            let path = std::env::var("UPSILON_WEB_BIN")
-                .expect("UPSILON_WEB_BIN is missing from the environment");
+            let path = env_var("UPSILON_WEB_BIN");
             PathBuf::from(path)
         };
 
@@ -115,16 +115,24 @@ impl TestCx {
                 .expect("Failed to remove port file");
         }
 
-        let mut child = tokio::process::Command::new(path)
-            .env("UPSILON_PORT", config.port.to_string())
+        let mut cmd = tokio::process::Command::new(path);
+
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd);
+
+        cmd.env("UPSILON_PORT", config.port.to_string())
+            .env(
+                "UPSILON_VCS_GIT-PROTOCOL_GIT-DAEMON_PORT",
+                config.git_daemon_port.to_string(),
+            )
             .env("UPSILON_PORTFILE", &portfile_path)
             .env("UPSILON_CONFIG", &config_path)
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
+            .env("UPSILON_DEBUG_SHUTDOWN-ENDPOINT", "true")
             .env("UPSILON_WORKERS", "3")
             .kill_on_drop(true)
-            .current_dir(&workdir)
-            .spawn()
-            .expect("Failed to spawn web server");
+            .current_dir(&workdir);
+
+        let mut child = cmd.spawn().expect("Failed to spawn web server");
 
         struct WaitForPortFileFuture {
             port_file_path: PathBuf,
@@ -205,11 +213,15 @@ impl TestCx {
 
         let port: u16 = port.trim().parse().expect("Failed to parse port");
 
-        let root = format!("http://localhost:{}", port);
+        let root = format!("http://localhost:{port}");
+
+        let git_port = config.git_daemon_port;
+        let git_protocol_root = format!("git://localhost:{git_port}");
 
         Self {
             client: Client::new(&root),
             root,
+            git_protocol_root,
             child,
             config,
             tokens: HashMap::new(),
@@ -227,16 +239,33 @@ impl TestCx {
     }
 
     pub async fn finish(mut self) {
-        if self
+        let exited_normally = if self
             .child
             .try_wait()
             .expect("Failed to check if the web server is running")
             .is_none()
         {
-            self.child
-                .kill()
-                .await
-                .expect("Failed to kill the webserver");
+            println!("Gracefully shutting down the web server");
+
+            let _ = self.client.post_empty("/api/shutdown").await;
+
+            upsilon_gracefully_shutdown::gracefully_shutdown(&mut self.child, Duration::from_secs(10)).await;
+
+            false
+        } else {
+            true
+        };
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let status = self
+            .child
+            .try_wait()
+            .expect("Child should have exited by now")
+            .expect("Child should have exited by now");
+
+        if exited_normally && !status.success() {
+            panic!("Subprocess failed: {status:?}");
         }
 
         let workdir = self.config.workdir();
@@ -255,6 +284,7 @@ pub struct CxConfigVars {
 
 pub struct TestCxConfig {
     port: u16,
+    git_daemon_port: u16,
     config: String,
     tempdir: PathBuf,
     source_file_path_hash: u64,
@@ -265,6 +295,7 @@ impl TestCxConfig {
     pub fn new(vars: &CxConfigVars) -> Self {
         let mut test_cx_config = Self {
             port: 0,
+            git_daemon_port: 0,
             config: "".to_string(),
             tempdir: vars.workdir.clone(),
             source_file_path_hash: vars.source_file_path_hash,
@@ -278,6 +309,11 @@ impl TestCxConfig {
 
     pub fn with_port(&mut self, port: u16) -> &mut Self {
         self.port = port;
+        self
+    }
+
+    pub fn with_git_daemon_port(&mut self, port: u16) -> &mut Self {
+        self.git_daemon_port = port;
         self
     }
 
@@ -315,4 +351,10 @@ pub mod prelude {
     pub use crate::{
         assert_json_eq, upsilon_test, Anything, Client, IdHolder, TestCx, TestCxConfig, TestResult
     };
+}
+
+fn env_var(name: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| {
+        panic!("{name} not set; did you use `cargo xtask test` to run the tests?")
+    })
 }

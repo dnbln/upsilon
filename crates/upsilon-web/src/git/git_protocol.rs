@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{Orbit, Rocket};
+use rocket::{error, info, Orbit, Rocket};
 use tokio::process::Child;
 use tokio::sync::Mutex;
 
@@ -43,10 +43,21 @@ impl Fairing for GitProtocolDaemonFairing {
     }
 
     async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
-        match self.child.lock().await.kill().await {
-            Ok(_) => {}
+        info!("Killing git protocol daemon");
+
+        let mut lock = self.child.lock().await;
+
+        match lock.kill().await {
+            Ok(_) => {
+                let status = lock
+                    .wait()
+                    .await
+                    .expect("Could not wait for git daemon to exit");
+
+                info!("Git protocol daemon exited with status {status}");
+            }
             Err(e) => {
-                eprintln!("Failed to kill git protocol daemon: {}", e);
+                error!("Failed to kill git protocol daemon: {e}");
             }
         }
     }

@@ -17,14 +17,13 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use git2::Repository;
+use git2::{BranchType, Repository};
 use serde_json::json;
 
-use crate::{IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
+use crate::{env_var, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
-    cx
-        .create_user("test", "test", "test")
+    cx.create_user("test", "test", "test")
         .await
         .expect("Failed to create user");
 }
@@ -71,6 +70,63 @@ users:
       type: argon2
     "#,
     );
+}
+
+pub fn upsilon_basic_config_with_git_daemon(cfg: &mut TestCxConfig) {
+    cfg.with_config(
+        r#"
+vcs:
+  path: ./vcs/repos
+  jailed: true
+  git-protocol:
+    enable: true
+    git-daemon:
+      start: true
+      services:
+        receive-pack:
+          enable: false
+          override: allow
+        upload-archive:
+          enable: false
+          override: allow
+        upload-pack:
+          enable: false
+          override: allow
+  http-protocol:
+    enable: true
+    push-auth-required: true
+
+vcs-errors:
+  leak-hidden-repos: true
+  verbose: true
+
+web:
+  api:
+    origin: "https://api.upsilon.dnbln.dev"
+  web-interface:
+    origin: "https://upsilon.dnbln.dev"
+  docs:
+    origin: "https://docs.upsilon.dnbln.dev"
+
+debug:
+  debug-data: false
+
+data-backend:
+  type: in-memory
+  save: false
+
+  cache:
+    max-users: 1
+
+users:
+  register:
+    enabled: true
+  auth:
+    password:
+      type: argon2
+    "#,
+    )
+    .with_git_daemon_port(portpicker::pick_unused_port().expect("Cannot find an unused port"));
 }
 
 pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
@@ -172,8 +228,7 @@ mutation($localPath: String!) {
 }
 
 pub fn upsilon_cloned_repo_path() -> PathBuf {
-    let setup_env = std::env::var("UPSILON_SETUP_TESTENV")
-        .expect("UPSILON_SETUP_TESTENV not set; did you use `cargo xtask test` to run the tests?");
+    let setup_env = env_var("UPSILON_SETUP_ENV");
 
     let setup_env = PathBuf::from(setup_env);
 
@@ -181,8 +236,7 @@ pub fn upsilon_cloned_repo_path() -> PathBuf {
 }
 
 fn upsilon_host_repo_git() -> PathBuf {
-    let host_repo_path = std::env::var("UPSILON_HOST_REPO_GIT")
-        .expect("UPSILON_HOST_REPO_GIT not set; did you use `cargo xtask test` to run the tests?");
+    let host_repo_path = env_var("UPSILON_HOST_REPO_GIT");
 
     PathBuf::from(host_repo_path)
 }
@@ -190,8 +244,42 @@ fn upsilon_host_repo_git() -> PathBuf {
 impl TestCx {
     pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
         let path = self.tempdir(name).await?;
-        let target_path = format!("{}/{remote_path}", self.root);
-        let repo = Repository::clone(&target_path, &path)?;
+        let target_url = format!("{}/{remote_path}", self.root);
+        {
+            let path = path.clone();
+            let target_url = target_url.clone();
+            tokio::task::spawn_blocking(move || {
+                Repository::clone(&target_url, &path)?;
+
+                Ok::<_, git2::Error>(())
+            })
+            .await??;
+        }
+
+        let repo = Repository::open(&path)?;
+
+        Ok((path, repo))
+    }
+
+    pub async fn clone_over_git_protocol(
+        &self,
+        name: &str,
+        remote_path: &str,
+    ) -> TestResult<(PathBuf, Repository)> {
+        let path = self.tempdir(name).await?;
+        let target_url = format!("{}/{remote_path}", self.git_protocol_root);
+        {
+            let path = path.clone();
+            let target_url = target_url.clone();
+            tokio::task::spawn_blocking(move || {
+                Repository::clone(&target_url, &path)?;
+
+                Ok::<_, git2::Error>(())
+            })
+            .await??;
+        }
+
+        let repo = Repository::open(&path)?;
 
         Ok((path, repo))
     }
@@ -207,7 +295,7 @@ impl TestCx {
             .with_client(|cl| async move {
                 cl.gql_query_with_variables::<LookupResult>(
                     r#"query($path: String!) {lookupRepo(path: $path) { id }}"#,
-                    HashMap::from([("path".to_string(), serde_json::json!(path))]),
+                    HashMap::from([("path".to_string(), json!(path))]),
                 )
                 .await
             })
@@ -258,4 +346,14 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
 #[serde(transparent)]
 pub struct CreateUserResult {
     pub token: String,
+}
+
+pub fn branch_commit<'repo>(
+    repo: &'repo Repository,
+    branch_name: &str,
+) -> TestResult<git2::Commit<'repo>> {
+    let br = repo.find_branch(branch_name, BranchType::Local)?;
+    let commit = br.get().peel_to_commit()?;
+
+    Ok(commit)
 }

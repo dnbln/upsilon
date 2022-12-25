@@ -25,6 +25,8 @@ openssl = "0.10.43"
 chrono = { version = "0.4.23", features = ["serde"] }
 async-trait = "0.1.59"
 git2 = "0.15"
+libc = "0.2"
+winapi = "0.3"
 
 upsilon-api = { path = "crates/upsilon-api" }
 upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }
@@ -35,6 +37,7 @@ upsilon-data-cache-inmemory = { path = "crates/upsilon-data-cache-inmemory" }
 upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
 upsilon-data-pg = { path = "crates/upsilon-data-pg" }
 upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
+upsilon-gracefully-shutdown = { path = "crates/upsilon-gracefully-shutdown" }
 upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-models = { path = "crates/upsilon-models" }

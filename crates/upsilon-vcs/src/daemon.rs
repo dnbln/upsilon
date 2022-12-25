@@ -94,6 +94,8 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
 
     cmd.arg(config.get_path());
 
+    cmd.kill_on_drop(true);
+
     let child = cmd.spawn()?;
 
     Ok(child)

@@ -14,15 +14,14 @@
  *    limitations under the License.
  */
 
-use upsilon_test_support::git2::BranchType;
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
 #[offline]
-async fn can_clone_to_local(cx: &mut TestCx) -> TestResult {
+async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone) = cx.clone("clone-upsilon", "upsilon").await?;
+    let _ = cx.clone("clone-upsilon", "upsilon").await?;
 
     Ok(())
 }
@@ -35,11 +34,40 @@ async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     let (_, clone1) = cx.clone("clone-upsilon-1", "upsilon").await?;
     let (_, clone2) = cx.clone("clone-upsilon-2", "upsilon").await?;
 
-    let trunk1 = clone1.find_branch("trunk", BranchType::Local)?;
-    let trunk2 = clone2.find_branch("trunk", BranchType::Local)?;
+    let trunk1_commit = branch_commit(&clone1, "trunk")?;
+    let trunk2_commit = branch_commit(&clone2, "trunk")?;
 
-    let trunk1_commit = trunk1.get().peel_to_commit()?;
-    let trunk2_commit = trunk2.get().peel_to_commit()?;
+    if trunk1_commit.id() != trunk2_commit.id() {
+        bail!("Clones' trunk refs point to different commits");
+    }
+
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline]
+async fn clone_over_git_protocol(
+    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
+) -> TestResult {
+    make_global_mirror_from_host_repo(cx).await?;
+
+    let _ = cx.clone_over_git_protocol("upsilon", "upsilon").await?;
+
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline]
+async fn clone_twice_same_result_git_protocol(
+    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx
+) -> TestResult {
+    make_global_mirror_from_host_repo(cx).await?;
+
+    let (_, clone1) = cx.clone_over_git_protocol("clone-upsilon-1", "upsilon").await?;
+    let (_, clone2) = cx.clone_over_git_protocol("clone-upsilon-2", "upsilon").await?;
+
+    let trunk1_commit = branch_commit(&clone1, "trunk")?;
+    let trunk2_commit = branch_commit(&clone2, "trunk")?;
 
     if trunk1_commit.id() != trunk2_commit.id() {
         bail!("Clones' trunk refs point to different commits");

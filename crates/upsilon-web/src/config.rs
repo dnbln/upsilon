@@ -42,6 +42,9 @@ pub struct DebugConfig {
 
     #[serde(default)]
     pub graphql: GqlDebugConfig,
+
+    #[serde(default = "false_f")]
+    pub shutdown_endpoint: bool,
 }
 
 fn false_f() -> bool {
