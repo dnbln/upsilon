@@ -9,7 +9,7 @@ edition = "2021"
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
-path-slash = "0.2.1"
+path-slash.workspace = true
 git2.workspace = true
 
 upsilon-core.workspace = true

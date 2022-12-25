@@ -23,6 +23,7 @@ use std::pin::Pin;
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
 use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
+use path_slash::PathBufExt;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
 use rocket::{Ignite, Request, Rocket, Sentinel, State};
@@ -36,12 +37,15 @@ use upsilon_models::organization::{
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace, RepoPermissions};
 use upsilon_models::users::emails::UserEmails;
-use upsilon_models::users::password::{PasswordHashAlgorithmDescriptor, PlainPassword};
+use upsilon_models::users::password::{
+    HashedPassword, PasswordHashAlgorithmDescriptor, PlainPassword
+};
 use upsilon_models::users::{User, UserDisplayName, UserId, Username};
 use upsilon_vcs::{RepoConfig, RepoVisibility, UpsilonVcsConfig};
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
 use crate::error::Error;
+use crate::repo_lookup_path::{RepoLookupPath, ResolvedRepoAndNamespace};
 
 pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, SubscriptionRoot>;
 
@@ -104,6 +108,12 @@ impl GraphQLContext {
         f(qm).await.map_err(Into::into)
     }
 
+    async fn query_user(&self, user_id: UserId) -> FieldResult<UserRef> {
+        self.query(|qm| async move { qm.query_user(user_id).await })
+            .await
+            .map(UserRef)
+    }
+
     async fn query_org(&self, org_id: OrganizationId) -> FieldResult<OrganizationRef> {
         self.query(|qm| async move { qm.query_organization(org_id).await })
             .await
@@ -148,10 +158,14 @@ impl QueryRoot {
     }
 
     async fn user(context: &GraphQLContext, user_id: UserId) -> FieldResult<UserRef> {
-        context
-            .query(|qm| async move { qm.query_user(user_id).await })
-            .await
-            .map(UserRef)
+        context.query_user(user_id).await
+    }
+
+    async fn viewer(context: &GraphQLContext) -> FieldResult<Option<UserRef>> {
+        match &context.auth {
+            Some(auth) => Ok(Some(context.query_user(auth.claims.sub).await?)),
+            None => Ok(None),
+        }
     }
 
     async fn user_by_username(
@@ -186,6 +200,27 @@ impl QueryRoot {
             .query(|qm| async move { qm.query_repo(repo_id).await })
             .await
             .map(RepoRef)
+    }
+
+    async fn lookup_repo(context: &GraphQLContext, path: String) -> FieldResult<Option<RepoRef>> {
+        let path = RepoLookupPath::from_iter(path.split('/').collect::<Vec<_>>().into_iter())?;
+
+        let resolved = match context
+            .query(|qm| async move { crate::repo_lookup_path::resolve(&qm, &path).await })
+            .await?
+        {
+            Some(path) => path,
+            None => return Ok(None),
+        };
+
+        let repo = match resolved {
+            ResolvedRepoAndNamespace::GlobalNamespace(r)
+            | ResolvedRepoAndNamespace::User(_, r)
+            | ResolvedRepoAndNamespace::Organization(_, r)
+            | ResolvedRepoAndNamespace::Team(_, _, r) => r,
+        };
+
+        Ok(Some(RepoRef(repo)))
     }
 }
 
@@ -275,6 +310,54 @@ impl MutationRoot {
         Ok(token.to_string())
     }
 
+    #[graphql(name = "_debug__createTestUser")]
+    async fn create_test_user(
+        context: &GraphQLContext,
+        username: Username,
+        email: Email,
+        password: PlainPassword,
+    ) -> FieldResult<String> {
+        context.require_debug()?;
+
+        if !context.users_config.register.enabled {
+            Err(Error::Forbidden)?;
+        }
+
+        let id = UserId::new();
+        let password_hash_algo =
+            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password);
+        let password_hash = 'password_hash: {
+            if password == "test" {
+                break 'password_hash HashedPassword::from("test_hash");
+            }
+
+            tokio::task::spawn_blocking(move || {
+                password_hash_algo
+                    .hash_password(&password, &id.chrono_ts().timestamp().to_le_bytes())
+            })
+            .await?
+        };
+
+        let user = User {
+            id,
+            username,
+            password: password_hash,
+            display_name: None,
+            emails: UserEmails::new(email),
+            avatar: None,
+        };
+
+        context
+            .query(|qm| async move { qm.create_user(user.clone()).await })
+            .await?;
+
+        let token = context
+            .auth_context
+            .sign(AuthTokenClaims::new(id, Duration::days(15)));
+
+        Ok(token.to_string())
+    }
+
     async fn login(
         context: &GraphQLContext,
         username_or_email: String,
@@ -291,6 +374,41 @@ impl MutationRoot {
             password_hash_algo.verify_password(&password, &user.password)
         })
         .await?;
+
+        if !password_check {
+            Err(Error::Unauthorized)?;
+        }
+
+        let token = context
+            .auth_context
+            .sign(AuthTokenClaims::new(user.id, Duration::days(15)));
+
+        Ok(token.to_string())
+    }
+
+    #[graphql(name = "_debug__loginTestUser")]
+    async fn login_test_user(
+        context: &GraphQLContext,
+        username_or_email: String,
+        password: PlainPassword,
+    ) -> FieldResult<String> {
+        let user = context
+            .query(|qm| async move { qm.query_user_by_username_email(&username_or_email).await })
+            .await?
+            .ok_or(Error::Unauthorized)?;
+
+        let password_hash_algo =
+            PasswordHashAlgorithmDescriptor::from(context.users_config.auth.password);
+        let password_check = 'password_check: {
+            if password == "test" && user.password == "test_hash" {
+                break 'password_check true;
+            }
+
+            tokio::task::spawn_blocking(move || {
+                password_hash_algo.verify_password(&password, &user.password)
+            })
+            .await?
+        };
 
         if !password_check {
             Err(Error::Unauthorized)?;
@@ -643,7 +761,15 @@ impl RepoRef {
         &self.0.name
     }
 
-    pub async fn git(&self, context: &GraphQLContext) -> FieldResult<git::RepoGit> {
+    async fn path(&self, context: &GraphQLContext) -> FieldResult<String> {
+        let path = context
+            .query(|qm| async move { Self::ns_path(self, qm).await })
+            .await?;
+
+        Ok(path.to_slash_lossy().into_owned())
+    }
+
+    async fn git(&self, context: &GraphQLContext) -> FieldResult<git::RepoGit> {
         let ns_path = self.ns_path(context.db.query_master()).await?;
 
         let repo_dir = context.vcs_config.repo_dir(ns_path);

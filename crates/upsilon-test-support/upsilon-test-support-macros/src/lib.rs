@@ -36,7 +36,7 @@ pub fn upsilon_test(
     .into()
 }
 
-fn expand_upsilon_test(attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
+fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
     let guard = quote! {
         if !::std::env::var("UPSILON_TEST_GUARD").is_ok() {
             panic!("UPSILON_TEST_GUARD not set; did you use `cargo xtask test` to run the tests?");
@@ -140,8 +140,6 @@ fn expand_upsilon_test(attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<T
             #body
         }
     };
-
-    eprintln!("{ts}");
 
     Ok(ts)
 }

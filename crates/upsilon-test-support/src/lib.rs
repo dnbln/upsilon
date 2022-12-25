@@ -16,40 +16,68 @@
 
 #![feature(inherent_associated_types)]
 
-pub extern crate serde_json;
 pub extern crate anyhow;
 pub extern crate git2;
+pub extern crate serde_json;
 pub extern crate upsilon_test_support_macros;
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use git2::Repository;
 pub use upsilon_test_support_macros::upsilon_test;
 
-use crate::client::Client;
+pub use crate::client::Client;
 
 mod client;
+
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct Username(String);
+
+impl From<String> for Username {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+pub struct Token(String);
 
 pub struct TestCx {
     client: Client,
     root: String,
     child: tokio::process::Child,
     config: TestCxConfig,
+
+    tokens: HashMap<Username, Token>,
 }
 
 impl TestCx {
     pub type Config = TestCxConfig;
 
-    pub async fn with_client<'a, F, Fut, R>(&'a self, f: F) -> R
+    pub async fn with_client<F, Fut, R>(&self, f: F) -> R
     where
-        F: FnOnce(&'a Client) -> Fut,
-        Fut: Future<Output = R> + 'a,
+        F: FnOnce(Client) -> Fut,
+        Fut: Future<Output = R>,
     {
-        f(&self.client).await
+        f(self.client.clone()).await
+    }
+
+    pub async fn with_client_as_user<F, Fut, R>(&self, user: impl Into<String>, f: F) -> R
+    where
+        F: FnOnce(Client) -> Fut,
+        Fut: Future<Output = R>,
+    {
+        match self.tokens.get(&Username(user.into())) {
+            None => f(self.client.clone()).await,
+            Some(token) => {
+                let client = self.client.with_token(&token.0);
+
+                async move { f(client).await }.await
+            }
+        }
     }
 
     pub async fn init(config: TestCxConfig) -> Self {
@@ -74,12 +102,9 @@ impl TestCx {
             .expect("Failed to write config file");
 
         let path = {
-            let mut path = std::env::current_exe().unwrap();
-            path.pop(); // target/debug/deps
-            path.pop(); // target/debug
-            path.push("upsilon-web"); // target/debug/upsilon-web
-            path.set_extension(std::env::consts::EXE_EXTENSION);
-            path
+            let path = std::env::var("UPSILON_WEB_BIN")
+                .expect("UPSILON_WEB_BIN is missing from the environment");
+            PathBuf::from(path)
         };
 
         let portfile_path = workdir.join(".port");
@@ -187,6 +212,7 @@ impl TestCx {
             root,
             child,
             config,
+            tokens: HashMap::new(),
         }
     }
 
@@ -198,13 +224,6 @@ impl TestCx {
         tokio::fs::create_dir_all(&p).await?;
 
         Ok(p)
-    }
-
-    pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
-        let path = self.tempdir(name).await?;
-        let repo = Repository::clone(&format!("{}/{remote_path}", self.root), &path)?;
-
-        Ok((path, repo))
     }
 
     pub async fn finish(mut self) {
@@ -294,6 +313,6 @@ pub mod prelude {
 
     pub use crate::helpers::*;
     pub use crate::{
-        assert_json_eq, upsilon_test, Anything, IdHolder, TestCx, TestCxConfig, TestResult
+        assert_json_eq, upsilon_test, Anything, Client, IdHolder, TestCx, TestCxConfig, TestResult
     };
 }

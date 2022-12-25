@@ -20,6 +20,7 @@ scalar ImageAssetId
 type Repo {
   id: RepoId!
   name: RepoName!
+  path: String!
   git: RepoGit!
 }
 
@@ -28,6 +29,7 @@ type GitCommit {
   message: String
   author: GitSignature!
   committer: GitSignature!
+  parent(i: Int = 0): GitCommit!
   tree: GitTree!
 }
 
@@ -37,7 +39,9 @@ scalar TeamName
 
 type MutationRoot {
   createUser(username: Username!, email: Email!, password: PlainPassword!): String!
+  _debug__createTestUser(username: Username!, email: Email!, password: PlainPassword!): String!
   login(usernameOrEmail: String!, password: PlainPassword!): String!
+  _debug__loginTestUser(usernameOrEmail: String!, password: PlainPassword!): String!
   createOrganization(name: OrganizationName!): Organization!
   createRepo(name: RepoName!): Repo!
   createRepoInOrganization(name: RepoName!, organizationId: OrganizationId!): Repo!
@@ -71,10 +75,12 @@ type GitTreeEntry {
 type QueryRoot {
   apiVersion: String!
   user(userId: UserId!): User!
+  viewer: User
   userByUsername(username: Username!): User
   organization(orgId: OrganizationId!): Organization!
   organizationByName(name: OrganizationName!): Organization
   repo(repoId: RepoId!): Repo!
+  lookupRepo(path: String!): Repo
 }
 
 type GitSignature {

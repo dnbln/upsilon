@@ -35,7 +35,7 @@ pub struct RepoLookupPath {
 }
 
 impl RepoLookupPath {
-    fn from_iter<T, I>(iter: I) -> Result<Self, NsLookupPathError>
+    pub(crate) fn from_iter<T, I>(iter: I) -> Result<Self, NsLookupPathError>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -77,9 +77,11 @@ impl Index<usize> for RepoLookupPath {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum NsLookupPathError {
+    #[error("empty")]
     Empty,
+    #[error("too many segments")]
     TooManySegments,
 }
 

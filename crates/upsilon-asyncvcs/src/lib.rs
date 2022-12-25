@@ -102,6 +102,7 @@ pub enum FlatMessage {
     SignatureName(SignatureRef),
     SignatureEmail(SignatureRef),
     CommitTree(CommitRef),
+    CommitParent(CommitRef, usize),
     TreeEntries(TreeRef),
     WholeTreeEntries(TreeRef),
 
@@ -420,6 +421,14 @@ impl Server {
                             store.trees.push(tree);
                             FlatResponse::CommitTree(TreeRef { id })
                         }
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
+                FlatMessage::CommitParent(commit, parent) => {
+                    let c = &store[commit];
+
+                    match c.parent(parent) {
+                        Ok(c) => FlatResponse::Commit(store.push_commit(c)),
                         Err(e) => FlatResponse::Error(e),
                     }
                 }

@@ -15,15 +15,21 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use serde::Deserialize;
 
 use crate::TestResult;
 
-pub struct Client {
+struct ClientCore {
     root: String,
     gql: String,
     inner: reqwest::Client,
+}
+
+#[derive(Clone)]
+pub struct Client {
+    core: Arc<ClientCore>,
     token: Option<String>,
 }
 
@@ -31,20 +37,20 @@ impl Client {
     pub fn new(root: impl Into<String>) -> Self {
         let root = root.into();
         Self {
-            gql: format!("{}/graphql", root),
-            root,
-            inner: reqwest::Client::new(),
+            core: Arc::new(ClientCore {
+                gql: format!("{}/graphql", root),
+                root,
+                inner: reqwest::Client::new(),
+            }),
             token: None,
         }
     }
 
-    pub fn with_token(mut self, token: impl Into<String>) -> Self {
-        self.token = Some(token.into());
-        self
-    }
-
-    pub fn set_token(&mut self, token: impl Into<String>) {
-        self.token = Some(token.into());
+    pub fn with_token(&self, token: impl Into<String>) -> Self {
+        Self {
+            core: Arc::clone(&self.core),
+            token: Some(token.into()),
+        }
     }
 
     async fn _gql_query<T: for<'de> Deserialize<'de>>(
@@ -52,7 +58,7 @@ impl Client {
         query: &str,
         variables: HashMap<String, serde_json::Value>,
     ) -> TestResult<T> {
-        let mut req = self.inner.post(&self.gql);
+        let mut req = self.core.inner.post(&self.core.gql);
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);
         }

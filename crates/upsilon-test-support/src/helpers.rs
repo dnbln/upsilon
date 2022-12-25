@@ -17,32 +17,16 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use git2::Repository;
 use serde_json::json;
 
-use crate::{IdHolder, TestCx, TestCxConfig, TestResult};
+use crate::{IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
-    #[derive(serde::Deserialize)]
-    struct CreateUserResponse {
-        #[serde(rename = "createUser")]
-        token: String,
-    }
-
-    let response = cx
-        .with_client(|c| async move {
-            c.gql_query::<CreateUserResponse>(
-                r#"
-mutation {
-  createUser(username: "test", password: "test", email: "test")
-}
-"#,
-            )
-            .await
-        })
+    cx
+        .create_user("test", "test", "test")
         .await
         .expect("Failed to create user");
-
-    cx.client.set_token(response.token);
 }
 
 pub fn upsilon_basic_config(cfg: &mut TestCxConfig) {
@@ -200,7 +184,78 @@ fn upsilon_host_repo_git() -> PathBuf {
     let host_repo_path = std::env::var("UPSILON_HOST_REPO_GIT")
         .expect("UPSILON_HOST_REPO_GIT not set; did you use `cargo xtask test` to run the tests?");
 
-    let host_repo_pathbuf = PathBuf::from(host_repo_path);
+    PathBuf::from(host_repo_path)
+}
 
-    host_repo_pathbuf
+impl TestCx {
+    pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
+        let path = self.tempdir(name).await?;
+        let target_path = format!("{}/{remote_path}", self.root);
+        let repo = Repository::clone(&target_path, &path)?;
+
+        Ok((path, repo))
+    }
+
+    pub async fn lookup(&self, path: &str) -> TestResult<String> {
+        #[derive(serde::Deserialize)]
+        struct LookupResult {
+            #[serde(rename = "lookupRepo")]
+            lookup_repo: IdHolder,
+        }
+
+        Ok(self
+            .with_client(|cl| async move {
+                cl.gql_query_with_variables::<LookupResult>(
+                    r#"query($path: String!) {lookupRepo(path: $path) { id }}"#,
+                    HashMap::from([("path".to_string(), serde_json::json!(path))]),
+                )
+                .await
+            })
+            .await?
+            .lookup_repo
+            .id)
+    }
+
+    pub async fn create_user(
+        &mut self,
+        username: &str,
+        password: &str,
+        email: &str,
+    ) -> TestResult<CreateUserResult> {
+        #[derive(serde::Deserialize)]
+        struct CreateUserToken {
+            #[serde(rename = "_debug__createTestUser")]
+            result: CreateUserResult,
+        }
+
+        let result = self
+            .with_client(|cl| async move {
+                cl.gql_query_with_variables::<CreateUserToken>(
+                    r#"
+mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
+  _debug__createTestUser(username: $username, password: $password, email: $email)
+}
+"#,
+                    HashMap::from([
+                        ("username".to_string(), json!(username)),
+                        ("password".to_string(), json!(password)),
+                        ("email".to_string(), json!(email)),
+                    ]),
+                )
+                .await
+            })
+            .await?
+            .result;
+
+        self.tokens
+            .insert(Username(username.to_string()), Token(result.token.clone()));
+
+        Ok(result)
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+pub struct CreateUserResult {
+    pub token: String,
 }

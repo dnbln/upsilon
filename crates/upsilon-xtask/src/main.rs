@@ -120,6 +120,9 @@ fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
         @workdir = ws_root!(),
     )?;
 
+    let mut upsilon_web_binary = ws_path!("target" / "debug" / "upsilon-web");
+    upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
+
     cargo_cmd!(
             "nextest",
             "run",
@@ -130,6 +133,7 @@ fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
             @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
             @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
             @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
+            @env "UPSILON_WEB_BIN" => upsilon_web_binary,
             @workdir = ws_root!(),
     )?;
 

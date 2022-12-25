@@ -22,7 +22,7 @@ use upsilon_test_support::prelude::*;
 #[upsilon_test]
 #[offline]
 async fn get_last_commit_on_branch_same_as_cloned_info(
-    #[setup(register_dummy_user)] cx: &mut TestCx,
+    cx: &mut TestCx,
 ) -> TestResult {
     let global_mirror_id = make_global_mirror_from_host_repo(cx).await?;
 

@@ -17,10 +17,17 @@
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
-async fn github_mirror(
-    cx: &mut TestCx,
-) -> TestResult {
-    let global_mirror_id = make_global_mirror_from_github(cx).await?;
+#[offline]
+async fn simple(cx: &mut TestCx) -> TestResult {
+    let id = make_global_mirror_from_host_repo(cx).await?;
+
+    let result = cx.lookup("upsilon").await?;
+
+    assert_eq!(id, result);
+
+    let second_result = cx.lookup("upsilon").await?;
+
+    assert_eq!(id, second_result);
 
     Ok(())
 }

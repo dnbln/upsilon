@@ -16,6 +16,7 @@ linkme = "0.3"
 juniper.workspace = true
 juniper_rocket = "0.8.2"
 jwt = { version = "0.16.0", features = ["openssl"] }
+path-slash.workspace = true
 openssl.workspace = true
 chrono.workspace = true
 

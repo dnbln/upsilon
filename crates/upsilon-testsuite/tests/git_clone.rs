@@ -19,10 +19,7 @@ use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
 #[offline]
-async fn can_clone_to_local(
-    #[setup(register_dummy_user)]
-    cx: &mut TestCx,
-) -> TestResult {
+async fn can_clone_to_local(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
     let (_, clone) = cx.clone("clone-upsilon", "upsilon").await?;
@@ -32,10 +29,7 @@ async fn can_clone_to_local(
 
 #[upsilon_test]
 #[offline]
-async fn clone_twice_same_result(
-    #[setup(register_dummy_user)]
-    cx: &mut TestCx,
-) -> TestResult {
+async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
     let (_, clone1) = cx.clone("clone-upsilon-1", "upsilon").await?;

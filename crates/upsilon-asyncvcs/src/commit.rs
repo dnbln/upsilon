@@ -170,3 +170,29 @@ impl FromFlatResponse for CommitTreeQueryResponse {
 }
 
 impl Response for CommitTreeQueryResponse {}
+
+pub struct CommitParentQuery(pub CommitRef, pub usize);
+
+impl ToFlatMessage for CommitParentQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitParent(self.0, self.1)
+    }
+}
+
+impl Message for CommitParentQuery {
+    type Res = CommitParentResponse;
+}
+
+pub struct CommitParentResponse(pub upsilon_vcs::Result<CommitRef>);
+
+impl FromFlatResponse for CommitParentResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::Commit(c) => Self(Ok(c)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitParentResponse {}
