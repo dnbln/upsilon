@@ -33,6 +33,8 @@ pub enum CommonDataClientError {
     UserAlreadyExists,
     #[error("Repo already exists")]
     RepoAlreadyExists,
+    #[error("Perms already exist")]
+    PermsAlreadyExist,
     #[error("Name conflict")]
     NameConflict,
     #[error("{0}")]
@@ -233,10 +235,24 @@ query_impl_trait! {
         {into} repo_id: upsilon_models::repo::RepoId,
         {into} repo_name: upsilon_models::repo::RepoName,
     );
+    async fn init_repo_user_perms<'self_ref>(
+        {into} repo_id: upsilon_models::repo::RepoId,
+        {into} user_id: upsilon_models::users::UserId,
+    );
     async fn query_repo_user_perms<'self_ref>(
         {into} repo_id: upsilon_models::repo::RepoId,
         {into} user_id: upsilon_models::users::UserId,
     ) -> Option<upsilon_models::repo::RepoPermissions>;
+    async fn add_repo_user_perms<'self_ref>(
+        {into} repo_id: upsilon_models::repo::RepoId,
+        {into} user_id: upsilon_models::users::UserId,
+        {into} perms: upsilon_models::repo::RepoPermissions,
+    ) -> upsilon_models::repo::RepoPermissions;
+    async fn remove_repo_user_perms<'self_ref>(
+        {into} repo_id: upsilon_models::repo::RepoId,
+        {into} user_id: upsilon_models::users::UserId,
+        {into} perms: upsilon_models::repo::RepoPermissions,
+    ) -> upsilon_models::repo::RepoPermissions;
 
     // ================================
     // ======== Organizations =========

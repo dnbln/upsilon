@@ -65,7 +65,7 @@ pub struct Repo {
 
 bitflags! {
     #[derive(Copy, Clone, Eq, PartialEq)]
-    pub struct RepoPermissions: u64 {
+    pub struct RepoPermissions: i32 {
         const NONE = 0;
         const READ = 0b0000_0001;
         const WRITE = 0b0000_0010;
@@ -120,5 +120,23 @@ impl fmt::Debug for RepoPermissions {
         write!(f, ")")?;
 
         Ok(())
+    }
+}
+
+#[juniper::graphql_scalar]
+impl<S> juniper::GraphQLScalar for RepoPermissions
+where
+    S: juniper::ScalarValue,
+{
+    fn resolve(&self) -> juniper::Value {
+        juniper::Value::scalar(self.bits())
+    }
+
+    fn from_input_value(value: &juniper::InputValue) -> Option<Self> {
+        value.as_int_value().map(Self::from_bits_truncate)
+    }
+
+    fn from_str(value: juniper::ScalarToken) -> juniper::ParseScalarResult<S> {
+        <i32 as juniper::ParseScalarValue<S>>::from_str(value)
     }
 }

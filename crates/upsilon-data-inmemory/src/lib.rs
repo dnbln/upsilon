@@ -43,6 +43,10 @@ pub enum InMemoryError {
     RepoNotFound,
     #[error("Repo already exists")]
     RepoAlreadyExists,
+    #[error("Perms already exist")]
+    PermsAlreadyExist,
+    #[error("Perms not found")]
+    PermsNotFound,
     #[error("Organization not found")]
     OrganizationNotFound,
     #[error("Organization members not found")]
@@ -60,6 +64,7 @@ impl CommonDataClientErrorExtractor for InMemoryError {
             InMemoryError::UserNotFound => CommonDataClientError::UserNotFound,
             InMemoryError::UserAlreadyExists => CommonDataClientError::UserAlreadyExists,
             InMemoryError::NameConflict => CommonDataClientError::NameConflict,
+            InMemoryError::PermsAlreadyExist => CommonDataClientError::PermsAlreadyExist,
             _ => CommonDataClientError::Other(Box::new(self)),
         }
     }
@@ -564,6 +569,31 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .ok_or(InMemoryError::RepoNotFound)
     }
 
+    async fn init_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+    ) -> Result<(), Self::Error> {
+        let mut repo_perms_lock = self.store().repo_permissions.write().await;
+
+        let repo_perms_map = repo_perms_lock.entry(repo_id).or_default();
+
+        if repo_perms_map.contains_key(&user_id) {
+            return Err(InMemoryError::PermsAlreadyExist);
+        }
+
+        let repos_lock = self.store().repos.read().await;
+
+        let repo = repos_lock
+            .get(&repo_id)
+            .ok_or(InMemoryError::RepoNotFound)?;
+        let global_perms = repo.global_permissions;
+
+        repo_perms_map.insert(user_id, global_perms);
+
+        Ok(())
+    }
+
     async fn query_repo_user_perms(
         &self,
         repo_id: RepoId,
@@ -574,6 +604,46 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         Ok(lock
             .get(&repo_id)
             .and_then(|map| map.get(&user_id).cloned()))
+    }
+
+    async fn add_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+        perms: RepoPermissions,
+    ) -> Result<RepoPermissions, Self::Error> {
+        let mut lock = self.store().repo_permissions.write().await;
+
+        let repo_perms_map = lock.entry(repo_id).or_default();
+
+        repo_perms_map
+            .get_mut(&user_id)
+            .map(|existing_perms| {
+                *existing_perms |= perms;
+
+                *existing_perms
+            })
+            .ok_or(InMemoryError::PermsNotFound)
+    }
+
+    async fn remove_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+        perms: RepoPermissions,
+    ) -> Result<RepoPermissions, Self::Error> {
+        let mut lock = self.store().repo_permissions.write().await;
+
+        let repo_perms_map = lock.entry(repo_id).or_default();
+
+        repo_perms_map
+            .get_mut(&user_id)
+            .map(|existing_perms| {
+                *existing_perms &= !perms;
+
+                *existing_perms
+            })
+            .ok_or(InMemoryError::PermsNotFound)
     }
 
     async fn create_organization(&self, org: Organization) -> Result<(), Self::Error> {

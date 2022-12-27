@@ -97,6 +97,16 @@ impl Sentinel for GraphQLContext {
 }
 
 impl GraphQLContext {
+    async fn query_no_error_cast<'a, 'b, F, T, E, Fut>(&'a self, f: F) -> Result<T, E>
+    where
+        F: FnOnce(DataQueryMaster<'a>) -> Fut,
+        Fut: Future<Output = Result<T, E>> + 'b,
+        'b: 'a,
+    {
+        let qm = self.db.query_master();
+        f(qm).await
+    }
+
     async fn query<'a, 'b, F, T, E, Fut>(&'a self, f: F) -> FieldResult<T>
     where
         F: FnOnce(DataQueryMaster<'a>) -> Fut,
@@ -104,8 +114,7 @@ impl GraphQLContext {
         E: Into<FieldError>,
         'b: 'a,
     {
-        let qm = self.db.query_master();
-        f(qm).await.map_err(Into::into)
+        self.query_no_error_cast(f).await.map_err(Into::into)
     }
 
     async fn query_user(&self, user_id: UserId) -> FieldResult<UserRef> {
@@ -130,6 +139,16 @@ impl GraphQLContext {
             Ok::<_, FieldError>(())
         })
         .await??;
+
+        Ok(())
+    }
+
+    async fn init_repo_user_permissions(&self, repo_id: RepoId, user_id: UserId) -> FieldResult<()> {
+        match self.query_no_error_cast(|qm| async move {qm.init_repo_user_perms(repo_id, user_id).await}).await {
+            Ok(_) => {},
+            Err(upsilon_data::CommonDataClientError::PermsAlreadyExist) => {}
+            Err(e) => Err(e)?,
+        }
 
         Ok(())
     }
@@ -648,6 +667,56 @@ impl MutationRoot {
             local_path.to_str().expect("Invalid path").to_string(),
         )
         .await
+    }
+
+    async fn add_user_repo_permissions(
+        context: &GraphQLContext,
+        repo: RepoId,
+        user: UserId,
+        perms: RepoPermissions,
+    ) -> FieldResult<RepoPermissions> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let repo = context
+            .query(|qm| async move { qm.query_repo(repo).await })
+            .await?;
+
+        if repo.namespace != NamespaceId::User(auth.claims.sub) {
+            Err(Error::Forbidden)?;
+        }
+
+        context.init_repo_user_permissions(repo.id, user).await?;
+
+        let new_perms = context
+            .query(|qm| async move { qm.add_repo_user_perms(repo.id, user, perms).await })
+            .await?;
+
+        Ok(new_perms)
+    }
+
+    async fn remove_user_repo_permissions(
+        context: &GraphQLContext,
+        repo: RepoId,
+        user: UserId,
+        perms: RepoPermissions,
+    ) -> FieldResult<RepoPermissions> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let repo = context
+            .query(|qm| async move { qm.query_repo(repo).await })
+            .await?;
+
+        if repo.namespace != NamespaceId::User(auth.claims.sub) {
+            Err(Error::Forbidden)?;
+        }
+
+        context.init_repo_user_permissions(repo.id, user).await?;
+
+        let new_perms = context
+            .query(|qm| async move { qm.remove_repo_user_perms(repo.id, user, perms).await })
+            .await?;
+
+        Ok(new_perms)
     }
 }
 
