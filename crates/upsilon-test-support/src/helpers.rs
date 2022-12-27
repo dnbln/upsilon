@@ -14,11 +14,9 @@
  *    limitations under the License.
  */
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use git2::{BranchType, Repository};
-use serde_json::json;
 
 use crate::{env_var, gql_vars, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
 
