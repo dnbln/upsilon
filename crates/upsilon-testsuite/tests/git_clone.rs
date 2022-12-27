@@ -17,7 +17,6 @@
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
-#[offline]
 async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
@@ -27,7 +26,6 @@ async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
 }
 
 #[upsilon_test]
-#[offline]
 async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
@@ -45,7 +43,6 @@ async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
 }
 
 #[upsilon_test]
-#[offline]
 async fn clone_over_git_protocol(
     #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
 ) -> TestResult {
@@ -57,7 +54,6 @@ async fn clone_over_git_protocol(
 }
 
 #[upsilon_test]
-#[offline]
 async fn clone_twice_same_result_git_protocol(
     #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx
 ) -> TestResult {

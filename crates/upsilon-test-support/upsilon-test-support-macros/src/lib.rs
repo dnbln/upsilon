@@ -26,14 +26,14 @@ use syn::{Attribute, FnArg, ReturnType, Stmt, Type};
 
 #[proc_macro_attribute]
 pub fn upsilon_test(
-        attr: proc_macro::TokenStream,
-        item: proc_macro::TokenStream,
-        ) -> proc_macro::TokenStream {
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let fun = syn::parse_macro_input!(item as syn::ItemFn);
 
     expand_upsilon_test(attr.into(), fun)
-    .unwrap_or_else(syn::Error::into_compile_error)
-    .into()
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
@@ -63,7 +63,7 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
 
     let inner_fun_name = format_ident!("__upsilon_test_impl");
     let name = std::mem::replace(&mut fun.sig.ident, inner_fun_name.clone());
-    let asyncness = fun.sig.asyncness.clone();
+    let asyncness = fun.sig.asyncness;
     let vis = std::mem::replace(&mut fun.vis, syn::Visibility::Inherited);
     let inputs = fun
         .sig
@@ -116,7 +116,9 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         }
     }
 
-    if matches!(works_offline_opt, Some(false) | None) {
+    let works_offline = matches!(works_offline_opt, Some(true) | None);
+
+    if !works_offline {
         test_attrs.append_all(quote! {#[cfg_attr(offline, ignore)]})
     }
 
@@ -127,6 +129,7 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         inner_fun_name,
         asyncness,
         inputs,
+        works_offline,
     };
 
     body.append_all(quote! { #inner_fn_call });
@@ -149,6 +152,7 @@ struct InnerFnCall {
     inner_fun_name: Ident,
     asyncness: Option<Async>,
     inputs: Vec<(Vec<Attribute>, Box<Type>)>,
+    works_offline: bool,
 }
 
 impl ToTokens for InnerFnCall {
@@ -172,11 +176,13 @@ impl ToTokens for InnerFnCall {
         };
 
         let vars_name = format_ident!("__upsilon_test_vars");
+        let works_offline = self.works_offline;
         let vars_setup = quote! {
             let #vars_name = ::upsilon_test_support::CxConfigVars {
                 workdir: ::std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")),
                 test_name: #test_name,
-                source_file_path_hash: #file_path_hash
+                source_file_path_hash: #file_path_hash,
+                works_offline: #works_offline,
             };
         };
 
@@ -266,7 +272,6 @@ fn find_attrs(attrs: &[Attribute], name: &str) -> syn::Result<Vec<syn::Path>> {
         .map(|it| it.parse_args::<CommaPathParse>())
         .collect::<syn::Result<Vec<CommaPathParse>>>()?
         .into_iter()
-        .map(|it| it.0.into_iter())
-        .flatten()
+        .flat_map(|it| it.0.into_iter())
         .collect::<Vec<_>>())
 }

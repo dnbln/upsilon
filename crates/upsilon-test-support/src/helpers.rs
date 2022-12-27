@@ -15,7 +15,7 @@
  */
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use git2::{BranchType, Repository};
 use serde_json::json;
@@ -130,6 +130,8 @@ users:
 }
 
 pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
+    cx.require_online().await;
+
     #[derive(serde::Deserialize)]
     struct GlobalMirror {
         #[serde(rename = "_debug__globalMirror")]
@@ -228,7 +230,7 @@ mutation($localPath: String!) {
 }
 
 pub fn upsilon_cloned_repo_path() -> PathBuf {
-    let setup_env = env_var("UPSILON_SETUP_ENV");
+    let setup_env = env_var("UPSILON_SETUP_TESTENV");
 
     let setup_env = PathBuf::from(setup_env);
 
@@ -242,12 +244,9 @@ fn upsilon_host_repo_git() -> PathBuf {
 }
 
 impl TestCx {
-    pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
-        let path = self.tempdir(name).await?;
-        let target_url = format!("{}/{remote_path}", self.root);
+    async fn _clone_repo(&self, path: PathBuf, target_url: String) -> TestResult<Repository> {
         {
             let path = path.clone();
-            let target_url = target_url.clone();
             tokio::task::spawn_blocking(move || {
                 Repository::clone(&target_url, &path)?;
 
@@ -257,6 +256,14 @@ impl TestCx {
         }
 
         let repo = Repository::open(&path)?;
+
+        Ok(repo)
+    }
+
+    pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
+        let path = self.tempdir(name).await?;
+        let target_url = format!("{}/{remote_path}", self.root);
+        let repo = self._clone_repo(path.clone(), target_url).await?;
 
         Ok((path, repo))
     }
@@ -268,18 +275,7 @@ impl TestCx {
     ) -> TestResult<(PathBuf, Repository)> {
         let path = self.tempdir(name).await?;
         let target_url = format!("{}/{remote_path}", self.git_protocol_root);
-        {
-            let path = path.clone();
-            let target_url = target_url.clone();
-            tokio::task::spawn_blocking(move || {
-                Repository::clone(&target_url, &path)?;
-
-                Ok::<_, git2::Error>(())
-            })
-            .await??;
-        }
-
-        let repo = Repository::open(&path)?;
+        let repo = self._clone_repo(path.clone(), target_url).await?;
 
         Ok((path, repo))
     }

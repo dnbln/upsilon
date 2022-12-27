@@ -17,6 +17,7 @@
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
+#[offline(ignore)]
 async fn github_mirror(
     cx: &mut TestCx,
 ) -> TestResult {

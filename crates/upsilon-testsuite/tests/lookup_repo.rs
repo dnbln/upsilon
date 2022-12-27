@@ -17,7 +17,6 @@
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
-#[offline]
 async fn simple(cx: &mut TestCx) -> TestResult {
     let id = make_global_mirror_from_host_repo(cx).await?;
 

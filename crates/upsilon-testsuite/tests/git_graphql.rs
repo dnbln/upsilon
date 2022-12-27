@@ -20,7 +20,6 @@ use git2::BranchType;
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
-#[offline]
 async fn get_last_commit_on_branch_same_as_cloned_info(
     cx: &mut TestCx,
 ) -> TestResult {

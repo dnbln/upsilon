@@ -52,6 +52,8 @@ pub struct TestCx {
     child: tokio::process::Child,
     config: TestCxConfig,
 
+    required_online: bool,
+
     tokens: HashMap<Username, Token>,
 }
 
@@ -224,7 +226,20 @@ impl TestCx {
             git_protocol_root,
             child,
             config,
+            required_online: false,
             tokens: HashMap::new(),
+        }
+    }
+
+    pub async fn require_online(&mut self) {
+        if !self.required_online {
+            if self.config.works_offline {
+                panic!(
+                    r#"Test requires online mode, but was annotated with #[offline(run)].
+Help: Annotate it with `#[offline(ignore)]` instead."#);
+            }
+
+            self.required_online = true;
         }
     }
 
@@ -249,7 +264,11 @@ impl TestCx {
 
             let _ = self.client.post_empty("/api/shutdown").await;
 
-            upsilon_gracefully_shutdown::gracefully_shutdown(&mut self.child, Duration::from_secs(10)).await;
+            upsilon_gracefully_shutdown::gracefully_shutdown(
+                &mut self.child,
+                Duration::from_secs(10),
+            )
+            .await;
 
             false
         } else {
@@ -273,6 +292,10 @@ impl TestCx {
         tokio::fs::remove_dir_all(&workdir)
             .await
             .expect("Failed to delete workdir");
+
+        if !self.config.works_offline && !self.required_online {
+            panic!("Test works offline, please annotate it with `#[offline]`");
+        }
     }
 }
 
@@ -280,6 +303,7 @@ pub struct CxConfigVars {
     pub workdir: PathBuf,
     pub test_name: &'static str,
     pub source_file_path_hash: u64,
+    pub works_offline: bool,
 }
 
 pub struct TestCxConfig {
@@ -289,6 +313,7 @@ pub struct TestCxConfig {
     tempdir: PathBuf,
     source_file_path_hash: u64,
     test_name: &'static str,
+    works_offline: bool,
 }
 
 impl TestCxConfig {
@@ -300,6 +325,7 @@ impl TestCxConfig {
             tempdir: vars.workdir.clone(),
             source_file_path_hash: vars.source_file_path_hash,
             test_name: vars.test_name,
+            works_offline: vars.works_offline,
         };
 
         helpers::upsilon_basic_config(&mut test_cx_config);

@@ -65,7 +65,6 @@ query {
 }
 
 #[upsilon_test]
-#[offline]
 async fn viewer_id_and_username(cx: &mut TestCx) -> TestResult {
     cx.create_user("test", "test", "test@example.org").await?;
 
@@ -83,7 +82,6 @@ async fn viewer_id_and_username(cx: &mut TestCx) -> TestResult {
 }
 
 #[upsilon_test]
-#[offline]
 async fn multiple_viewers(cx: &mut TestCx) -> TestResult {
     cx.create_user("usera", "test", "test1@example.org")
         .await?;
