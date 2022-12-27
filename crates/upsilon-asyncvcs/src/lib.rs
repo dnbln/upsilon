@@ -335,16 +335,18 @@ impl Server {
                 }
                 FlatMessage::BranchContributors(branch) => {
                     fn branch_contributors<'r>(
+                        server: &Server,
                         store: &mut Store<'r>,
                         contributors: &mut BTreeMap<String, usize>,
                         commit: upsilon_vcs::Commit<'r>,
-                    ) -> Option<upsilon_vcs::Error> {
+                    ) -> Result<(), upsilon_vcs::Error> {
                         let mut passed_commits = BTreeSet::new();
                         let mut commit_queue = VecDeque::new();
+                        let mut current_target_commit = None;
                         commit_queue.push_back(commit);
 
                         while let Some(c) = commit_queue.pop_front() {
-                            if !passed_commits.insert(c.sha()) {
+                            if !passed_commits.insert(c.oid()) {
                                 continue;
                             }
 
@@ -352,21 +354,50 @@ impl Server {
                                 .entry(c.author().email().unwrap_or("<invalid email>").to_string())
                                 .or_insert(0) += 1;
 
-                            for parent_commit in c.parents() {
-                                commit_queue.push_back(parent_commit);
+                            if commit_queue.is_empty() {
+                                passed_commits.clear();
+                            }
+
+                            if let Some(target_commit) = current_target_commit {
+                                if c.only_parent_is(target_commit)? {
+                                    current_target_commit = None;
+
+                                    if commit_queue.is_empty() {
+                                        commit_queue
+                                            .push_back(server.repo.find_commit_oid(target_commit)?);
+                                    }
+                                } else {
+                                    for parent_commit in c.parents() {
+                                        commit_queue.push_back(parent_commit);
+                                    }
+                                }
+                            } else {
+                                let mut parents = vec![];
+
+                                for parent_commit in c.parents() {
+                                    parents.push(parent_commit.oid());
+
+                                    commit_queue.push_back(parent_commit);
+                                }
+
+                                if parents.len() > 1 {
+                                    current_target_commit =
+                                        Some(server.repo.merge_base_many(&parents)?);
+                                }
                             }
                         }
 
-                        None
+                        Ok(())
                     }
 
                     let b = &store[branch];
                     match b.get_commit() {
                         Ok(commit) => {
                             let mut contributors = BTreeMap::new();
-                            match branch_contributors(&mut store, &mut contributors, commit) {
-                                Some(e) => FlatResponse::Error(e),
-                                None => FlatResponse::BranchContributors(contributors),
+                            match branch_contributors(&self, &mut store, &mut contributors, commit)
+                            {
+                                Ok(()) => FlatResponse::BranchContributors(contributors),
+                                Err(e) => FlatResponse::Error(e),
                             }
                         }
                         Err(err) => FlatResponse::Error(err),

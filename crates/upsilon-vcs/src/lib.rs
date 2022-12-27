@@ -16,6 +16,8 @@
 
 #![feature(drain_filter)]
 
+pub extern crate git2;
+
 mod config;
 mod daemon;
 mod http_backend;
@@ -23,8 +25,8 @@ mod http_backend;
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 
-use git2::ConfigLevel;
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
+use git2::{ConfigLevel, Oid};
 pub use http_backend::{
     handle as http_backend_handle, AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
@@ -49,9 +51,7 @@ impl Repository {
     }
 
     pub fn find_commit(&self, commit: &str) -> Result<Commit> {
-        Ok(Commit {
-            commit: self.repo.find_commit(commit.parse()?)?,
-        })
+        self.find_commit_oid(commit.parse()?)
     }
 
     pub fn branches(&self, filter: Option<BranchType>) -> Result<Branches<'_>> {
@@ -71,6 +71,16 @@ impl Repository {
             Some(Err(e)) => Err(e),
             None => Err(Error::Unknown),
         }
+    }
+
+    pub fn merge_base_many(&self, oids: &[Oid]) -> Result<Oid> {
+        Ok(self.repo.merge_base_many(oids)?)
+    }
+
+    pub fn find_commit_oid(&self, oid: Oid) -> Result<Commit> {
+        Ok(Commit {
+            commit: self.repo.find_commit(oid)?,
+        })
     }
 }
 
@@ -118,6 +128,10 @@ impl<'r> Commit<'r> {
         self.commit.id().to_string()
     }
 
+    pub fn oid(&self) -> Oid {
+        self.commit.id()
+    }
+
     pub fn message(&self) -> Option<&str> {
         self.commit.message()
     }
@@ -152,6 +166,10 @@ impl<'r> Commit<'r> {
         CommitParents {
             parents: self.commit.parents(),
         }
+    }
+
+    pub fn only_parent_is(&self, parent_oid: Oid) -> Result<bool> {
+        Ok(self.parent_count() == 1 && self.parent(0)?.oid() == parent_oid)
     }
 
     pub fn is_root(&self) -> bool {
