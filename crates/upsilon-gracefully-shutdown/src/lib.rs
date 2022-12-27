@@ -40,7 +40,7 @@ async fn grace(child: &mut Child, grace_period: Duration) {
                 println!("Terminating process");
                 let success = unsafe {
                     winapi::um::processthreadsapi::TerminateProcess(
-                        child.raw_handle().expect("Cannot ger raw handle")
+                        child.raw_handle().expect("Cannot get raw handle")
                             as winapi::shared::ntdef::HANDLE,
                         1,
                     ) != 0

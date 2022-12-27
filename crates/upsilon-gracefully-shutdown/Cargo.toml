@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 tokio.workspace = true
+
+[target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
 [target.'cfg(windows)'.dependencies]
