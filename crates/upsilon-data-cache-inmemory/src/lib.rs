@@ -240,6 +240,17 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
             .convert_error()
     }
 
+    async fn init_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+    ) -> Result<(), Self::Error> {
+        self.inner
+            .init_repo_user_perms(repo_id, user_id)
+            .await
+            .convert_error()
+    }
+
     async fn query_repo_user_perms(
         &self,
         repo_id: RepoId,
@@ -262,6 +273,30 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
                 Ok(permissions)
             }
         }
+    }
+
+    async fn add_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+        perms: RepoPermissions,
+    ) -> Result<RepoPermissions, Self::Error> {
+        self.inner
+            .add_repo_user_perms(repo_id, user_id, perms)
+            .await
+            .convert_error()
+    }
+
+    async fn remove_repo_user_perms(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+        perms: RepoPermissions,
+    ) -> Result<RepoPermissions, Self::Error> {
+        self.inner
+            .remove_repo_user_perms(repo_id, user_id, perms)
+            .await
+            .convert_error()
     }
 
     async fn create_organization(&self, org: Organization) -> Result<(), Self::Error> {
