@@ -355,8 +355,8 @@ pub fn branch_commit<'repo>(
 }
 
 pub fn assert_same_trunk(repo_a: &Repository, repo_b: &Repository) -> TestResult<()> {
-    let commit_a = branch_commit(repo_a, "trunk").unwrap();
-    let commit_b = branch_commit(repo_b, "trunk").unwrap();
+    let commit_a = branch_commit(repo_a, "trunk")?;
+    let commit_b = branch_commit(repo_b, "trunk")?;
 
     assert_eq!(commit_a.id(), commit_b.id());
 
