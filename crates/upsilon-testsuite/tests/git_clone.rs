@@ -32,12 +32,7 @@ async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     let (_, clone1) = cx.clone("clone-upsilon-1", "upsilon").await?;
     let (_, clone2) = cx.clone("clone-upsilon-2", "upsilon").await?;
 
-    let trunk1_commit = branch_commit(&clone1, "trunk")?;
-    let trunk2_commit = branch_commit(&clone2, "trunk")?;
-
-    if trunk1_commit.id() != trunk2_commit.id() {
-        bail!("Clones' trunk refs point to different commits");
-    }
+    assert_same_trunk(&clone1, &clone2)?;
 
     Ok(())
 }
@@ -62,12 +57,7 @@ async fn clone_twice_same_result_git_protocol(
     let (_, clone1) = cx.clone_over_git_protocol("clone-upsilon-1", "upsilon").await?;
     let (_, clone2) = cx.clone_over_git_protocol("clone-upsilon-2", "upsilon").await?;
 
-    let trunk1_commit = branch_commit(&clone1, "trunk")?;
-    let trunk2_commit = branch_commit(&clone2, "trunk")?;
-
-    if trunk1_commit.id() != trunk2_commit.id() {
-        bail!("Clones' trunk refs point to different commits");
-    }
+    assert_same_trunk(&clone1, &clone2)?;
 
     Ok(())
 }
