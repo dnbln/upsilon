@@ -20,17 +20,14 @@ use git2::BranchType;
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
-async fn get_last_commit_on_branch_same_as_cloned_info(
-    cx: &mut TestCx,
-) -> TestResult {
+async fn get_last_commit_on_branch_same_as_cloned_info(cx: &mut TestCx) -> TestResult {
     let global_mirror_id = make_global_mirror_from_host_repo(cx).await?;
 
     let (_, clone) = cx.clone("clone-upsilon", "upsilon").await?;
 
     const BRANCH_NAME: &str = "trunk";
 
-    let trunk = clone.find_branch(BRANCH_NAME, BranchType::Local)?;
-    let trunk_commit = trunk.get().peel_to_commit()?;
+    let trunk_commit = branch_commit(&clone, BRANCH_NAME)?;
     let commit_id = trunk_commit.id();
     let commit_message = trunk_commit.message().expect("Commit message is not UTF-8");
 
