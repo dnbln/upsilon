@@ -281,6 +281,8 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
         user_id: UserId,
         perms: RepoPermissions,
     ) -> Result<RepoPermissions, Self::Error> {
+        self.store().repo_permissions.invalidate(&(repo_id, user_id)).await;
+
         self.inner
             .add_repo_user_perms(repo_id, user_id, perms)
             .await
@@ -293,6 +295,8 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
         user_id: UserId,
         perms: RepoPermissions,
     ) -> Result<RepoPermissions, Self::Error> {
+        self.store().repo_permissions.invalidate(&(repo_id, user_id)).await;
+
         self.inner
             .remove_repo_user_perms(repo_id, user_id, perms)
             .await
