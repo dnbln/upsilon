@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use git2::{BranchType, Repository};
 use serde_json::json;
 
-use crate::{env_var, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
+use crate::{env_var, gql_vars, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
     cx.create_user("test", "test", "test")
@@ -181,7 +181,7 @@ mutation($localPath: String!) {
   }
 }
 "#,
-                HashMap::from([("localPath".to_string(), json!(upsilon_repo))]),
+                gql_vars! {"localPath": upsilon_repo},
             )
             .await
         })
@@ -218,7 +218,7 @@ mutation($localPath: String!) {
     }
 }
 "#,
-                HashMap::from([("localPath".to_string(), json!(upsilon_repo))]),
+                gql_vars! {"localPath": upsilon_repo},
             )
             .await
         })
@@ -291,7 +291,7 @@ impl TestCx {
             .with_client(|cl| async move {
                 cl.gql_query_with_variables::<LookupResult>(
                     r#"query($path: String!) {lookupRepo(path: $path) { id }}"#,
-                    HashMap::from([("path".to_string(), json!(path))]),
+                    gql_vars! {"path": path},
                 )
                 .await
             })
@@ -320,11 +320,11 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
   _debug__createTestUser(username: $username, password: $password, email: $email)
 }
 "#,
-                    HashMap::from([
-                        ("username".to_string(), json!(username)),
-                        ("password".to_string(), json!(password)),
-                        ("email".to_string(), json!(email)),
-                    ]),
+                    gql_vars! {
+                        "username": username,
+                        "password": password,
+                        "email": email,
+                    },
                 )
                 .await
             })

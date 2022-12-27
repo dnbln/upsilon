@@ -124,3 +124,14 @@ impl From<serde_json::Value> for Anything {
         Self
     }
 }
+
+#[macro_export]
+macro_rules! gql_vars {
+    ($($name:literal: $value:tt),* $(,)?) => {
+        std::collections::HashMap::from([
+            $(
+                ($name.to_string(), $crate::serde_json::json!($value)),
+            )*
+        ])
+    };
+}

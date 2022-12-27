@@ -14,9 +14,6 @@
  *    limitations under the License.
  */
 
-use std::collections::HashMap;
-
-use git2::BranchType;
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
@@ -49,10 +46,10 @@ query($repoId: RepoId!, $branch: String!) {
   }
 }
 "#,
-                HashMap::from([
-                    ("repoId".to_string(), json!(&global_mirror_id)),
-                    ("branch".to_string(), json!(BRANCH_NAME)),
-                ]),
+                gql_vars! {
+                    "repoId": global_mirror_id,
+                    "branch": BRANCH_NAME,
+                },
             )
             .await
         })

@@ -236,7 +236,8 @@ impl TestCx {
             if self.config.works_offline {
                 panic!(
                     r#"Test requires online mode, but was annotated with #[offline(run)].
-Help: Annotate it with `#[offline(ignore)]` instead."#);
+Help: Annotate it with `#[offline(ignore)]` instead."#
+                );
             }
 
             self.required_online = true;
@@ -375,7 +376,7 @@ pub mod prelude {
 
     pub use crate::helpers::*;
     pub use crate::{
-        assert_json_eq, upsilon_test, Anything, Client, IdHolder, TestCx, TestCxConfig, TestResult
+        assert_json_eq, gql_vars, upsilon_test, Anything, Client, IdHolder, TestCx, TestCxConfig, TestResult
     };
 }
 
