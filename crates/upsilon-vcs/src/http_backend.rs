@@ -178,20 +178,22 @@ impl AsyncRead for GitBackendCgiResponse {
                     let len = ReadBuf::filled(buf).len();
                     if len == 0 {
                         this.state = GitBackendCgiResponseState::ReadbackChild;
-                    }
 
-                    Self::poll_read(Pin::new(this), cx, buf)
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(Ok(()))
+                    }
                 } else {
                     r
                 }
             }
             GitBackendCgiResponseState::ReadbackChild => {
                 let this = self.get_mut();
-                let r = ChildStdout::poll_read(
-                    Pin::new(this.child.stdout.as_mut().expect("Missing stdout")),
-                    cx,
-                    buf,
-                );
+                let Some(stdout) = this.child.stdout.as_mut() else {
+                    return Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, "Child has no stdout")));
+                };
+                let r = ChildStdout::poll_read(Pin::new(stdout), cx, buf);
 
                 if let Poll::Ready(Ok(())) = r {
                     let len = ReadBuf::filled(buf).len();
