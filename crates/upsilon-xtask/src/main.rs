@@ -36,6 +36,8 @@ enum App {
     RunDev {
         #[clap(short, long)]
         dgql: bool,
+        #[clap(short, long)]
+        verbose: bool,
     },
     #[clap(name = "build-dev")]
     #[clap(alias = "build")]
@@ -43,6 +45,8 @@ enum App {
     BuildDev {
         #[clap(short, long)]
         dgql: bool,
+        #[clap(short, long)]
+        verbose: bool,
     },
     #[clap(name = "test")]
     #[clap(alias = "t")]
@@ -51,6 +55,8 @@ enum App {
         dgql: bool,
         #[clap(short, long)]
         offline: bool,
+        #[clap(short, long)]
+        verbose: bool,
     },
     #[clap(name = "pack-release")]
     PackRelease,
@@ -70,18 +76,20 @@ enum App {
     GraphQLSchema,
 }
 
-fn build_dev(dgql: bool) -> XtaskResult<()> {
+fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
     if dgql {
         cargo_cmd!(
             "build",
             "-p", "upsilon-debug-data-driver",
             "--features", "dump_gql_response",
+            "--verbose" => @if verbose,
             @workdir = ws_root!(),
         )?;
     } else {
         cargo_cmd!(
             "build",
             "-p", "upsilon-debug-data-driver",
+            "--verbose" => @if verbose,
             @workdir = ws_root!(),
         )?;
     }
@@ -90,31 +98,35 @@ fn build_dev(dgql: bool) -> XtaskResult<()> {
         "-p", "upsilon-git-hooks",
         "--bin", "upsilon-git-hooks",
         "--features=build-bin",
+        "--verbose" => @if verbose,
         @workdir = ws_root!(),
     )?;
     cargo_cmd!(
         "build",
         "-p", "upsilon-git-protocol-accesshook",
+        "--verbose" => @if verbose,
         @workdir = ws_root!(),
     )?;
     cargo_cmd!(
         "build",
         "-p", "upsilon-web",
+        "--verbose" => @if verbose,
         @workdir = ws_root!(),
     )?;
 
-    cargo_cmd!("build", "-p", "upsilon")?;
+    cargo_cmd!("build", "-p", "upsilon", "--verbose" => @if verbose)?;
 
     Ok(())
 }
 
-fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
+fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
         "-p",
         "upsilon-test-support",
         "--bin",
         "setup_testenv",
+        "--verbose" => @if verbose,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
         @workdir = ws_root!(),
@@ -128,6 +140,7 @@ fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
             "run",
             "--all",
             "--offline" => @if offline,
+            "--verbose" => @if verbose,
             @env "CLICOLOR_FORCE" => "1",
             @env "UPSILON_TEST_GUARD" => "1",
             @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
@@ -140,9 +153,44 @@ fn run_tests(setup_testenv: &Path, offline: bool) -> XtaskResult<()> {
     Ok(())
 }
 
+fn write_bin_file_to_zip<W: Write + Seek>(
+    wr: &mut ZipWriter<W>,
+    zip_path: impl AsRef<Path>,
+    path: impl AsRef<Path>,
+    options: FileOptions,
+) -> XtaskResult<()> {
+    wr.start_file(
+        zip_path
+            .as_ref()
+            .with_extension(std::env::consts::EXE_EXTENSION)
+            .to_str()
+            .expect("Cannot convert to string"),
+        options,
+    )?;
+
+    let path = path
+        .as_ref()
+        .with_extension(std::env::consts::EXE_EXTENSION);
+
+    let mut buf = [0u8; 65536];
+    let mut f = std::fs::File::open(path)?;
+
+    loop {
+        let read = f.read(&mut buf)?;
+
+        if read == 0 {
+            break;
+        }
+
+        wr.write_all(&buf[..read])?;
+    }
+
+    Ok(())
+}
+
 const ALIASES: &[&str] = &["uxrd"];
 
-fn main() -> XtaskResult<()> {
+fn main_impl() -> XtaskResult<()> {
     let app: App = App::parse();
 
     match app {
@@ -157,17 +205,11 @@ fn main() -> XtaskResult<()> {
 
             upsilon_xtask::git_checks::linear_history(&repo)?;
         }
-        App::BuildDev { dgql } => {
-            if let Err(e) = build_dev(dgql) {
-                eprintln!("Build failed: {e}");
-                std::process::exit(1)
-            }
+        App::BuildDev { dgql, verbose } => {
+            build_dev(dgql, verbose)?;
         }
-        App::RunDev { dgql } => {
-            if let Err(e) = build_dev(dgql) {
-                eprintln!("Build failed: {e}");
-                return Ok(());
-            }
+        App::RunDev { dgql, verbose } => {
+            build_dev(dgql, verbose)?;
 
             cargo_cmd!(
                 "run",
@@ -176,14 +218,14 @@ fn main() -> XtaskResult<()> {
                 "--",
                 "web",
                 @workdir = ws_path!("testenv"),
-                @logging-error-and-returnok,
-            );
+            )?;
         }
-        App::Test { dgql, offline } => {
-            if let Err(e) = build_dev(dgql) {
-                eprintln!("Build failed: {e}");
-                return Ok(());
-            }
+        App::Test {
+            dgql,
+            offline,
+            verbose,
+        } => {
+            build_dev(dgql, verbose)?;
 
             let testenv_tests = ws_path!("testenv_tests");
 
@@ -195,14 +237,11 @@ fn main() -> XtaskResult<()> {
 
             std::fs::create_dir_all(&setup_testenv)?;
 
-            let result = run_tests(&setup_testenv, offline);
+            let result = run_tests(&setup_testenv, offline, verbose);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 
-            if let Err(e) = result {
-                eprintln!("Running tests failed: {e}");
-                return Ok(());
-            }
+            result?;
         }
         App::PackRelease => {
             cargo_cmd!(
@@ -211,21 +250,21 @@ fn main() -> XtaskResult<()> {
                 "--bin", "upsilon-web",
                 "--release",
                 @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            )?;
             cargo_cmd!(
                 "build",
                 "-p", "upsilon",
                 "--bin", "upsilon",
                 "--release",
                 @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            )?;
             cargo_cmd!(
                 "build",
                 "-p", "upsilon-git-protocol-accesshook",
                 "--bin", "upsilon-git-protocol-accesshook",
                 "--release",
                 @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            )?;
             cargo_cmd!(
                 "build",
                 "-p", "upsilon-git-hooks",
@@ -233,7 +272,7 @@ fn main() -> XtaskResult<()> {
                 "--features=build-bin",
                 "--release",
                 @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            )?;
 
             let release_zip_file = std::env::var("UPSILON_RELEASE_ZIP_PATH")
                 .map_or_else(|_| ws_path!("releases" / "release.zip"), PathBuf::from);
@@ -277,9 +316,11 @@ fn main() -> XtaskResult<()> {
             for alias in ALIASES {
                 cargo_cmd!(
                     "install",
-                    "--bin", alias,
-                    "--path", ws_path!("crates" / "upsilon-xtask"),
-                    @logging-error-and-returnok);
+                    "--bin",
+                    alias,
+                    "--path",
+                    ws_path!("crates" / "upsilon-xtask"),
+                )?;
             }
         }
         App::BuildDocs => {
@@ -287,14 +328,14 @@ fn main() -> XtaskResult<()> {
                 "mdbook",
                 "build",
                 @workdir = ws_path!("docs"),
-                @logging-error-and-returnok);
+            )?;
         }
         App::ServeDocs => {
             cmd_call!(
                 "mdbook",
                 "serve",
                 @workdir = ws_path!("docs"),
-                @logging-error-and-returnok);
+            )?;
         }
 
         App::PublishDocs => {
@@ -302,18 +343,18 @@ fn main() -> XtaskResult<()> {
                 "mdbook",
                 "build",
                 @workdir = ws_path!("docs"),
-                @logging-error-and-returnok);
+            )?;
 
             #[cfg(windows)]
             cmd_call!(
                 "./publish.bat",
                 @workdir = ws_path!("docs"),
-                @logging-error-and-returnok);
+            )?;
             #[cfg(not(windows))]
             cmd_call!(
                 "./publish",
                 @workdir = ws_path!("docs"),
-                @logging-error-and-returnok);
+            )?;
         }
         App::GraphQLSchema => {
             cargo_cmd!(
@@ -322,44 +363,16 @@ fn main() -> XtaskResult<()> {
                 "--bin", "dump_graphql_schema",
                 "--", ws_path!("schemas" / "graphql" / "schema.graphql"),
                 @workdir = ws_root!(),
-                @logging-error-and-returnok);
+            )?;
         }
     }
 
     Ok(())
 }
 
-fn write_bin_file_to_zip<W: Write + Seek>(
-    wr: &mut ZipWriter<W>,
-    zip_path: impl AsRef<Path>,
-    path: impl AsRef<Path>,
-    options: FileOptions,
-) -> XtaskResult<()> {
-    wr.start_file(
-        zip_path
-            .as_ref()
-            .with_extension(std::env::consts::EXE_EXTENSION)
-            .to_str()
-            .expect("Cannot convert to string"),
-        options,
-    )?;
-
-    let path = path
-        .as_ref()
-        .with_extension(std::env::consts::EXE_EXTENSION);
-
-    let mut buf = [0u8; 65536];
-    let mut f = std::fs::File::open(path)?;
-
-    loop {
-        let read = f.read(&mut buf)?;
-
-        if read == 0 {
-            break;
-        }
-
-        wr.write_all(&buf[..read])?;
+fn main() {
+    if let Err(err) = main_impl() {
+        eprintln!("Error: {err}");
+        std::process::exit(1);
     }
-
-    Ok(())
 }

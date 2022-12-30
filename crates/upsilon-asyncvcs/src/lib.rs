@@ -15,11 +15,11 @@
  */
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::future::Future;
 use std::ops::Index;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use tokio::sync::Mutex;
 use upsilon_vcs::{TreeWalkMode, TreeWalkResult};
 
 use crate::message::Message;
@@ -170,8 +170,10 @@ fn new_channel() -> (ChannelClient, ChannelServer) {
     )
 }
 
+type MessageConsumerMap = BTreeMap<u32, Box<dyn FnOnce(FlatResponse) + Send>>;
+
 struct ClientState {
-    message_consumers: Arc<tokio::sync::Mutex<BTreeMap<u32, Box<dyn FnOnce(FlatResponse) + Send>>>>,
+    message_consumers: Arc<Mutex<MessageConsumerMap>>,
     index: Arc<AtomicU32>,
     sender: std::sync::mpsc::SyncSender<FlatMessageAndId>,
 }
@@ -204,7 +206,7 @@ impl Client {
 }
 
 struct ClientInner {
-    message_consumers: Arc<tokio::sync::Mutex<BTreeMap<u32, Box<dyn FnOnce(FlatResponse) + Send>>>>,
+    message_consumers: Arc<Mutex<MessageConsumerMap>>,
     index: Arc<AtomicU32>,
     receiver: tokio::sync::mpsc::UnboundedReceiver<FlatResponseAndId>,
 }
@@ -222,7 +224,7 @@ impl Client {
 
         let client = Self {
             state: Arc::new(ClientState {
-                message_consumers: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
+                message_consumers: Arc::new(Mutex::new(BTreeMap::new())),
                 index: Arc::new(AtomicU32::new(1)),
                 sender,
             }),
@@ -298,7 +300,7 @@ impl Server {
         }
     }
 
-    fn serve(mut self) {
+    fn serve(self) {
         let mut store = Store {
             branches: Vec::new(),
             commits: Vec::new(),
@@ -334,11 +336,10 @@ impl Server {
                     }
                 }
                 FlatMessage::BranchContributors(branch) => {
-                    fn branch_contributors<'r>(
+                    fn branch_contributors(
                         server: &Server,
-                        store: &mut Store<'r>,
                         contributors: &mut BTreeMap<String, usize>,
-                        commit: upsilon_vcs::Commit<'r>,
+                        commit: upsilon_vcs::Commit,
                     ) -> Result<(), upsilon_vcs::Error> {
                         let mut passed_commits = BTreeSet::new();
                         let mut commit_queue = VecDeque::new();
@@ -394,8 +395,7 @@ impl Server {
                     match b.get_commit() {
                         Ok(commit) => {
                             let mut contributors = BTreeMap::new();
-                            match branch_contributors(&self, &mut store, &mut contributors, commit)
-                            {
+                            match branch_contributors(&self, &mut contributors, commit) {
                                 Ok(()) => FlatResponse::BranchContributors(contributors),
                                 Err(e) => FlatResponse::Error(e),
                             }
@@ -504,7 +504,7 @@ impl Server {
                         TreeWalkResult::Ok
                     }) {
                         Ok(()) => FlatResponse::TreeEntries(entries),
-                        Err(e) => FlatResponse::Error(e.into()),
+                        Err(e) => FlatResponse::Error(e),
                     }
                 }
                 FlatMessage::Close => {
