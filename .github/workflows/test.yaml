@@ -10,13 +10,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  fmtcheck:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: "Install rust"
+        run: rustup update nightly && rustup default nightly
+      - name: Run CI
+        run: cargo x fmt-check
+  
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macOS-latest ]
 
     steps:
       - uses: actions/checkout@v3
       - name: "Install lld"
         run: sudo apt-get install -y lld
+        if: matrix.os == 'ubuntu-latest'
       - name: "Install rust"
         run: rustup update nightly && rustup default nightly
       - name: Install nextest
