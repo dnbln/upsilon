@@ -22,18 +22,33 @@ jobs:
       - name: Run fmt check
         run: cargo fmt --all --check
   
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+  test-win:
+    name: test-win
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Setup env" 
+        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: "Install openssl"
+        run: vcpkg install openssl:x64-windows-static-md
+      - name: "Install rust"
+        run: rustup update nightly && rustup default nightly
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+      - name: Run tests
+        run: cargo x test --verbose
+
+  test-linux:
+    name: test-linux
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
       - name: "Install lld"
         run: sudo apt-get install -y lld
-        if: matrix.os == 'ubuntu-latest'
+      - name: "Install openssl"
+        run: sudo apt-get install -y libssl libssl-dev
       - name: "Install rust"
         run: rustup update nightly && rustup default nightly
       - name: Install nextest
