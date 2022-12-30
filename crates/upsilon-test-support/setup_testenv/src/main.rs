@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use log::*;
 use upsilon_test_support::helpers::upsilon_cloned_repo_path;
 
 fn setup_local_clone() {
@@ -22,12 +23,25 @@ fn setup_local_clone() {
         std::fs::create_dir_all(&upsilon_repo).expect("Failed to create upsilon repo directory");
     }
 
+    info!(
+        "Created upsilon repo directory, cloning to {}",
+        upsilon_repo.display()
+    );
+
     git2::Repository::clone("https://github.com/dnbln/upsilon", &upsilon_repo)
         .expect("Failed to clone Upsilon repository");
+
+    info!("Cloned upsilon repository to {}", upsilon_repo.display());
+}
+
+fn env_present(name: &str) -> bool {
+    std::env::var(name).is_ok()
 }
 
 fn main() {
-    if let Err(std::env::VarError::NotPresent) = std::env::var("UPSILON_TESTSUITE_OFFLINE") {
+    pretty_env_logger::init();
+
+    if !env_present("UPSILON_TESTSUITE_OFFLINE") {
         setup_local_clone();
     }
 }

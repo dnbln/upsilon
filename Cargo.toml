@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/*",
+    "crates/upsilon-test-support/setup_testenv",
     "crates/upsilon-test-support/upsilon-test-support-macros",
 ]
 default-members = ["crates/cargo-guard"]
@@ -27,6 +28,8 @@ async-trait = "0.1.59"
 git2 = "0.15"
 libc = "0.2"
 winapi = "0.3"
+log = "0.4.17"
+pretty_env_logger = "0.4.0"
 
 upsilon-api = { path = "crates/upsilon-api" }
 upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }

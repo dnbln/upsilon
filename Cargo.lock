@@ -2384,6 +2384,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "setup_testenv"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "log",
+ "pretty_env_logger",
+ "upsilon-test-support",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

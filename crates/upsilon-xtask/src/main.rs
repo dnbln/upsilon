@@ -123,12 +123,13 @@ fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<
     cargo_cmd!(
         "run",
         "-p",
-        "upsilon-test-support",
+        "setup_testenv",
         "--bin",
         "setup_testenv",
         "--verbose" => @if verbose,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+        @env "RUST_LOG" => "info",
         @workdir = ws_root!(),
     )?;
 
