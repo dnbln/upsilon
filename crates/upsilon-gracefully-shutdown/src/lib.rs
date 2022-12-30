@@ -56,7 +56,8 @@ async fn grace(child: &mut Child, grace_period: Duration) {
 
 pub async fn gracefully_shutdown(child: &mut Child, grace_period: Duration) {
     #[cfg(unix)]
-    let success = unsafe { libc::kill(child_proc_id(child).try_into().unwrap(), libc::SIGINT) == 0 };
+    let success =
+        unsafe { libc::kill(child_proc_id(child).try_into().unwrap(), libc::SIGINT) == 0 };
 
     #[cfg(windows)]
     let success = unsafe {

@@ -143,9 +143,18 @@ impl GraphQLContext {
         Ok(())
     }
 
-    async fn init_repo_user_permissions(&self, repo_id: RepoId, user_id: UserId) -> FieldResult<()> {
-        match self.query_no_error_cast(|qm| async move {qm.init_repo_user_perms(repo_id, user_id).await}).await {
-            Ok(_) => {},
+    async fn init_repo_user_permissions(
+        &self,
+        repo_id: RepoId,
+        user_id: UserId,
+    ) -> FieldResult<()> {
+        match self
+            .query_no_error_cast(
+                |qm| async move { qm.init_repo_user_perms(repo_id, user_id).await },
+            )
+            .await
+        {
+            Ok(_) => {}
             Err(upsilon_data::CommonDataClientError::PermsAlreadyExist) => {}
             Err(e) => Err(e)?,
         }

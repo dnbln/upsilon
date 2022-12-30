@@ -94,7 +94,11 @@ impl GitCommit {
 
     #[graphql(arguments(i(default = 0)))]
     async fn parent(&self, i: i32) -> FieldResult<GitCommit> {
-        let parent = self.0.send(upsilon_asyncvcs::commit::CommitParentQuery(self.1, i as usize))
+        let parent = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitParentQuery(
+                self.1, i as usize,
+            ))
             .await
             .0?;
 

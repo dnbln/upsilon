@@ -83,10 +83,8 @@ async fn viewer_id_and_username(cx: &mut TestCx) -> TestResult {
 
 #[upsilon_test]
 async fn multiple_viewers(cx: &mut TestCx) -> TestResult {
-    cx.create_user("usera", "test", "test1@example.org")
-        .await?;
-    cx.create_user("userb", "test", "test2@example.org")
-        .await?;
+    cx.create_user("usera", "test", "test1@example.org").await?;
+    cx.create_user("userb", "test", "test2@example.org").await?;
 
     let for_user_a = cx
         .with_client_as_user("usera", query_viewer_username_and_id)

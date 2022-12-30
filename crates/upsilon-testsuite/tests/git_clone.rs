@@ -50,12 +50,16 @@ async fn clone_over_git_protocol(
 
 #[upsilon_test]
 async fn clone_twice_same_result_git_protocol(
-    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx
+    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
 ) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone1) = cx.clone_over_git_protocol("clone-upsilon-1", "upsilon").await?;
-    let (_, clone2) = cx.clone_over_git_protocol("clone-upsilon-2", "upsilon").await?;
+    let (_, clone1) = cx
+        .clone_over_git_protocol("clone-upsilon-1", "upsilon")
+        .await?;
+    let (_, clone2) = cx
+        .clone_over_git_protocol("clone-upsilon-2", "upsilon")
+        .await?;
 
     assert_same_trunk(&clone1, &clone2)?;
 

@@ -49,7 +49,12 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .merge(Yaml::file(Env::var_or("UPSILON_ROCKET_CONFIG", "upsilon-rocket.yaml")).nested())
         .merge(Yaml::file(Env::var_or("UPSILON_CONFIG", "upsilon.dev.yaml")).profile(DEV_PROFILE))
         .merge(Yaml::file(Env::var_or("UPSILON_CONFIG", "upsilon.yaml")).profile(RELEASE_PROFILE))
-        .merge(Env::prefixed("UPSILON_").ignore(&["PROFILE"]).global().split("_"))
+        .merge(
+            Env::prefixed("UPSILON_")
+                .ignore(&["PROFILE"])
+                .global()
+                .split("_"),
+        )
         .select(profile);
 
     let portfile = std::env::var("UPSILON_PORTFILE").ok();
