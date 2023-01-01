@@ -17,3 +17,5 @@ portpicker = "0.1.1"
 colored = "2.0"
 upsilon-test-support-macros = { path = "upsilon-test-support-macros" }
 upsilon-gracefully-shutdown.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true

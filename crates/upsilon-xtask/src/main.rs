@@ -59,6 +59,8 @@ enum App {
         verbose: bool,
         #[clap(long)]
         no_fail_fast: bool,
+        #[clap(long)]
+        no_run: bool,
     },
     #[clap(name = "pack-release")]
     PackRelease,
@@ -127,9 +129,11 @@ fn run_tests(
     offline: bool,
     verbose: bool,
     no_fail_fast: bool,
+    no_run: bool,
 ) -> XtaskResult<()> {
     cargo_cmd!(
-        "run",
+        "build" => @if no_run,
+        "run" => @if !no_run,
         "-p",
         "setup_testenv",
         "--bin",
@@ -152,6 +156,7 @@ fn run_tests(
         "--offline" => @if offline,
         "--verbose" => @if verbose,
         "--no-fail-fast" => @if no_fail_fast,
+        "--no-run" => @if no_run,
         @env "CLICOLOR_FORCE" => "1",
         @env "UPSILON_TEST_GUARD" => "1",
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
@@ -159,6 +164,7 @@ fn run_tests(
         @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
         @env "UPSILON_WEB_BIN" => upsilon_web_binary,
         @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+        @env "UPSILON_TESTSUITE_LOG" => "info",
         @workdir = ws_root!(),
     )?;
 
@@ -237,6 +243,7 @@ fn main_impl() -> XtaskResult<()> {
             offline,
             verbose,
             no_fail_fast,
+            no_run,
         } => {
             build_dev(dgql, verbose)?;
 
@@ -250,7 +257,7 @@ fn main_impl() -> XtaskResult<()> {
 
             std::fs::create_dir_all(&setup_testenv)?;
 
-            let result = run_tests(&setup_testenv, offline, verbose, no_fail_fast);
+            let result = run_tests(&setup_testenv, offline, verbose, no_fail_fast, no_run);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 

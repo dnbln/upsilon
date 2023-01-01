@@ -85,6 +85,8 @@ impl TestCx {
     }
 
     pub async fn init(config: TestCxConfig) -> Self {
+        pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
+        
         let workdir = config.workdir();
 
         if workdir.exists() {

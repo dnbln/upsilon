@@ -17,6 +17,7 @@
 use std::path::PathBuf;
 
 use git2::{BranchType, Repository};
+use log::info;
 
 use crate::{env_var, gql_vars, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
 
@@ -246,6 +247,7 @@ impl TestCx {
         {
             let path = path.clone();
             tokio::task::spawn_blocking(move || {
+                info!("Cloning {} into {}", target_url, path.display());
                 Repository::clone(&target_url, &path)?;
 
                 Ok::<_, git2::Error>(())

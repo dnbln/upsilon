@@ -246,11 +246,11 @@ impl ToTokens for InnerFnCall {
 
             #teardown
 
+            #finish
+
             if let Err(e) = result {
                 panic!("Error: {}", e);
             }
-
-            #finish
         });
     }
 }
