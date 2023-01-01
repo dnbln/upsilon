@@ -14,19 +14,25 @@
  *    limitations under the License.
  */
 
+use std::process::Child;
+
 pub fn kill_child(child: &Child) {
     kill_child_by_id(child.id());
 }
 
-fn add_children_to_vec(children: &mut Vec<Child>, child: u32) {
+fn add_children_to_vec(children: &mut Vec<u32>, child: u32) {
     children.push(child);
-    
-    let proc = procfs::process::Process::new(child).unwrap();
+
+    let proc = procfs::process::Process::new(child as i32).unwrap();
 
     proc.tasks().unwrap().for_each(|task| {
-        task.children().unwrap().for_each(|child| {
-            add_children_to_vec(children, child);
-        });
+        task.unwrap()
+            .children()
+            .unwrap()
+            .into_iter()
+            .for_each(|child| {
+                add_children_to_vec(children, child);
+            });
     });
 }
 

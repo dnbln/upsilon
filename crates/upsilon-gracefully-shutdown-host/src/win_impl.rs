@@ -18,7 +18,10 @@ use std::process::Child;
 
 pub fn kill_child(child: &Child) {
     let success = unsafe {
-        winapi::um::wincon::GenerateConsoleCtrlEvent(winapi::um::wincon::CTRL_BREAK_EVENT, std::process::id()) != 0
+        winapi::um::wincon::GenerateConsoleCtrlEvent(
+            winapi::um::wincon::CTRL_BREAK_EVENT,
+            std::process::id(),
+        ) != 0
     };
 
     if !success {

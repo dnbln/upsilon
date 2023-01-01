@@ -263,10 +263,12 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
     }
 
     pub async fn finish(mut self) {
-        tokio::fs::write(&self.murderer_file, "").await.expect("Cannot write");
-        
+        tokio::fs::write(&self.murderer_file, "")
+            .await
+            .expect("Cannot write");
+
         tokio::time::sleep(Duration::from_secs(1)).await;
-        
+
         let exited_normally = if self
             .child
             .try_wait()

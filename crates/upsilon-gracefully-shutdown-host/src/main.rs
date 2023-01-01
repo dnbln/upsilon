@@ -60,7 +60,7 @@ fn main() {
 
             if let Some(mut child) = child {
                 kill_child(&child);
-                
+
                 let result = child
                     .try_wait()
                     .expect("Child should have exited by now")

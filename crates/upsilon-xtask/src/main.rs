@@ -57,6 +57,8 @@ enum App {
         offline: bool,
         #[clap(short, long)]
         verbose: bool,
+        #[clap(long)]
+        no_fail_fast: bool,
     },
     #[clap(name = "pack-release")]
     PackRelease,
@@ -120,7 +122,12 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
     Ok(())
 }
 
-fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<()> {
+fn run_tests(
+    setup_testenv: &Path,
+    offline: bool,
+    verbose: bool,
+    no_fail_fast: bool,
+) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
         "-p",
@@ -144,6 +151,7 @@ fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<
         "--all",
         "--offline" => @if offline,
         "--verbose" => @if verbose,
+        "--no-fail-fast" => @if no_fail_fast,
         @env "CLICOLOR_FORCE" => "1",
         @env "UPSILON_TEST_GUARD" => "1",
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
@@ -228,6 +236,7 @@ fn main_impl() -> XtaskResult<()> {
             dgql,
             offline,
             verbose,
+            no_fail_fast,
         } => {
             build_dev(dgql, verbose)?;
 
@@ -241,7 +250,7 @@ fn main_impl() -> XtaskResult<()> {
 
             std::fs::create_dir_all(&setup_testenv)?;
 
-            let result = run_tests(&setup_testenv, offline, verbose);
+            let result = run_tests(&setup_testenv, offline, verbose, no_fail_fast);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 
