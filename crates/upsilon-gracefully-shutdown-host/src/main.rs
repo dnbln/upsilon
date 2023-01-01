@@ -42,7 +42,7 @@ struct Run {
 
 fn kill_child(child: &Child) {
     #[cfg(target_os = "linux")]
-    linux::kill_child(child);
+    linux_impl::kill_child(child);
 
     #[cfg(windows)]
     win_impl::kill_child(child);
