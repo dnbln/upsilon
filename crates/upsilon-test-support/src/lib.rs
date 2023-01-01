@@ -51,6 +51,7 @@ pub struct TestCx {
     git_protocol_root: String,
     child: tokio::process::Child,
     config: TestCxConfig,
+    murderer_file: PathBuf,
 
     required_online: bool,
 
@@ -117,9 +118,13 @@ impl TestCx {
                 .expect("Failed to remove port file");
         }
 
+        const MURDERER_FILE_NAME: &str = "gracefully-shutdown-murderer";
+
+        let murderer_file = workdir.join(MURDERER_FILE_NAME);
+
         let mut cmd = tokio::process::Command::new(path);
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &murderer_file);
 
         cmd.env("UPSILON_PORT", config.port.to_string())
             .env(
@@ -133,6 +138,8 @@ impl TestCx {
             .env("UPSILON_WORKERS", "3")
             .kill_on_drop(true)
             .current_dir(&workdir);
+
+        dbg!(&cmd.as_std());
 
         let mut child = cmd.spawn().expect("Failed to spawn web server");
 
@@ -226,6 +233,7 @@ impl TestCx {
             git_protocol_root,
             child,
             config,
+            murderer_file,
             required_online: false,
             tokens: HashMap::new(),
         }
@@ -255,6 +263,10 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
     }
 
     pub async fn finish(mut self) {
+        tokio::fs::write(&self.murderer_file, "").await.expect("Cannot write");
+        
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        
         let exited_normally = if self
             .child
             .try_wait()
@@ -262,8 +274,6 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
             .is_none()
         {
             println!("Gracefully shutting down the web server");
-
-            let _ = self.client.post_empty("/api/shutdown").await;
 
             upsilon_gracefully_shutdown::gracefully_shutdown(
                 &mut self.child,

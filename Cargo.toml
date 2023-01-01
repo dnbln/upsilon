@@ -30,6 +30,7 @@ libc = "0.2"
 winapi = "0.3"
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
+ctrlc = "3.2.0"
 
 upsilon-api = { path = "crates/upsilon-api" }
 upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }
@@ -41,6 +42,7 @@ upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
 upsilon-data-pg = { path = "crates/upsilon-data-pg" }
 upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
 upsilon-gracefully-shutdown = { path = "crates/upsilon-gracefully-shutdown" }
+upsilon-gracefully-shutdown-host = { path = "crates/upsilon-gracefully-shutdown-host" }
 upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-models = { path = "crates/upsilon-models" }
@@ -51,8 +53,3 @@ upsilon-vcs = { path = "crates/upsilon-vcs" }
 upsilon-web = { path = "crates/upsilon-web" }
 upsilon-web-interface = { path = "crates/upsilon-web-interface" }
 upsilon-xtask = { path = "crates/upsilon-xtask" }
-
-#[patch.crates-io]
-#rocket_http = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }
-#rocket_codegen = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }
-#rocket = { git = "https://github.com/dnbln/Rocket", rev = "e9d729a8b36b2d707c5db1e65ce0d5a717d4469d" }

@@ -1,14 +1,37 @@
+use std::path::Path;
 use std::time::Duration;
 
 use tokio::process::{Child, Command};
-#[cfg(all(not(unix), not(windows)))]
+#[cfg(all(not(target_os = "linux"), not(windows)))]
 compile_error!("Unsupported target platform");
 
-#[cfg(unix)]
-pub fn setup_for_graceful_shutdown(cmd: &mut Command) {}
+fn graceful_shutdown_host_setup(cmd: &mut Command, murderer_file: &Path) {
+    let old_cmd = std::mem::replace(
+        cmd,
+        Command::new(upsilon_core::alt_exe("upsilon-gracefully-shutdown-host")),
+    );
+
+    cmd.arg(old_cmd.as_std().get_program());
+
+    cmd.arg("--murderer").arg(murderer_file);
+
+    cmd.args(
+        old_cmd
+            .as_std()
+            .get_args()
+            .flat_map(|arg| vec!["--arg".as_ref(), arg]),
+    );
+}
+
+#[cfg(target_os = "linux")]
+pub fn setup_for_graceful_shutdown(cmd: &mut Command, murderer_file: &Path) {
+    graceful_shutdown_host_setup(cmd, murderer_file);
+}
 
 #[cfg(windows)]
-pub fn setup_for_graceful_shutdown(cmd: &mut Command) {
+pub fn setup_for_graceful_shutdown(cmd: &mut Command, murderer_file: &Path) {
+    graceful_shutdown_host_setup(cmd, murderer_file);
+
     cmd.creation_flags(
         winapi::um::winbase::CREATE_NEW_PROCESS_GROUP | winapi::um::winbase::NORMAL_PRIORITY_CLASS,
     );
@@ -59,13 +82,9 @@ pub async fn gracefully_shutdown(child: &mut Child, grace_period: Duration) {
     let success =
         unsafe { libc::kill(child_proc_id(child).try_into().unwrap(), libc::SIGINT) == 0 };
 
+    // on windows, the gracefully-shutdown-host will handle this
     #[cfg(windows)]
-    let success = unsafe {
-        winapi::um::wincon::GenerateConsoleCtrlEvent(
-            winapi::um::wincon::CTRL_BREAK_EVENT,
-            child_proc_id(child),
-        ) != 0
-    };
+    let success = true;
 
     if !success {
         panic!("Failed to send Ctrl+C signal");

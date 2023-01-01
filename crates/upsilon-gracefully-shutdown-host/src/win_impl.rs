@@ -1,5 +1,5 @@
 /*
- *        Copyright (c) 2022 Dinu Blanovschi
+ *        Copyright (c) 2023 Dinu Blanovschi
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,27 +14,14 @@
  *    limitations under the License.
  */
 
-use std::path::{Path, PathBuf};
+use std::process::Child;
 
-pub mod config;
+pub fn kill_child(child: &Child) {
+    let success = unsafe {
+        winapi::um::wincon::GenerateConsoleCtrlEvent(winapi::um::wincon::CTRL_BREAK_EVENT, std::process::id()) != 0
+    };
 
-fn bin_folder() -> PathBuf {
-    if let Ok(var) = std::env::var("UPSILON_BIN_DIR") {
-        return PathBuf::from(var);
+    if !success {
+        panic!("Failed to generate Ctrl+C event");
     }
-
-    let mut path = std::env::current_exe().unwrap();
-    path.pop();
-    path
-}
-
-pub fn upsilon_exe() -> PathBuf {
-    alt_exe("upsilon")
-}
-
-pub fn alt_exe(name: impl AsRef<Path>) -> PathBuf {
-    let mut path = bin_folder();
-    path.push(name);
-    path.set_extension(std::env::consts::EXE_EXTENSION);
-    path
 }

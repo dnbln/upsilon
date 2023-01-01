@@ -77,22 +77,14 @@ enum App {
 }
 
 fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
-    if dgql {
-        cargo_cmd!(
-            "build",
-            "-p", "upsilon-debug-data-driver",
-            "--features", "dump_gql_response",
-            "--verbose" => @if verbose,
-            @workdir = ws_root!(),
-        )?;
-    } else {
-        cargo_cmd!(
-            "build",
-            "-p", "upsilon-debug-data-driver",
-            "--verbose" => @if verbose,
-            @workdir = ws_root!(),
-        )?;
-    }
+    cargo_cmd!(
+        "build",
+        "-p", "upsilon-debug-data-driver",
+        "--bin", "upsilon-debug-data-driver",
+        "--features=dump_gql_response" => @if dgql,
+        "--verbose" => @if verbose,
+        @workdir = ws_root!(),
+    )?;
     cargo_cmd!(
         "build",
         "-p", "upsilon-git-hooks",
@@ -104,6 +96,7 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
     cargo_cmd!(
         "build",
         "-p", "upsilon-git-protocol-accesshook",
+        "--bin", "upsilon-git-protocol-accesshook",
         "--verbose" => @if verbose,
         @workdir = ws_root!(),
     )?;
@@ -114,7 +107,15 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
         @workdir = ws_root!(),
     )?;
 
-    cargo_cmd!("build", "-p", "upsilon", "--verbose" => @if verbose)?;
+    cargo_cmd!(
+        "build",
+        "-p", "upsilon-gracefully-shutdown-host",
+        "--bin", "upsilon-gracefully-shutdown-host",
+        "--verbose" => @if verbose,
+        @workdir = ws_root!(),
+    )?;
+
+    cargo_cmd!("build", "-p", "upsilon", "--bin", "upsilon", "--verbose" => @if verbose)?;
 
     Ok(())
 }
@@ -130,6 +131,7 @@ fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
         @env "RUST_LOG" => "info",
+        @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
         @workdir = ws_root!(),
     )?;
 
@@ -137,18 +139,19 @@ fn run_tests(setup_testenv: &Path, offline: bool, verbose: bool) -> XtaskResult<
     upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
 
     cargo_cmd!(
-            "nextest",
-            "run",
-            "--all",
-            "--offline" => @if offline,
-            "--verbose" => @if verbose,
-            @env "CLICOLOR_FORCE" => "1",
-            @env "UPSILON_TEST_GUARD" => "1",
-            @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
-            @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
-            @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
-            @env "UPSILON_WEB_BIN" => upsilon_web_binary,
-            @workdir = ws_root!(),
+        "nextest",
+        "run",
+        "--all",
+        "--offline" => @if offline,
+        "--verbose" => @if verbose,
+        @env "CLICOLOR_FORCE" => "1",
+        @env "UPSILON_TEST_GUARD" => "1",
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+        @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
+        @env "UPSILON_WEB_BIN" => upsilon_web_binary,
+        @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+        @workdir = ws_root!(),
     )?;
 
     Ok(())
