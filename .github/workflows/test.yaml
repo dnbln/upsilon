@@ -37,6 +37,7 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
       - name: Print environment
+        shell: pwsh
         run: |
           ls env:
       - name: Collect other system information
@@ -61,7 +62,7 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: Print environment
         run: |
-          ls env:
+          env
       - name: Collect other system information
         run: |
           git --version
