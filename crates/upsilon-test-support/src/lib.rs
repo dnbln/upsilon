@@ -406,6 +406,7 @@ pub struct TestCxConfig {
     source_file_path_hash: u64,
     test_name: &'static str,
     works_offline: bool,
+    has_git_protocol: bool,
 }
 
 impl TestCxConfig {
@@ -418,6 +419,7 @@ impl TestCxConfig {
             source_file_path_hash: vars.source_file_path_hash,
             test_name: vars.test_name,
             works_offline: vars.works_offline,
+            has_git_protocol: false,
         };
 
         helpers::upsilon_basic_config(&mut test_cx_config);
@@ -432,6 +434,11 @@ impl TestCxConfig {
 
     pub fn with_git_daemon_port(&mut self, port: u16) -> &mut Self {
         self.git_daemon_port = port;
+        self
+    }
+
+    pub fn with_git_protocol(&mut self) -> &mut Self {
+        self.has_git_protocol = true;
         self
     }
 

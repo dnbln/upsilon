@@ -131,6 +131,7 @@ users:
       type: argon2
     "#,
     )
+    .with_git_protocol()
     .with_git_daemon_port(portpicker::pick_unused_port().expect("Cannot find an unused port"));
 }
 
@@ -278,8 +279,12 @@ impl TestCx {
         format!("{}/{path}", &self.root)
     }
 
-    pub fn git_repo_url(&self, path: &str) -> String {
-        format!("{}/{path}", self.git_protocol_root)
+    pub fn git_repo_url(&self, path: &str) -> TestResult<String> {
+        if !self.config.has_git_protocol {
+            bail!("Git protocol is not enabled");
+        }
+        
+        Ok(format!("{}/{path}", self.git_protocol_root))
     }
 
     fn build_target_url<F>(&self, remote_path: F) -> TestResult<String>
@@ -294,13 +299,13 @@ impl TestCx {
             GitRemoteRef {
                 protocol: GitAccessProtocol::Git,
                 path,
-            } => self.git_repo_url(&path),
+            } => self.git_repo_url(&path)?,
             GitRemoteRef {
                 protocol: GitAccessProtocol::Http,
                 path,
             } => self.http_repo_url(&path),
         };
-        
+
         Ok(target_url)
     }
 
