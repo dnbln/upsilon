@@ -55,4 +55,4 @@ upsilon-web-interface = { path = "crates/upsilon-web-interface" }
 upsilon-xtask = { path = "crates/upsilon-xtask" }
 
 [patch.crates-io]
-procfs = { git = "https://github.com/eminence/procfs", ref = "faf30237720279af23bf2e9190499c3c35aa3955" }
+procfs = { git = "https://github.com/eminence/procfs", rev = "faf30237720279af23bf2e9190499c3c35aa3955" }
