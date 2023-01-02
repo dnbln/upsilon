@@ -255,7 +255,10 @@ impl GitBranch {
     }
 
     #[graphql(name = "_debug__contributors")]
-    async fn contributors(&self, context: &GraphQLContext) -> FieldResult<Vec<GitSignatureContributions>> {
+    async fn contributors(
+        &self,
+        context: &GraphQLContext,
+    ) -> FieldResult<Vec<GitSignatureContributions>> {
         context.require_debug()?;
 
         let contributors = self
