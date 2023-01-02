@@ -14,10 +14,20 @@
  *    limitations under the License.
  */
 
+fn check_var(var: &str) -> bool {
+    std::env::var(var).is_ok()
+}
+
+fn cfg_if_var_present(var: &str, cfg: &str) {
+    println!("cargo:rerun-if-env-changed={var}");
+    if check_var(var) {
+        println!("cargo:rustc-cfg={cfg}");
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=UPSILON_TESTSUITE_OFFLINE");
-    if std::env::var("UPSILON_TESTSUITE_OFFLINE").is_ok() {
-        println!("cargo:rustc-cfg=offline");
-    }
+
+    cfg_if_var_present("UPSILON_TESTSUITE_OFFLINE", "offline");
+    cfg_if_var_present("CI", "ci");
 }

@@ -52,6 +52,7 @@ async fn clone_over_git_protocol(
 }
 
 #[upsilon_test]
+#[test_attr(cfg_attr(all(windows, ci), ignore = "git-daemon has some weird issue when reusing sockets on Windows"))]
 async fn clone_twice_same_result_git_protocol(
     #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
 ) -> TestResult {

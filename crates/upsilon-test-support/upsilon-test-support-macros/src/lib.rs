@@ -89,7 +89,10 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let mut test_attrs = TokenStream::new();
     let mut works_offline_opt = None;
 
-    for attr in fun.attrs.drain_filter(|attr| attr.path.is_ident("offline")) {
+    for attr in fun
+        .attrs
+        .drain_filter(|attr| attr.path.is_ident("offline") || attr.path.is_ident("test_attr"))
+    {
         if attr.path.is_ident("offline") {
             let works_offline = if attr.tokens.is_empty() {
                 true
@@ -113,6 +116,12 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
             }
 
             works_offline_opt = Some(works_offline);
+        } else if attr.path.is_ident("test_attr") {
+            let test_attr = attr.parse_args::<syn::Meta>()?;
+
+            test_attrs.append_all(quote! { #[#test_attr] });
+        } else {
+            unreachable!()
         }
     }
 

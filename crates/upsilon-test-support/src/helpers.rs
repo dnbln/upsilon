@@ -199,7 +199,7 @@ mutation($localPath: String!) {
 }
 
 pub async fn make_global_mirror_from_host_repo(cx: &mut TestCx) -> TestResult<String> {
-    if is_ci::cached() {
+    if cfg!(ci) {
         #[cfg(not(offline))]
         return make_global_mirror_from_local(cx).await;
 

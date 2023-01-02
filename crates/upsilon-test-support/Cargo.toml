@@ -19,4 +19,3 @@ upsilon-test-support-macros = { path = "upsilon-test-support-macros" }
 upsilon-gracefully-shutdown.workspace = true
 log.workspace = true
 pretty_env_logger.workspace = true
-is_ci = "1.1.1"
