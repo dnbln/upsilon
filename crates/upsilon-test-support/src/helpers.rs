@@ -200,7 +200,7 @@ pub async fn make_global_mirror_from_host_repo(cx: &mut TestCx) -> TestResult<St
     if is_ci::cached() {
         #[cfg(not(offline))]
         return make_global_mirror_from_local(cx).await;
-        
+
         #[cfg(offline)]
         panic!("Cannot run this test in CI without an internet connection");
     }
