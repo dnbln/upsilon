@@ -477,6 +477,20 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
             }
         }
     }
+
+    pub async fn clone_repo_twice(
+        &self,
+        name1: &str,
+        name2: &str,
+        remote_path: impl Fn(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+    ) -> TestResult<(Repository, Repository)> {
+        let ((_, repo1), (_, repo2)) = tokio::try_join!(
+            self.clone(name1, &remote_path),
+            self.clone(name2, &remote_path)
+        )?;
+
+        Ok((repo1, repo2))
+    }
 }
 
 #[derive(serde::Deserialize)]

@@ -31,8 +31,9 @@ async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
 async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone1) = cx.clone("clone-upsilon-1", upsilon_global).await?;
-    let (_, clone2) = cx.clone("clone-upsilon-2", upsilon_global).await?;
+    let (clone1, clone2) = cx
+        .clone_repo_twice("upsilon-clone-1", "upsilon-clone-2", upsilon_global)
+        .await?;
 
     assert_same_trunk(&clone1, &clone2)?;
 
@@ -56,11 +57,12 @@ async fn clone_twice_same_result_git_protocol(
 ) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone1) = cx
-        .clone("clone-upsilon-1", upsilon_global_git_protocol)
-        .await?;
-    let (_, clone2) = cx
-        .clone("clone-upsilon-2", upsilon_global_git_protocol)
+    let (clone1, clone2) = cx
+        .clone_repo_twice(
+            "upsilon-clone-1",
+            "upsilon-clone-2",
+            upsilon_global_git_protocol,
+        )
         .await?;
 
     assert_same_trunk(&clone1, &clone2)?;

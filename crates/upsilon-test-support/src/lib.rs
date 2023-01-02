@@ -206,8 +206,6 @@ impl TestCx {
             .kill_on_drop(true)
             .current_dir(&workdir);
 
-        dbg!(&cmd.as_std());
-
         let mut child = cmd.spawn().expect("Failed to spawn web server");
 
         struct WaitForPortFileFuture {
