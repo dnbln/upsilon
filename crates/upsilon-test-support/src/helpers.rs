@@ -283,7 +283,7 @@ impl TestCx {
         if !self.config.has_git_protocol {
             bail!("Git protocol is not enabled");
         }
-        
+
         Ok(format!("{}/{path}", self.git_protocol_root))
     }
 
