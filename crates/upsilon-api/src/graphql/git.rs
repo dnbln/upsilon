@@ -254,7 +254,10 @@ impl GitBranch {
         Ok(GitCommit(self.0.clone(), commit))
     }
 
-    async fn contributors(&self) -> FieldResult<Vec<GitSignatureContributions>> {
+    #[graphql(name = "_debug__contributors")]
+    async fn contributors(&self, context: &GraphQLContext) -> FieldResult<Vec<GitSignatureContributions>> {
+        context.require_debug()?;
+
         let contributors = self
             .0
             .send(upsilon_asyncvcs::branch::BranchContributorsQuery(self.1))
