@@ -42,8 +42,11 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
     cmd.arg("daemon")
         .arg(format!("--base-path={}", &config.get_path().display()))
         .arg(format!("--port={}", daemon_config.port))
-        .arg("--reuseaddr")
         .arg(format!(r#"--access-hook="{}""#, access_hook_path.display()));
+
+    if daemon_config.reuseaddr {
+        cmd.arg("--reuseaddr");
+    }
 
     if let Some(pid_file) = &daemon_config.pid_file {
         cmd.arg(format!("--pid-file={}", pid_file.display()));
@@ -143,6 +146,9 @@ pub struct GitDaemonConfig {
     #[serde(default = "default_git_daemon_port")]
     pub port: u16,
 
+    #[serde(default = "default_reuseaddr")]
+    pub reuseaddr: bool,
+
     #[serde(default)]
     pub pid_file: Option<PathBuf>,
 
@@ -152,6 +158,17 @@ pub struct GitDaemonConfig {
 
 fn default_git_daemon_port() -> u16 {
     9418
+}
+
+fn default_reuseaddr() -> bool {
+    #[cfg(not(windows))]
+    {
+        true
+    }
+    #[cfg(windows)]
+    {
+        false
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
