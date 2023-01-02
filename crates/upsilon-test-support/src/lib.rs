@@ -22,7 +22,9 @@ pub extern crate serde_json;
 pub extern crate upsilon_test_support_macros;
 
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::future::Future;
+use std::io::Write;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
@@ -52,7 +54,7 @@ pub struct TestCx {
     client: Client,
     root: String,
     git_protocol_root: String,
-    child: tokio::process::Child,
+    child: Child,
     config: TestCxConfig,
     murderer_file: PathBuf,
 
@@ -88,28 +90,59 @@ impl TestCx {
     }
 
     async fn dump_stream(
-        name: &str,
+        name: impl Display,
         stream: Option<&mut (impl AsyncRead + Unpin)>,
         mut output: impl AsyncWrite + Unpin,
     ) -> std::io::Result<()> {
         let Some(stream) = stream else {return Ok(())};
 
-        let mut buffer = vec![];
+        let mut buffer = Vec::with_capacity(32 * 1024);
         stream.read_to_end(&mut buffer).await?;
 
         let sep = "\n".repeat(6);
+
         output
-            .write_all(format!("{sep}{}:\n{sep}", name).as_bytes())
+            .write_all(
+                format!(
+                    "{sep}{start}{sep}",
+                    start = format_args!("===== {name} [START] =====")
+                )
+                .as_bytes(),
+            )
             .await?;
 
         output.write(&buffer).await?;
+
+        output
+            .write_all(
+                format!(
+                    "{sep}{end}{sep}",
+                    end = format_args!("===== {name} [END] =====")
+                )
+                .as_bytes(),
+            )
+            .await?;
 
         Ok(())
     }
 
     async fn dump_streams(child: &mut Child) -> std::io::Result<()> {
-        Self::dump_stream("Server stdout", child.stdout.as_mut(), tokio::io::stdout()).await?;
-        Self::dump_stream("Server stderr", child.stderr.as_mut(), tokio::io::stderr()).await?;
+        Self::dump_streams_for("server", child).await
+    }
+
+    async fn dump_streams_for(name: impl Display, child: &mut Child) -> std::io::Result<()> {
+        Self::dump_stream(
+            format_args!("{name} stdout"),
+            child.stdout.as_mut(),
+            tokio::io::stdout(),
+        )
+        .await?;
+        Self::dump_stream(
+            format_args!("{name} stderr"),
+            child.stderr.as_mut(),
+            tokio::io::stderr(),
+        )
+        .await?;
 
         Ok(())
     }
@@ -294,6 +327,10 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
         let mut p = self.config.workdir();
         p.push("tmp");
         p.push(name);
+
+        if p.exists() {
+            tokio::fs::remove_dir_all(&p).await?;
+        }
 
         tokio::fs::create_dir_all(&p).await?;
 

@@ -14,7 +14,12 @@
  *    limitations under the License.
  */
 
+use std::ffi::{OsStr, OsString};
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use std::process::{ExitStatus, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use git2::{BranchType, Repository};
 use log::info;
@@ -260,9 +265,17 @@ impl TestCx {
         Ok(repo)
     }
 
+    pub fn http_repo_url(&self, path: &str) -> String {
+        format!("{}/{path}", &self.root)
+    }
+
+    pub fn git_repo_url(&self, path: &str) -> String {
+        format!("{}/{path}", self.git_protocol_root)
+    }
+
     pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
         let path = self.tempdir(name).await?;
-        let target_url = format!("{}/{remote_path}", self.root);
+        let target_url = self.http_repo_url(remote_path);
         let repo = self._clone_repo(path.clone(), target_url).await?;
 
         Ok((path, repo))
@@ -274,7 +287,7 @@ impl TestCx {
         remote_path: &str,
     ) -> TestResult<(PathBuf, Repository)> {
         let path = self.tempdir(name).await?;
-        let target_url = format!("{}/{remote_path}", self.git_protocol_root);
+        let target_url = self.git_repo_url(remote_path);
         let repo = self._clone_repo(path.clone(), target_url).await?;
 
         Ok((path, repo))
@@ -336,6 +349,75 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
 
         Ok(result)
     }
+
+    pub async fn run_command<F>(
+        &self,
+        program: impl AsRef<OsStr>,
+        command_args: F,
+        timeout: Duration,
+    ) -> TestResult<ExitStatus>
+    where
+        for<'a> F: FnOnce(&'a mut Cmd<'a>) -> &'a mut Cmd<'a>,
+    {
+        let mut cmd = Cmd::new(program.as_ref());
+        let cmd = command_args(&mut cmd);
+
+        info!("Running: {cmd}");
+
+        let mut tokio_cmd = tokio::process::Command::new(cmd.program);
+        tokio_cmd.args(cmd.args.iter());
+
+        static INDEX: AtomicUsize = AtomicUsize::new(0);
+
+        let idx = INDEX.fetch_add(1, Ordering::SeqCst);
+
+        let murderer_file = self
+            .tempdir(&format!("shutdown-{idx}"))
+            .await?
+            .join("shutdown");
+
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut tokio_cmd, &murderer_file);
+
+        tokio_cmd.stdout(Stdio::piped());
+        tokio_cmd.stderr(Stdio::piped());
+
+        let mut child = tokio_cmd.spawn()?;
+
+        enum Done {
+            Done(ExitStatus),
+            Timeout,
+        }
+
+        let done = tokio::select! {
+            status = child.wait() => {Done::Done(status?)}
+            _ = tokio::time::sleep(timeout) => {Done::Timeout}
+        };
+
+        match done {
+            Done::Done(status) => {
+                info!("Child exited with status {status}");
+
+                Self::dump_streams_for(format_args!("{cmd}"), &mut child).await?;
+
+                Ok(status)
+            }
+            Done::Timeout => {
+                info!("Timeout, gracefully shutting it down ({cmd})");
+
+                upsilon_gracefully_shutdown::gracefully_shutdown(
+                    &mut child,
+                    Duration::from_secs(1),
+                )
+                .await;
+
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                Self::dump_streams_for(format_args!("{cmd}"), &mut child).await?;
+
+                Ok(child.try_wait()?.expect("Child should have exited"))
+            }
+        }
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -361,4 +443,35 @@ pub fn assert_same_trunk(repo_a: &Repository, repo_b: &Repository) -> TestResult
     assert_eq!(commit_a.id(), commit_b.id());
 
     Ok(())
+}
+
+pub struct Cmd<'a> {
+    program: &'a OsStr,
+    args: Vec<OsString>,
+}
+
+impl<'a> Display for Cmd<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.program)?;
+
+        for arg in &self.args {
+            write!(f, " {:?}", arg)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> Cmd<'a> {
+    fn new(program: &'a OsStr) -> Self {
+        Self {
+            program,
+            args: Vec::new(),
+        }
+    }
+
+    pub fn arg(&mut self, arg: impl Into<OsString>) -> &mut Self {
+        self.args.push(arg.into());
+        self
+    }
 }

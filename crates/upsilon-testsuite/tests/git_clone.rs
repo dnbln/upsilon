@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+use std::time::Duration;
+
 use upsilon_test_support::prelude::*;
 
 #[upsilon_test]
@@ -64,4 +66,56 @@ async fn clone_twice_same_result_git_protocol(
     assert_same_trunk(&clone1, &clone2)?;
 
     Ok(())
+}
+
+#[upsilon_test]
+async fn clone_with_git_binary(cx: &mut TestCx) -> TestResult {
+    make_global_mirror_from_host_repo(cx).await?;
+
+    let tmp_dir = cx.tempdir("upsilon-clone").await?;
+    let path = cx.http_repo_url("upsilon");
+
+    let result = cx
+        .run_command(
+            "git",
+            |cmd| cmd.arg("clone").arg(path).arg(&tmp_dir),
+            Duration::from_secs(10),
+        )
+        .await?;
+
+    if result.success() {
+        Ok(())
+    } else {
+        bail!(
+            "git clone failed with exit code {}",
+            result.code().unwrap_or(-1)
+        )
+    }
+}
+
+#[upsilon_test]
+async fn clone_with_git_binary_over_git_protocol(
+    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
+) -> TestResult {
+    make_global_mirror_from_host_repo(cx).await?;
+
+    let tmp_dir = cx.tempdir("upsilon-clone").await?;
+    let path = cx.git_repo_url("upsilon");
+
+    let result = cx
+        .run_command(
+            "git",
+            |cmd| cmd.arg("clone").arg(path).arg(&tmp_dir),
+            Duration::from_secs(10),
+        )
+        .await?;
+
+    if result.success() {
+        Ok(())
+    } else {
+        bail!(
+            "git clone failed with exit code {}",
+            result.code().unwrap_or(-1)
+        )
+    }
 }
