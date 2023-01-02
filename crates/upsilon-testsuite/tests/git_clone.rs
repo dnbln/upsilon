@@ -22,7 +22,7 @@ use upsilon_test_support::prelude::*;
 async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let _ = cx.clone("clone-upsilon", "upsilon").await?;
+    let _ = cx.clone("clone-upsilon", upsilon_global).await?;
 
     Ok(())
 }
@@ -31,8 +31,8 @@ async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
 async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone1) = cx.clone("clone-upsilon-1", "upsilon").await?;
-    let (_, clone2) = cx.clone("clone-upsilon-2", "upsilon").await?;
+    let (_, clone1) = cx.clone("clone-upsilon-1", upsilon_global).await?;
+    let (_, clone2) = cx.clone("clone-upsilon-2", upsilon_global).await?;
 
     assert_same_trunk(&clone1, &clone2)?;
 
@@ -45,7 +45,7 @@ async fn clone_over_git_protocol(
 ) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let _ = cx.clone_over_git_protocol("upsilon", "upsilon").await?;
+    let _ = cx.clone("upsilon", upsilon_global_git_protocol).await?;
 
     Ok(())
 }
@@ -57,10 +57,10 @@ async fn clone_twice_same_result_git_protocol(
     make_global_mirror_from_host_repo(cx).await?;
 
     let (_, clone1) = cx
-        .clone_over_git_protocol("clone-upsilon-1", "upsilon")
+        .clone("clone-upsilon-1", upsilon_global_git_protocol)
         .await?;
     let (_, clone2) = cx
-        .clone_over_git_protocol("clone-upsilon-2", "upsilon")
+        .clone("clone-upsilon-2", upsilon_global_git_protocol)
         .await?;
 
     assert_same_trunk(&clone1, &clone2)?;
@@ -72,25 +72,10 @@ async fn clone_twice_same_result_git_protocol(
 async fn clone_with_git_binary(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let tmp_dir = cx.tempdir("upsilon-clone").await?;
-    let path = cx.http_repo_url("upsilon");
-
-    let result = cx
-        .run_command(
-            "git",
-            |cmd| cmd.arg("clone").arg(path).arg(&tmp_dir),
-            Duration::from_secs(10),
-        )
+    cx.clone_git_binary("upsilon-clone", upsilon_global, Duration::from_secs(10))
         .await?;
 
-    if result.success() {
-        Ok(())
-    } else {
-        bail!(
-            "git clone failed with exit code {}",
-            result.code().unwrap_or(-1)
-        )
-    }
+    Ok(())
 }
 
 #[upsilon_test]
@@ -99,23 +84,12 @@ async fn clone_with_git_binary_over_git_protocol(
 ) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let tmp_dir = cx.tempdir("upsilon-clone").await?;
-    let path = cx.git_repo_url("upsilon");
+    cx.clone_git_binary(
+        "upsilon-clone",
+        upsilon_global_git_protocol,
+        Duration::from_secs(10),
+    )
+    .await?;
 
-    let result = cx
-        .run_command(
-            "git",
-            |cmd| cmd.arg("clone").arg(path).arg(&tmp_dir),
-            Duration::from_secs(10),
-        )
-        .await?;
-
-    if result.success() {
-        Ok(())
-    } else {
-        bail!(
-            "git clone failed with exit code {}",
-            result.code().unwrap_or(-1)
-        )
-    }
+    Ok(())
 }

@@ -21,6 +21,7 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use anyhow::{bail, format_err};
 use git2::{BranchType, Repository};
 use log::info;
 
@@ -281,22 +282,67 @@ impl TestCx {
         format!("{}/{path}", self.git_protocol_root)
     }
 
-    pub async fn clone(&self, name: &str, remote_path: &str) -> TestResult<(PathBuf, Repository)> {
+    fn build_target_url<F>(&self, remote_path: F) -> TestResult<String>
+    where
+        F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+    {
+        let builder = GitRemoteRefBuilder::new();
+        let builder = remote_path(builder);
+        let remote_ref = builder.build()?;
+
+        let target_url = match remote_ref {
+            GitRemoteRef {
+                protocol: GitAccessProtocol::Git,
+                path,
+            } => self.git_repo_url(&path),
+            GitRemoteRef {
+                protocol: GitAccessProtocol::Http,
+                path,
+            } => self.http_repo_url(&path),
+        };
+        
+        Ok(target_url)
+    }
+
+    pub async fn clone<F>(&self, name: &str, remote_path: F) -> TestResult<(PathBuf, Repository)>
+    where
+        F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+    {
         let path = self.tempdir(name).await?;
-        let target_url = self.http_repo_url(remote_path);
+
+        let target_url = self.build_target_url(remote_path)?;
+
         let repo = self._clone_repo(path.clone(), target_url).await?;
 
         Ok((path, repo))
     }
 
-    pub async fn clone_over_git_protocol(
+    pub async fn clone_git_binary<F>(
         &self,
         name: &str,
-        remote_path: &str,
-    ) -> TestResult<(PathBuf, Repository)> {
+        remote_path: F,
+        timeout: Duration,
+    ) -> TestResult<(PathBuf, Repository)>
+    where
+        F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+    {
         let path = self.tempdir(name).await?;
-        let target_url = self.git_repo_url(remote_path);
-        let repo = self._clone_repo(path.clone(), target_url).await?;
+
+        let target_url = self.build_target_url(remote_path)?;
+
+        let exit_status = self
+            .run_command(
+                "git",
+                |c| c.arg("clone").arg(target_url).arg(&path),
+                timeout,
+            )
+            .await?;
+
+        if !exit_status.success() {
+            bail!("git clone failed with exit status: {:?}", exit_status);
+        }
+
+        let repo = Repository::open(&path)?;
 
         Ok((path, repo))
     }
@@ -482,4 +528,63 @@ impl<'a> Cmd<'a> {
         self.args.push(arg.into());
         self
     }
+}
+
+pub struct GitRemoteRef {
+    protocol: GitAccessProtocol,
+    path: String,
+}
+
+pub struct GitRemoteRefBuilder {
+    protocol: GitAccessProtocol,
+    path: Option<String>,
+}
+
+impl GitRemoteRefBuilder {
+    pub fn new() -> Self {
+        Self {
+            protocol: GitAccessProtocol::Http,
+            path: None,
+        }
+    }
+
+    pub fn set_protocol(&mut self, protocol: GitAccessProtocol) -> &mut Self {
+        self.protocol = protocol;
+        self
+    }
+
+    pub fn set_path(&mut self, path: impl Into<String>) -> &mut Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    pub fn protocol(mut self, protocol: GitAccessProtocol) -> Self {
+        self.set_protocol(protocol);
+        self
+    }
+
+    pub fn path(mut self, path: impl Into<String>) -> Self {
+        self.set_path(path);
+        self
+    }
+
+    pub fn build(self) -> TestResult<GitRemoteRef> {
+        let protocol = self.protocol;
+        let path = self.path.ok_or_else(|| format_err!("Path not set"))?;
+
+        Ok(GitRemoteRef { protocol, path })
+    }
+}
+
+pub enum GitAccessProtocol {
+    Http,
+    Git,
+}
+
+pub fn upsilon_global(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
+    rb.protocol(GitAccessProtocol::Http).path("upsilon")
+}
+
+pub fn upsilon_global_git_protocol(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
+    rb.protocol(GitAccessProtocol::Git).path("upsilon")
 }
