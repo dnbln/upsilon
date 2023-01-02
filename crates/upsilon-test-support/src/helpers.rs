@@ -197,6 +197,14 @@ mutation($localPath: String!) {
 }
 
 pub async fn make_global_mirror_from_host_repo(cx: &mut TestCx) -> TestResult<String> {
+    if is_ci::cached() {
+        #[cfg(not(offline))]
+        return make_global_mirror_from_local(cx).await;
+        
+        #[cfg(offline)]
+        panic!("Cannot run this test in CI without an internet connection");
+    }
+
     let upsilon_repo = upsilon_host_repo_git();
     if !upsilon_repo.exists() {
         panic!(
