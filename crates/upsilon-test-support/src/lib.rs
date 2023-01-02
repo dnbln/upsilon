@@ -25,9 +25,12 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::process::Stdio;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::process::Child;
 pub use upsilon_test_support_macros::upsilon_test;
 
 pub use crate::client::Client;
@@ -84,9 +87,36 @@ impl TestCx {
         }
     }
 
+    async fn dump_stream(
+        name: &str,
+        stream: Option<&mut (impl AsyncRead + Unpin)>,
+        mut output: impl AsyncWrite + Unpin,
+    ) -> std::io::Result<()> {
+        let Some(stream) = stream else {return Ok(())};
+
+        let mut buffer = vec![];
+        stream.read_to_end(&mut buffer).await?;
+
+        let sep = "\n".repeat(6);
+        output
+            .write_all(format!("{sep}{}:\n{sep}", name).as_bytes())
+            .await?;
+
+        output.write(&buffer).await?;
+
+        Ok(())
+    }
+
+    async fn dump_streams(child: &mut Child) -> std::io::Result<()> {
+        Self::dump_stream("Server stdout", child.stdout.as_mut(), tokio::io::stdout()).await?;
+        Self::dump_stream("Server stderr", child.stderr.as_mut(), tokio::io::stderr()).await?;
+
+        Ok(())
+    }
+
     pub async fn init(config: TestCxConfig) -> Self {
         pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
-        
+
         let workdir = config.workdir();
 
         if workdir.exists() {
@@ -138,6 +168,8 @@ impl TestCx {
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .env("UPSILON_DEBUG_SHUTDOWN-ENDPOINT", "true")
             .env("UPSILON_WORKERS", "3")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .current_dir(&workdir);
 
@@ -167,7 +199,7 @@ impl TestCx {
         };
 
         struct WaitForWebServerExitFuture<'a> {
-            child: &'a mut tokio::process::Child,
+            child: &'a mut Child,
         }
 
         impl<'a> Future for WaitForWebServerExitFuture<'a> {
@@ -207,6 +239,10 @@ impl TestCx {
             Done::PortFile => {}
             Done::WebServerExit(exit_status) => {
                 let exit_status = exit_status.expect("Failed to get web server exit status");
+
+                Self::dump_streams(&mut child)
+                    .await
+                    .expect("Failed to dump streams");
 
                 panic!("Web server exited with status {exit_status}");
             }
@@ -297,6 +333,10 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
             .try_wait()
             .expect("Child should have exited by now")
             .expect("Child should have exited by now");
+
+        Self::dump_streams(&mut self.child)
+            .await
+            .expect("Failed to dump streams");
 
         if exited_normally && !status.success() {
             panic!("Subprocess failed: {status:?}");
