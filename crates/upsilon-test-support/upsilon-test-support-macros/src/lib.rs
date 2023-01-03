@@ -122,6 +122,9 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         } else if attr.path.is_ident("git_daemon") {
             config_path =
                 quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_git_daemon};
+            test_attrs.append_all(quote! {
+                #[cfg_attr(all(windows, ci), ignore = "git-daemon behaves in weird ways on Windows, and may crash for no reason, so it's disabled on CI")]
+            });
         } else if attr.path.is_ident("test_attr") {
             let test_attr = attr.parse_args::<syn::Meta>()?;
 
