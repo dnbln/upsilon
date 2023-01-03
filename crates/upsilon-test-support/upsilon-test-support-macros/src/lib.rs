@@ -120,7 +120,8 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
 
             works_offline_opt = Some(works_offline);
         } else if attr.path.is_ident("git_daemon") {
-            config_path = quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_git_daemon};
+            config_path =
+                quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_git_daemon};
         } else if attr.path.is_ident("test_attr") {
             let test_attr = attr.parse_args::<syn::Meta>()?;
 
