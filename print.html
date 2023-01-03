@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="architecture/introduction.html"><strong aria-hidden="true">1.</strong> Introduction to the overall architecture</a></li><li class="chapter-item expanded "><a href="architecture/git.html"><strong aria-hidden="true">2.</strong> Interacting with git</a></li><li class="chapter-item expanded "><a href="architecture/data.html"><strong aria-hidden="true">3.</strong> Data stores</a></li><li class="chapter-item expanded "><a href="architecture/api.html"><strong aria-hidden="true">4.</strong> API</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="architecture/introduction.html"><strong aria-hidden="true">1.</strong> Introduction to the overall architecture</a></li><li class="chapter-item expanded "><a href="architecture/git.html"><strong aria-hidden="true">2.</strong> Interacting with git</a></li><li class="chapter-item expanded "><a href="architecture/data.html"><strong aria-hidden="true">3.</strong> Data stores</a></li><li class="chapter-item expanded "><a href="architecture/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="architecture/testing.html"><strong aria-hidden="true">5.</strong> Testing</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -188,7 +188,46 @@ the <code>upsilon-api</code> crate.</p>
 <code>git-http-backend</code> CGI backend, which is provided by <code>git</code> itself, on a few
 certain paths.</p>
 <p>The mechanism for passing the request to <code>git-http-backend</code> is implemented in
-the <code>upsilon-web</code> crate.</p>
+the <code>upsilon-web</code> and <code>upsilon-vcs</code> crates.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
+<p>All integration tests go in <code>crates/upsilon-testsuite</code>, with
+<code>crates/upsilon-test-support</code> providing some utilities for them.</p>
+<h2 id="running-the-tests"><a class="header" href="#running-the-tests">Running the tests</a></h2>
+<p>To run the tests, you can use the <code>test</code> xtask:</p>
+<pre><code class="language-bash">cargo xtask test
+# Or for short
+cargo xt
+</code></pre>
+<h2 id="writing-tests"><a class="header" href="#writing-tests">Writing tests</a></h2>
+<p>Integration tests are annotated with <code>#[upsilon_test]</code>, which handles most of
+the setup, and provides a <code>TestCx</code> to the test, which is used to interact with
+the webserver.</p>
+<p>By default, the test server doesn't spawn a <code>git daemon</code>, but can be configured
+to do so by annotating the <code>TestCx</code> parameter
+with <code>#[cfg_setup(upsilon_basic_config_with_git_daemon)]</code>.</p>
+<p>At the very end, <code>#[upsilon_test]</code> will also make sure to clean up the web
+server and terminate any subprocesses it has spawned.</p>
+<p>All tests return a <code>TestResult&lt;()&gt;</code>, which is just
+a <code>Result&lt;(), anyhow::Error&gt;</code>. For the cleanup to work, tests should
+return <code>Err</code> if they fail, rather than <code>panic!</code>.</p>
+<h2 id="cleanup-internals"><a class="header" href="#cleanup-internals">Cleanup: internals</a></h2>
+<p>The webserver is spawned in a separate process, under a
+<code>upsilon-gracefully-shutdown-host</code> process that acts as a middle-man, and
+listens via <code>ctrlc</code> to signals, or to the creation of a temporary file.</p>
+<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
+<p>The <code>upsilon-gracefully-shutdown-host</code> process is created with
+the <code>CREATE_NEW_PROCESS_GROUP</code> flag. When it receives an event
+(via <code>ctrlc</code>), or the temporary file is created, it generates a
+<code>CTRL_BREAK_EVENT</code> for itself, which is then propagated to all the child
+processes, thus shutting everything down.</p>
+<h3 id="linux"><a class="header" href="#linux">Linux</a></h3>
+<p>The <code>upsilon-gracefully-shutdown-host</code> process just waits for <code>SIGTERM</code>,
+<code>SIGINT</code> or similar signals via <code>ctrlc</code>, then walks the <code>procfs</code> to find all the
+descendants of the process, and sends <code>SIGTERM</code> to each of them.</p>
+<h3 id="other-platforms"><a class="header" href="#other-platforms">Other platforms</a></h3>
+<p><code>procfs</code> is only available on Linux, so separate implementations are needed for
+other platforms. The <code>upsilon-gracefully-shutdown-host</code> binary just fails to
+compile on other platforms right now, making it impossible to run tests on them.</p>
 
                     </main>
 

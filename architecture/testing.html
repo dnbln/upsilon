@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Introduction to the overall architecture - The upsilon book</title>
+        <title>Testing - The upsilon book</title>
 
 
         <!-- Custom HTML head -->
@@ -12,21 +12,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -34,7 +34,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script>
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "ayu";
         </script>
 
@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="architecture/introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction to the overall architecture</a></li><li class="chapter-item expanded "><a href="architecture/git.html"><strong aria-hidden="true">2.</strong> Interacting with git</a></li><li class="chapter-item expanded "><a href="architecture/data.html"><strong aria-hidden="true">3.</strong> Data stores</a></li><li class="chapter-item expanded "><a href="architecture/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="architecture/testing.html"><strong aria-hidden="true">5.</strong> Testing</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="../architecture/introduction.html"><strong aria-hidden="true">1.</strong> Introduction to the overall architecture</a></li><li class="chapter-item expanded "><a href="../architecture/git.html"><strong aria-hidden="true">2.</strong> Interacting with git</a></li><li class="chapter-item expanded "><a href="../architecture/data.html"><strong aria-hidden="true">3.</strong> Data stores</a></li><li class="chapter-item expanded "><a href="../architecture/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../architecture/testing.html" class="active"><strong aria-hidden="true">5.</strong> Testing</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -112,7 +112,7 @@
                     <h1 class="menu-title">The upsilon book</h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
 
@@ -141,16 +141,54 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="introduction-to-the-overall-architecture"><a class="header" href="#introduction-to-the-overall-architecture">Introduction to the overall architecture</a></h1>
+                        <h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
+<p>All integration tests go in <code>crates/upsilon-testsuite</code>, with
+<code>crates/upsilon-test-support</code> providing some utilities for them.</p>
+<h2 id="running-the-tests"><a class="header" href="#running-the-tests">Running the tests</a></h2>
+<p>To run the tests, you can use the <code>test</code> xtask:</p>
+<pre><code class="language-bash">cargo xtask test
+# Or for short
+cargo xt
+</code></pre>
+<h2 id="writing-tests"><a class="header" href="#writing-tests">Writing tests</a></h2>
+<p>Integration tests are annotated with <code>#[upsilon_test]</code>, which handles most of
+the setup, and provides a <code>TestCx</code> to the test, which is used to interact with
+the webserver.</p>
+<p>By default, the test server doesn't spawn a <code>git daemon</code>, but can be configured
+to do so by annotating the <code>TestCx</code> parameter
+with <code>#[cfg_setup(upsilon_basic_config_with_git_daemon)]</code>.</p>
+<p>At the very end, <code>#[upsilon_test]</code> will also make sure to clean up the web
+server and terminate any subprocesses it has spawned.</p>
+<p>All tests return a <code>TestResult&lt;()&gt;</code>, which is just
+a <code>Result&lt;(), anyhow::Error&gt;</code>. For the cleanup to work, tests should
+return <code>Err</code> if they fail, rather than <code>panic!</code>.</p>
+<h2 id="cleanup-internals"><a class="header" href="#cleanup-internals">Cleanup: internals</a></h2>
+<p>The webserver is spawned in a separate process, under a
+<code>upsilon-gracefully-shutdown-host</code> process that acts as a middle-man, and
+listens via <code>ctrlc</code> to signals, or to the creation of a temporary file.</p>
+<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
+<p>The <code>upsilon-gracefully-shutdown-host</code> process is created with
+the <code>CREATE_NEW_PROCESS_GROUP</code> flag. When it receives an event
+(via <code>ctrlc</code>), or the temporary file is created, it generates a
+<code>CTRL_BREAK_EVENT</code> for itself, which is then propagated to all the child
+processes, thus shutting everything down.</p>
+<h3 id="linux"><a class="header" href="#linux">Linux</a></h3>
+<p>The <code>upsilon-gracefully-shutdown-host</code> process just waits for <code>SIGTERM</code>,
+<code>SIGINT</code> or similar signals via <code>ctrlc</code>, then walks the <code>procfs</code> to find all the
+descendants of the process, and sends <code>SIGTERM</code> to each of them.</p>
+<h3 id="other-platforms"><a class="header" href="#other-platforms">Other platforms</a></h3>
+<p><code>procfs</code> is only available on Linux, so separate implementations are needed for
+other platforms. The <code>upsilon-gracefully-shutdown-host</code> binary just fails to
+compile on other platforms right now, making it impossible to run tests on them.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-
-                            <a rel="next" href="architecture/git.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
+                            <a rel="prev" href="../architecture/api.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
                             </a>
+
 
                         <div style="clear: both"></div>
                     </nav>
@@ -158,10 +196,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-
-                    <a rel="next" href="architecture/git.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
+                    <a rel="prev" href="../architecture/api.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
                     </a>
+
             </nav>
 
         </div>
@@ -174,13 +212,13 @@
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
 
         <!-- Custom JS scripts -->
 
