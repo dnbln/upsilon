@@ -204,7 +204,7 @@ pub async fn make_global_mirror_from_host_repo(cx: &mut TestCx) -> TestResult<St
         return make_global_mirror_from_local(cx).await;
 
         #[cfg(offline)]
-        panic!("Cannot run this test in CI without an internet connection");
+        panic!("Cannot run this test in CI while also using --offline");
     }
 
     let upsilon_repo = upsilon_host_repo_git();
@@ -513,7 +513,13 @@ pub fn assert_same_trunk(repo_a: &Repository, repo_b: &Repository) -> TestResult
     let commit_a = branch_commit(repo_a, "trunk")?;
     let commit_b = branch_commit(repo_b, "trunk")?;
 
-    assert_eq!(commit_a.id(), commit_b.id());
+    if commit_a.id() != commit_b.id() {
+        bail!(
+            "trunk commit mismatch: {commit_a} != {commit_b}",
+            commit_a = commit_a.id(),
+            commit_b = commit_b.id(),
+        );
+    }
 
     Ok(())
 }

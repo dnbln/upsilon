@@ -128,7 +128,7 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let works_offline = matches!(works_offline_opt, Some(true) | None);
 
     if !works_offline {
-        test_attrs.append_all(quote! {#[cfg_attr(offline, ignore)]})
+        test_attrs.append_all(quote! {#[cfg_attr(offline, ignore = "Test doesn't work offline")]})
     }
 
     let mut body = quote! { #fun };
@@ -185,6 +185,7 @@ impl ToTokens for InnerFnCall {
         };
 
         let vars_name = format_ident!("__upsilon_test_vars");
+        let panic_reason_name = format_ident!("__upsilon_test_panic_reason");
         let works_offline = self.works_offline;
         let vars_setup = quote! {
             let #vars_name = ::upsilon_test_support::CxConfigVars {
@@ -193,6 +194,9 @@ impl ToTokens for InnerFnCall {
                 source_file_path_hash: #file_path_hash,
                 works_offline: #works_offline,
             };
+
+            #[allow(unused_mut)]
+            let mut #panic_reason_name = None;
         };
 
         for (i, (attrs, ty)) in params.enumerate() {
@@ -235,7 +239,11 @@ impl ToTokens for InnerFnCall {
             }
 
             finish.append_all(quote! {
-                #param_name.finish().await;
+                if let Err(e) = #param_name.finish().await {
+                    ::upsilon_test_support::log::error!("Error finishing test parameter {}: {}", stringify!(#ty), e);
+
+                    #panic_reason_name.get_or_insert(e);
+                }
             });
 
             parameters.push(quote! {
@@ -251,13 +259,17 @@ impl ToTokens for InnerFnCall {
 
             #setup
 
-            let result = #inner_fun_name(#(#parameters),*) #await_token;
+            let test_result = #inner_fun_name(#(#parameters),*) #await_token;
 
             #teardown
 
             #finish
 
-            if let Err(e) = result {
+            if let Err(e) = test_result {
+                panic!("Test result is Err: {}", e);
+            }
+
+            if let Some(e) = #panic_reason_name {
                 panic!("Error: {}", e);
             }
         });

@@ -18,6 +18,7 @@
 
 pub extern crate anyhow;
 pub extern crate git2;
+pub extern crate log;
 pub extern crate serde_json;
 pub extern crate upsilon_test_support_macros;
 
@@ -31,6 +32,8 @@ use std::process::Stdio;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use anyhow::bail;
+use log::{error, info};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Child;
 pub use upsilon_test_support_macros::upsilon_test;
@@ -61,6 +64,8 @@ pub struct TestCx {
     required_online: bool,
 
     tokens: HashMap<Username, Token>,
+
+    cleaned_up: bool,
 }
 
 impl TestCx {
@@ -305,6 +310,7 @@ impl TestCx {
             murderer_file,
             required_online: false,
             tokens: HashMap::new(),
+            cleaned_up: false,
         }
     }
 
@@ -335,20 +341,15 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
         Ok(p)
     }
 
-    pub async fn finish(mut self) {
-        tokio::fs::write(&self.murderer_file, "")
-            .await
-            .expect("Cannot write");
+    pub async fn finish(&mut self) -> TestResult<()> {
+        self.cleaned_up = true;
+
+        tokio::fs::write(&self.murderer_file, "").await?;
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let exited_normally = if self
-            .child
-            .try_wait()
-            .expect("Failed to check if the web server is running")
-            .is_none()
-        {
-            println!("Gracefully shutting down the web server");
+        let exited_normally = if self.child.try_wait()?.is_none() {
+            info!("Gracefully shutting down the web server");
 
             upsilon_gracefully_shutdown::gracefully_shutdown(
                 &mut self.child,
@@ -365,16 +366,13 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
 
         let status = self
             .child
-            .try_wait()
-            .expect("Child should have exited by now")
+            .try_wait()?
             .expect("Child should have exited by now");
 
-        Self::dump_streams(&mut self.child)
-            .await
-            .expect("Failed to dump streams");
+        Self::dump_streams(&mut self.child).await?;
 
         if exited_normally && !status.success() {
-            panic!("Subprocess failed: {status:?}");
+            bail!("Subprocess failed: {status:?}");
         }
 
         let workdir = self.config.workdir();
@@ -384,7 +382,19 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
             .expect("Failed to delete workdir");
 
         if !self.config.works_offline && !self.required_online {
-            panic!("Test works offline, please annotate it with `#[offline]`");
+            bail!("\
+Test seems to work offline, please annotate it with `#[offline]`, or \
+call `cx.require_online()` if it really does require online mode");
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for TestCx {
+    fn drop(&mut self) {
+        if !self.cleaned_up {
+            panic!("TestCx was not cleaned up");
         }
     }
 }
