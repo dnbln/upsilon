@@ -27,7 +27,7 @@ jobs:
           mdbook-version: "latest"
       - name: Setup git identity
         run: |
-          git config user.name "Dinu Blanovschi"
-          git config user.email "git@dnbln.dev"
+          git config --global user.name "Dinu Blanovschi"
+          git config --global user.email "git@dnbln.dev"
       - name: Run xtask publish-docs
         run: cargo xtask publish-docs
