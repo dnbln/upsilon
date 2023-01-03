@@ -92,9 +92,9 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let mut config_path = quote! { ::upsilon_test_support::helpers::upsilon_basic_config };
 
     for attr in fun.attrs.drain_filter(|attr| {
-        attr.path.is_ident("offline")
-            || attr.path.is_ident("git_daemon")
-            || attr.path.is_ident("test_attr")
+        ["offline", "git_daemon", "test_attr"]
+            .into_iter()
+            .any(|it| attr.path.is_ident(it))
     }) {
         if attr.path.is_ident("offline") {
             let works_offline = if attr.tokens.is_empty() {
@@ -151,7 +151,9 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         config_path,
     };
 
-    body.append_all(quote! { #inner_fn_call });
+    let inner_fn_call_ts = inner_fn_call.build()?;
+
+    body.append_all(quote! { #inner_fn_call_ts });
 
     let ts = quote! {
         #[tokio::test]
@@ -175,8 +177,10 @@ struct InnerFnCall {
     config_path: TokenStream,
 }
 
-impl ToTokens for InnerFnCall {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+impl InnerFnCall {
+    fn build(&self) -> syn::Result<TokenStream> {
+        let mut tokens = TokenStream::new();
+
         let params = self.inputs.iter();
 
         let mut setup = TokenStream::new();
@@ -214,8 +218,17 @@ impl ToTokens for InnerFnCall {
 
         for (i, (attrs, ty)) in params.enumerate() {
             let ty = match **ty {
-                Type::Reference(ref r) => &r.elem,
-                _ => panic!("Unsupported type, need reference"),
+                Type::Reference(ref r) => {
+                    if r.mutability.is_none() {
+                        return Err(syn::Error::new(
+                            r.span(),
+                            "Expected a mutable reference type",
+                        ));
+                    }
+
+                    &r.elem
+                }
+                _ => return Err(syn::Error::new(ty.span(), "Expected a reference type")),
             };
 
             let param_name = format_ident!("__param_{}", i);
@@ -225,9 +238,7 @@ impl ToTokens for InnerFnCall {
                 let mut #param_name_config = <#ty>::Config::new(&#vars_name);
             });
 
-            for setup_fn in
-                find_attrs(attrs, "cfg_setup").expect("cannot parse cfg_setup attribute")
-            {
+            for setup_fn in find_attrs(attrs, "cfg_setup")? {
                 setup.append_all(quote! {
                     #setup_fn(&mut #param_name_config);
                 });
@@ -237,15 +248,13 @@ impl ToTokens for InnerFnCall {
                 let mut #param_name = <#ty>::init(#param_name_config).await;
             });
 
-            for setup_fn in find_attrs(attrs, "setup").expect("cannot parse setup attribute") {
+            for setup_fn in find_attrs(attrs, "setup")? {
                 setup.append_all(quote! {
                     #setup_fn(&mut #param_name).await;
                 });
             }
 
-            for teardown_fn in
-                find_attrs(attrs, "teardown").expect("cannot parse teardown attribute")
-            {
+            for teardown_fn in find_attrs(attrs, "teardown")? {
                 teardown.append_all(quote! {
                     #teardown_fn(&mut #param_name).await;
                 });
@@ -286,6 +295,8 @@ impl ToTokens for InnerFnCall {
                 panic!("Error: {}", e);
             }
         });
+
+        Ok(tokens)
     }
 }
 
