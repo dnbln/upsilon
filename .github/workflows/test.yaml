@@ -11,6 +11,7 @@ env:
 
 jobs:
   fmtcheck:
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,11 +24,12 @@ jobs:
         run: cargo fmt --all --check
   
   test-win:
-    name: test-win
+    name: Test (Windows)
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Setup env
         run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Install openssl
@@ -49,11 +51,12 @@ jobs:
         run: cargo xtask test --verbose --no-fail-fast
 
   test-linux:
-    name: test-linux
+    name: Test (Linux)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Install lld
         run: sudo apt-get install -y lld
       - name: Install openssl
