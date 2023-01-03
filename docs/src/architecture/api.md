@@ -14,4 +14,4 @@ For the webserver to work with git clients over `http://`, it should invoke the
 certain paths.
 
 The mechanism for passing the request to `git-http-backend` is implemented in
-the `upsilon-web` crate.
+the `upsilon-web` and `upsilon-vcs` crates.
