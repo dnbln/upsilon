@@ -89,10 +89,13 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let mut test_attrs = TokenStream::new();
     let mut works_offline_opt = None;
 
-    for attr in fun
-        .attrs
-        .drain_filter(|attr| attr.path.is_ident("offline") || attr.path.is_ident("test_attr"))
-    {
+    let mut config_path = quote! { ::upsilon_test_support::helpers::upsilon_basic_config };
+
+    for attr in fun.attrs.drain_filter(|attr| {
+        attr.path.is_ident("offline")
+            || attr.path.is_ident("git_daemon")
+            || attr.path.is_ident("test_attr")
+    }) {
         if attr.path.is_ident("offline") {
             let works_offline = if attr.tokens.is_empty() {
                 true
@@ -116,6 +119,8 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
             }
 
             works_offline_opt = Some(works_offline);
+        } else if attr.path.is_ident("git_daemon") {
+            config_path = quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_git_daemon};
         } else if attr.path.is_ident("test_attr") {
             let test_attr = attr.parse_args::<syn::Meta>()?;
 
@@ -139,6 +144,7 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         asyncness,
         inputs,
         works_offline,
+        config_path,
     };
 
     body.append_all(quote! { #inner_fn_call });
@@ -162,6 +168,7 @@ struct InnerFnCall {
     asyncness: Option<Async>,
     inputs: Vec<(Vec<Attribute>, Box<Type>)>,
     works_offline: bool,
+    config_path: TokenStream,
 }
 
 impl ToTokens for InnerFnCall {
@@ -187,12 +194,14 @@ impl ToTokens for InnerFnCall {
         let vars_name = format_ident!("__upsilon_test_vars");
         let panic_reason_name = format_ident!("__upsilon_test_panic_reason");
         let works_offline = self.works_offline;
+        let config_path = &self.config_path;
         let vars_setup = quote! {
             let #vars_name = ::upsilon_test_support::CxConfigVars {
                 workdir: ::std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")),
                 test_name: #test_name,
                 source_file_path_hash: #file_path_hash,
                 works_offline: #works_offline,
+                config_init: #config_path,
             };
 
             #[allow(unused_mut)]

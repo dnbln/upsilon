@@ -41,9 +41,8 @@ async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
 }
 
 #[upsilon_test]
-async fn clone_over_git_protocol(
-    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
-) -> TestResult {
+#[git_daemon]
+async fn clone_over_git_protocol(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
     let _ = cx.clone("upsilon", upsilon_global_git_protocol).await?;
@@ -52,13 +51,8 @@ async fn clone_over_git_protocol(
 }
 
 #[upsilon_test]
-// #[test_attr(cfg_attr(
-//     all(windows, ci),
-//     ignore = "git-daemon has some weird issue when reusing sockets on Windows"
-// ))]
-async fn clone_twice_same_result_git_protocol(
-    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
-) -> TestResult {
+#[git_daemon]
+async fn clone_twice_same_result_git_protocol(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
     let (clone1, clone2) = cx
@@ -85,9 +79,8 @@ async fn clone_with_git_binary(cx: &mut TestCx) -> TestResult {
 }
 
 #[upsilon_test]
-async fn clone_with_git_binary_over_git_protocol(
-    #[cfg_setup(upsilon_basic_config_with_git_daemon)] cx: &mut TestCx,
-) -> TestResult {
+#[git_daemon]
+async fn clone_with_git_binary_over_git_protocol(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
     cx.clone_git_binary(

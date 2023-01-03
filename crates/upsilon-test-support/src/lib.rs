@@ -406,6 +406,7 @@ pub struct CxConfigVars {
     pub test_name: &'static str,
     pub source_file_path_hash: u64,
     pub works_offline: bool,
+    pub config_init: fn(&mut TestCxConfig),
 }
 
 pub struct TestCxConfig {
@@ -432,7 +433,7 @@ impl TestCxConfig {
             has_git_protocol: false,
         };
 
-        helpers::upsilon_basic_config(&mut test_cx_config);
+        (vars.config_init)(&mut test_cx_config);
 
         test_cx_config
     }
