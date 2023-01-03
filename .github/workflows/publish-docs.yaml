@@ -20,5 +20,9 @@ jobs:
         run: sudo apt-get install -y lld
       - name: Install rust
         run: rustup update nightly && rustup default nightly
+      - name: Install mdbook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: "latest"
       - name: Run xtask publish-docs
         run: cargo xtask publish-docs

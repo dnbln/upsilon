@@ -382,9 +382,11 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
             .expect("Failed to delete workdir");
 
         if !self.config.works_offline && !self.required_online {
-            bail!("\
+            bail!(
+                "\
 Test seems to work offline, please annotate it with `#[offline]`, or \
-call `cx.require_online()` if it really does require online mode");
+call `cx.require_online()` if it really does require online mode"
+            );
         }
 
         Ok(())
