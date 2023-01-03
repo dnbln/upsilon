@@ -27,6 +27,8 @@ jobs:
           mdbook-version: "latest"
       - name: Run xtask build-docs
         run: cargo xtask build-docs
+      - name: Add CNAME
+        run: echo "upsilon-docs.dnbln.dev" > ./docs/book/CNAME
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
