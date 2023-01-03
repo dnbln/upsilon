@@ -3,6 +3,15 @@ name: Test
 on:
   push:
     branches: [ "trunk" ]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rustfmt.toml'
+      - 'clippy.toml'
+      - '.cargo/**'
+      - '.config/nextest.toml'
+      - '.github/workflows/test.yaml'
   pull_request:
     branches: [ "trunk" ]
 
