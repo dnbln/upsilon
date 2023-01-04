@@ -136,7 +136,7 @@ users:
 }
 
 pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
-    cx.require_online().await;
+    cx.require_online().await?;
 
     #[derive(serde::Deserialize)]
     struct GlobalMirror {

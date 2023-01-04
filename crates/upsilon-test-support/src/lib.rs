@@ -314,10 +314,10 @@ impl TestCx {
         }
     }
 
-    pub async fn require_online(&mut self) {
+    pub async fn require_online(&mut self) -> TestResult {
         if !self.required_online {
             if self.config.works_offline {
-                panic!(
+                bail!(
                     r#"Test requires online mode, but was annotated with #[offline(run)].
 Help: Annotate it with `#[offline(ignore)]` instead."#
                 );
@@ -325,6 +325,8 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
 
             self.required_online = true;
         }
+
+        Ok(())
     }
 
     pub async fn tempdir(&self, name: &str) -> std::io::Result<PathBuf> {
