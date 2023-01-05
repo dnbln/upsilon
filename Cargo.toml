@@ -17,6 +17,7 @@ reqwest = "0.11.13"
 anyhow = "1.0.66"
 path-slash = "0.2.1"
 lazy_static = "1.4.0"
+humantime = "2.1.0"
 tokio = { version = "1.22.0", features = ["full"] }
 futures = "0.3.25"
 linkme = "0.3"
@@ -47,6 +48,8 @@ upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-models = { path = "crates/upsilon-models" }
 upsilon-procx = { path = "crates/upsilon-procx" }
+upsilon-ssh = { path = "crates/upsilon-ssh" }
+upsilon-ssh-russh = { path = "crates/upsilon-ssh-russh" }
 upsilon-stdx = { path = "crates/upsilon-stdx" }
 upsilon-test-support = { path = "crates/upsilon-test-support" }
 upsilon-vcs = { path = "crates/upsilon-vcs" }

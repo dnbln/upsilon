@@ -32,7 +32,7 @@ use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBac
 
 pub struct ConfigManager;
 
-#[rocket::async_trait]
+#[async_trait]
 impl Fairing for ConfigManager {
     fn info(&self) -> Info {
         Info {
@@ -52,6 +52,7 @@ impl Fairing for ConfigManager {
 
         let Config {
             mut vcs,
+            git_ssh,
             data_backend,
             users,
             vcs_errors,
@@ -90,6 +91,10 @@ impl Fairing for ConfigManager {
 
         if vcs.http_protocol_enabled() {
             rocket = rocket.attach(git::GitHttpProtocolFairing);
+        }
+
+        if let Some(git_ssh) = git_ssh {
+            rocket = rocket.attach(git::GitSshFairing::new(git_ssh));
         }
 
         let DebugConfig {

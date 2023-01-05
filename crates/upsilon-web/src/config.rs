@@ -16,6 +16,7 @@
 
 use serde::{Deserialize, Deserializer};
 use upsilon_core::config::{GqlDebugConfig, UsersConfig};
+use upsilon_ssh_russh::RusshServerConfig;
 use upsilon_vcs::UpsilonVcsConfig;
 
 use crate::data::DataBackendConfig;
@@ -23,6 +24,8 @@ use crate::data::DataBackendConfig;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub vcs: UpsilonVcsConfig,
+    #[serde(default, rename = "git-ssh")]
+    pub git_ssh: Option<GitSshProtocol>,
     #[serde(rename = "data-backend")]
     pub data_backend: DataBackendConfig,
 
@@ -32,6 +35,13 @@ pub struct Config {
     pub vcs_errors: VcsErrorsConfig,
 
     pub debug: DebugConfig,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum GitSshProtocol {
+    #[serde(rename = "russh")]
+    Russh(RusshServerConfig),
 }
 
 #[derive(Deserialize, Debug)]

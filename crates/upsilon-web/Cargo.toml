@@ -15,11 +15,14 @@ thiserror.workspace = true
 rocket-basicauth = "2.1.1"
 figment = { version = "0.10.8", features = ["yaml"] }
 serde.workspace = true
+
 upsilon-api.workspace = true
 upsilon-core.workspace = true
 upsilon-data.workspace = true
 upsilon-data-inmemory.workspace = true
 upsilon-id.workspace = true
 upsilon-data-cache-inmemory.workspace = true
+upsilon-ssh.workspace = true
+upsilon-ssh-russh.workspace = true
 upsilon-vcs.workspace = true
 

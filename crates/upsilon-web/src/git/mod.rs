@@ -16,6 +16,8 @@
 
 mod git_http_protocol;
 mod git_protocol;
+mod git_ssh_protocol;
 
 pub(crate) use git_http_protocol::GitHttpProtocolFairing;
 pub(crate) use git_protocol::GitProtocolDaemonFairing;
+pub(crate) use git_ssh_protocol::GitSshFairing;
