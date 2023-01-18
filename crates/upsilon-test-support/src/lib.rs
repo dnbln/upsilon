@@ -307,7 +307,7 @@ impl TestCx {
         let git_protocol_root = format!("git://localhost:{git_port}");
 
         let git_ssh_port = config.git_ssh_port;
-        let ssh_protocol_root = format!("git@localhost:{git_ssh_port}");
+        let ssh_protocol_root = format!("ssh://git@localhost:{git_ssh_port}");
 
         Self {
             client: Client::new(&root),

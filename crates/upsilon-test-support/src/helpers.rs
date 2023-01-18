@@ -341,7 +341,7 @@ impl TestCx {
             bail!("Ssh protocol is not enabled");
         }
 
-        Ok(format!("{}:{path}", self.ssh_protocol_root))
+        Ok(format!("{}/{path}", self.ssh_protocol_root))
     }
 
     fn build_target_url<F>(&self, remote_path: F) -> TestResult<String>
