@@ -420,6 +420,8 @@ impl MutationRoot {
         username_or_email: String,
         password: PlainPassword,
     ) -> FieldResult<String> {
+        context.require_debug()?;
+
         let user = context
             .query(|qm| async move { qm.query_user_by_username_email(&username_or_email).await })
             .await?

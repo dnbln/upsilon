@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::cmp::Ordering;
 use std::ops::Index;
 
 use crate::email::Email;
@@ -107,10 +108,10 @@ impl EmailRemoved for Option<EmailIndex> {
     fn email_removed(&mut self, position: usize) -> Result<(), RemoveEmailError> {
         let Some(index) = self else {return Ok(());};
 
-        if index.0 == position {
-            *self = None;
-        } else if index.0 > position {
-            index.0 -= 1;
+        match index.0.cmp(&position) {
+            Ordering::Equal => *self = None,
+            Ordering::Greater => *self = Some(EmailIndex(index.0 - 1)),
+            Ordering::Less => {}
         }
 
         Ok(())
@@ -119,10 +120,10 @@ impl EmailRemoved for Option<EmailIndex> {
 
 impl EmailRemoved for EmailIndex {
     fn email_removed(&mut self, position: usize) -> Result<(), RemoveEmailError> {
-        if self.0 == position {
-            Err(RemoveEmailError::IrremovableEmail)?;
-        } else if self.0 > position {
-            self.0 -= 1;
+        match self.0.cmp(&position) {
+            Ordering::Equal => Err(RemoveEmailError::IrremovableEmail)?,
+            Ordering::Greater => self.0 -= 1,
+            Ordering::Less => {}
         }
 
         Ok(())

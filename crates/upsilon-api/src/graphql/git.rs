@@ -14,9 +14,6 @@
  *    limitations under the License.
  */
 
-use std::future::Future;
-use std::sync::Arc;
-
 use juniper::{graphql_object, FieldResult};
 use upsilon_asyncvcs::refs::SignatureRef;
 
@@ -116,10 +113,7 @@ impl GitCommit {
     }
 }
 
-pub struct GitSignature(
-    upsilon_asyncvcs::Client,
-    upsilon_asyncvcs::refs::SignatureRef,
-);
+pub struct GitSignature(upsilon_asyncvcs::Client, SignatureRef);
 
 impl GitSignature {
     async fn _name(&self) -> Option<String> {
