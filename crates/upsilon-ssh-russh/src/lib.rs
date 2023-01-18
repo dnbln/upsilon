@@ -514,14 +514,18 @@ impl Handler for RusshServerHandler {
                         stdout_fut.await?;
                         stderr_fut.await?;
 
+                        let status_code = status.code().unwrap_or(128) as u32; // TODO: handle signals properly
+
                         let _ = session_handle
-                            .exit_status_request(
-                                channel,
-                                status.code().expect("Terminated by signal") as u32,
-                            ) // TODO: handle signals
+                            .exit_status_request(channel, status_code)
                             .await;
 
                         let _ = session_handle.eof(channel).await;
+                        if status_code == 0 {
+                            let _ = session_handle.channel_success(channel).await;
+                        } else {
+                            let _ = session_handle.channel_failure(channel).await;
+                        }
                         // let _ = session_handle.close(channel).await;
                     }
                 }
