@@ -680,7 +680,7 @@ impl MutationRoot {
         .await
     }
 
-    async fn add_user_repo_permissions(
+    async fn add_user_repo_perms(
         context: &GraphQLContext,
         repo: RepoId,
         user: UserId,
@@ -705,7 +705,7 @@ impl MutationRoot {
         Ok(new_perms)
     }
 
-    async fn remove_user_repo_permissions(
+    async fn rm_user_repo_perms(
         context: &GraphQLContext,
         repo: RepoId,
         user: UserId,
