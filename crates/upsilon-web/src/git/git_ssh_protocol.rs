@@ -41,6 +41,7 @@ impl Fairing for GitSshFairing {
     }
 
     async fn on_ignite(&self, mut rocket: Rocket<Build>) -> rocket::fairing::Result {
+        #![cfg_attr(windows, allow(unreachable_code, unused_mut))]
         #[cfg(windows)]
         {
             error!("SSH is not supported on Windows");

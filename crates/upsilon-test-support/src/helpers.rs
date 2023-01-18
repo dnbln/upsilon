@@ -306,6 +306,7 @@ fn upsilon_host_repo_git() -> PathBuf {
     PathBuf::from(host_repo_path)
 }
 
+// dummy rsa key for testing
 const SSH_KEY: &str = r#"
 -----BEGIN RSA PRIVATE KEY-----
 MIIJJwIBAAKCAgEAhE17+aVsD5385xt/ISaiTfKVsabZq8L5GfAem8DXRAXJ3VC+
@@ -368,7 +369,7 @@ impl TestCx {
                 info!("Cloning {} into {}", target_url, path.display());
 
                 let mut rcb = RemoteCallbacks::new();
-                rcb.credentials(|_url, _username_from_url, cred_ty| {
+                rcb.credentials(|_url, _username_from_url, _cred_ty| {
                     Cred::ssh_key_from_memory("git", None, &SSH_KEY, None)
                 });
 
