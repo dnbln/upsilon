@@ -520,7 +520,7 @@ impl Handler for RusshServerHandler {
                             .exit_status_request(channel, status_code)
                             .await;
 
-                        let _ = session_handle.eof(channel).await;
+                        // let _ = session_handle.eof(channel).await;
                         // let _ = session_handle.close(channel).await;
                     }
                 }
