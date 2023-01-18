@@ -421,7 +421,7 @@ impl Handler for RusshServerHandler {
         let mut shell_stdout = shell.stdout.take().unwrap();
         let mut shell_stderr = shell.stderr.take().unwrap();
 
-        tokio::spawn(async move {
+        let fut = async move {
             async fn forward<'a, R, Fut, Fwd>(
                 session_handle: &'a Handle,
                 chan_id: ChannelId,
@@ -484,29 +484,17 @@ impl Handler for RusshServerHandler {
                 tokio::pin!(stderr_fut);
 
                 let result = tokio::select! {
-                    result = shell.wait() => {
-                        Pipe::Exit(result)
-                    }
-                    result = &mut stdout_fut => {
-                        Pipe::Stdout(result)
-                    }
-                    result = &mut stderr_fut => {
-                        Pipe::Stderr(result)
-                    }
+                    result = shell.wait() => Pipe::Exit(result),
+                    result = &mut stdout_fut => Pipe::Stdout(result),
+                    result = &mut stderr_fut => Pipe::Stderr(result),
                 };
 
                 match result {
                     Pipe::Stdout(result) => {
-                        if let Err(err) = result {
-                            dbg!(err);
-                            break;
-                        }
+                        let _ = result?;
                     }
                     Pipe::Stderr(result) => {
-                        if let Err(err) = result {
-                            dbg!(err);
-                            break;
-                        }
+                        let _ = result?;
                     }
                     Pipe::Exit(result) => {
                         let status = result?;
@@ -520,14 +508,22 @@ impl Handler for RusshServerHandler {
                             .exit_status_request(channel, status_code)
                             .await;
 
-                        // let _ = session_handle.eof(channel).await;
-                        // let _ = session_handle.close(channel).await;
+                        let _ = session_handle.eof(channel).await;
+                        let _ = session_handle.close(channel).await;
+                        let _ = if status_code == 0 {
+                            session_handle.channel_success(channel).await
+                        } else {
+                            session_handle.channel_failure(channel).await
+                        };
                     }
                 }
             }
 
-            Ok::<_, RusshServerError>(())
-        });
+            #[allow(unreachable_code)] // need this for type inference
+            Ok::<(), RusshServerError>(())
+        };
+
+        tokio::spawn(fut);
 
         Ok((self, session))
     }
