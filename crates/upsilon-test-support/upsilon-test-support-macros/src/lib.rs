@@ -92,7 +92,7 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let mut config_path = quote! { ::upsilon_test_support::helpers::upsilon_basic_config };
 
     for attr in fun.attrs.drain_filter(|attr| {
-        ["offline", "git_daemon", "test_attr"]
+        ["offline", "git_daemon", "git_ssh", "test_attr"]
             .into_iter()
             .any(|it| attr.path.is_ident(it))
     }) {
@@ -124,6 +124,11 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
                 quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_git_daemon};
             test_attrs.append_all(quote! {
                 #[cfg_attr(all(windows, ci), ignore = "git-daemon behaves in weird ways on Windows, and may crash for no reason, so it's disabled on CI")]
+            });
+        } else if attr.path.is_ident("git_ssh") {
+            config_path = quote! {::upsilon_test_support::helpers::upsilon_basic_config_with_ssh};
+            test_attrs.append_all(quote! {
+                #[cfg_attr(windows, ignore = "git-shell is not available in git-for-windows, so ssh tests should be ignored")]
             });
         } else if attr.path.is_ident("test_attr") {
             let test_attr = attr.parse_args::<syn::Meta>()?;

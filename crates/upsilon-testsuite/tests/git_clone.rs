@@ -92,3 +92,13 @@ async fn clone_with_git_binary_over_git_protocol(cx: &mut TestCx) -> TestResult 
 
     Ok(())
 }
+
+#[upsilon_test]
+#[git_ssh]
+async fn clone_over_ssh(cx: &mut TestCx) -> TestResult {
+    make_global_mirror_from_host_repo(cx).await?;
+
+    cx.clone("upsilon-clone", upsilon_global_ssh).await?;
+
+    Ok(())
+}

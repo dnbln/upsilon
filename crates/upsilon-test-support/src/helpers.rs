@@ -135,6 +135,55 @@ users:
     .with_git_daemon_port(portpicker::pick_unused_port().expect("Cannot find an unused port"));
 }
 
+pub fn upsilon_basic_config_with_ssh(cfg: &mut TestCxConfig) {
+    cfg.with_config(
+        r#"
+vcs:
+  path: ./vcs/repos
+  jailed: true
+  git-protocol:
+    enable: false
+  http-protocol:
+    enable: true
+    push-auth-required: true
+
+git-ssh:
+  type: russh
+
+vcs-errors:
+  leak-hidden-repos: true
+  verbose: true
+
+web:
+  api:
+    origin: "https://api.upsilon.dnbln.dev"
+  web-interface:
+    origin: "https://upsilon.dnbln.dev"
+  docs:
+    origin: "https://docs.upsilon.dnbln.dev"
+
+debug:
+  debug-data: false
+
+data-backend:
+  type: in-memory
+  save: false
+
+  cache:
+    max-users: 1
+
+users:
+  register:
+    enabled: true
+  auth:
+    password:
+      type: argon2
+    "#,
+    )
+    .with_ssh_protocol()
+    .with_git_ssh_port(portpicker::pick_unused_port().expect("Cannot find an unused port"));
+}
+
 pub async fn make_global_mirror_from_github(cx: &mut TestCx) -> TestResult<String> {
     cx.require_online().await?;
 
@@ -287,6 +336,14 @@ impl TestCx {
         Ok(format!("{}/{path}", self.git_protocol_root))
     }
 
+    pub fn ssh_repo_url(&self, path: &str) -> TestResult<String> {
+        if !self.config.has_ssh_protocol {
+            bail!("Ssh protocol is not enabled");
+        }
+
+        Ok(format!("{}:{path}", self.ssh_protocol_root))
+    }
+
     fn build_target_url<F>(&self, remote_path: F) -> TestResult<String>
     where
         F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
@@ -304,6 +361,10 @@ impl TestCx {
                 protocol: GitAccessProtocol::Http,
                 path,
             } => self.http_repo_url(&path),
+            GitRemoteRef {
+                protocol: GitAccessProtocol::Ssh,
+                path,
+            } => self.ssh_repo_url(&path)?,
         };
 
         Ok(target_url)
@@ -604,6 +665,7 @@ impl GitRemoteRefBuilder {
 pub enum GitAccessProtocol {
     Http,
     Git,
+    Ssh,
 }
 
 pub fn upsilon_global(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
@@ -612,4 +674,8 @@ pub fn upsilon_global(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
 
 pub fn upsilon_global_git_protocol(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
     rb.protocol(GitAccessProtocol::Git).path("upsilon")
+}
+
+pub fn upsilon_global_ssh(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
+    rb.protocol(GitAccessProtocol::Ssh).path("upsilon")
 }

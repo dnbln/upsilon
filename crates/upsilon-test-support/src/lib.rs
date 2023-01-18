@@ -57,6 +57,7 @@ pub struct TestCx {
     client: Client,
     root: String,
     git_protocol_root: String,
+    ssh_protocol_root: String,
     child: Child,
     config: TestCxConfig,
     murderer_file: PathBuf,
@@ -211,6 +212,10 @@ impl TestCx {
             .kill_on_drop(true)
             .current_dir(&workdir);
 
+        if config.has_ssh_protocol {
+            cmd.env("UPSILON_GIT-SSH_PORT", config.git_ssh_port.to_string());
+        }
+
         let mut child = cmd.spawn().expect("Failed to spawn web server");
 
         struct WaitForPortFileFuture {
@@ -301,10 +306,14 @@ impl TestCx {
         let git_port = config.git_daemon_port;
         let git_protocol_root = format!("git://localhost:{git_port}");
 
+        let git_ssh_port = config.git_ssh_port;
+        let ssh_protocol_root = format!("git@localhost:{git_ssh_port}");
+
         Self {
             client: Client::new(&root),
             root,
             git_protocol_root,
+            ssh_protocol_root,
             child,
             config,
             murderer_file,
@@ -414,12 +423,14 @@ pub struct CxConfigVars {
 pub struct TestCxConfig {
     port: u16,
     git_daemon_port: u16,
+    git_ssh_port: u16,
     config: String,
     tempdir: PathBuf,
     source_file_path_hash: u64,
     test_name: &'static str,
     works_offline: bool,
     has_git_protocol: bool,
+    has_ssh_protocol: bool,
 }
 
 impl TestCxConfig {
@@ -427,12 +438,14 @@ impl TestCxConfig {
         let mut test_cx_config = Self {
             port: 0,
             git_daemon_port: 0,
+            git_ssh_port: 0,
             config: "".to_string(),
             tempdir: vars.workdir.clone(),
             source_file_path_hash: vars.source_file_path_hash,
             test_name: vars.test_name,
             works_offline: vars.works_offline,
             has_git_protocol: false,
+            has_ssh_protocol: false,
         };
 
         (vars.config_init)(&mut test_cx_config);
@@ -452,6 +465,16 @@ impl TestCxConfig {
 
     pub fn with_git_protocol(&mut self) -> &mut Self {
         self.has_git_protocol = true;
+        self
+    }
+
+    pub fn with_git_ssh_port(&mut self, port: u16) -> &mut Self {
+        self.git_ssh_port = port;
+        self
+    }
+
+    pub fn with_ssh_protocol(&mut self) -> &mut Self {
+        self.has_ssh_protocol = true;
         self
     }
 
