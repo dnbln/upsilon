@@ -397,7 +397,7 @@ impl Handler for RusshServerHandler {
         mut self,
         channel: ChannelId,
         data: &[u8],
-        session: Session,
+        mut session: Session,
     ) -> Result<(Self, Session), Self::Error> {
         let git_shell_cmd = std::str::from_utf8(data).expect("invalid utf8");
 
@@ -409,11 +409,21 @@ impl Handler for RusshServerHandler {
             cmd
         };
 
-        let mut shell = cmd
+        let mut shell = match cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+        {
+            Ok(shell) => {
+                session.channel_success(channel);
+                shell
+            }
+            Err(e) => {
+                session.channel_failure(channel);
+                return Err(RusshServerError::from(e));
+            }
+        };
 
         let session_handle = session.handle();
         let stdin = shell.stdin.take().unwrap();
@@ -509,12 +519,7 @@ impl Handler for RusshServerHandler {
                             .await;
 
                         let _ = session_handle.eof(channel).await;
-                        let _ = session_handle.close(channel).await;
-                        let _ = if status_code == 0 {
-                            session_handle.channel_success(channel).await
-                        } else {
-                            session_handle.channel_failure(channel).await
-                        };
+                        // let _ = session_handle.close(channel).await;
                     }
                 }
             }
