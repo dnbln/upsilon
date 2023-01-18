@@ -402,33 +402,10 @@ impl Handler for RusshServerHandler {
     ) -> Result<(Self, Session), Self::Error> {
         let git_shell_cmd = std::str::from_utf8(data).expect("invalid utf8");
 
-        #[cfg(not(windows))]
         let mut cmd = {
             let mut cmd = tokio::process::Command::new("git");
             cmd.arg("shell").arg("-c").arg(git_shell_cmd);
             cmd.current_dir(&self.internals.config.vcs_root_dir);
-            cmd.env(
-                "UPSILON_HOOKS_EXE",
-                upsilon_core::alt_exe("upsilon-git-hooks"),
-            );
-
-            cmd
-        };
-
-        #[cfg(windows)]
-        let mut cmd = {
-            // hack to use wsl instead, git-for-windows doesn't come with git-shell
-
-            let mut cmd = tokio::process::Command::new("bash");
-            cmd.arg("-c").arg(format!("git shell -c {git_shell_cmd:?}"));
-            cmd.current_dir(&self.internals.config.vcs_root_dir);
-            let wsl_git_hooks_exe = upsilon_core::alt_exe("upsilon-git-hooks")
-                .to_slash_lossy()
-                .replace("C:", "/mnt/c");
-
-            dbg!(&wsl_git_hooks_exe);
-
-            cmd.env("UPSILON_HOOKS_EXE", wsl_git_hooks_exe);
 
             cmd
         };
