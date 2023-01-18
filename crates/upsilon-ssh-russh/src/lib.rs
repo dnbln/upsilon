@@ -401,9 +401,13 @@ impl Handler for RusshServerHandler {
     ) -> Result<(Self, Session), Self::Error> {
         let git_shell_cmd = std::str::from_utf8(data).expect("invalid utf8");
 
+        let (service, path) = parse_git_shell_cmd(git_shell_cmd);
+
+        let reconstructed_shell_cmd = reconstruct_shell_cmd(service, path);
+
         let mut cmd = {
             let mut cmd = tokio::process::Command::new("git");
-            cmd.arg("shell").arg("-c").arg(git_shell_cmd);
+            cmd.arg("shell").arg("-c").arg(reconstructed_shell_cmd);
             cmd.current_dir(&self.internals.config.vcs_root_dir);
 
             cmd
@@ -532,4 +536,31 @@ impl Handler for RusshServerHandler {
 
         Ok((self, session))
     }
+}
+
+fn strip_apostrophes(s: &str) -> &str {
+    if s.starts_with('\'') && s.ends_with('\'') && s.len() >= 2 && !s[1..s.len() - 1].contains('\'')
+    {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    }
+}
+
+fn parse_git_shell_cmd(git_shell_cmd: &str) -> (&str, &str) {
+    if let Some(rec_pack_path) = git_shell_cmd.strip_prefix("git receive-pack ") {
+        ("receive-pack", strip_apostrophes(rec_pack_path))
+    } else if let Some(upl_ref_path) = git_shell_cmd.strip_prefix("git upload-pack ") {
+        ("upload-pack", strip_apostrophes(upl_ref_path))
+    } else if let Some(upl_arc_path) = git_shell_cmd.strip_prefix("git upload-archive ") {
+        ("upload-archive", strip_apostrophes(upl_arc_path))
+    } else {
+        panic!("invalid git shell command: {git_shell_cmd:?}");
+    }
+}
+
+fn reconstruct_shell_cmd(service: &str, path: &str) -> String {
+    let path = path.strip_prefix('/').unwrap_or(path);
+
+    format!("git {service} '{path}'")
 }
