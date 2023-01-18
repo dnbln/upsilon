@@ -3437,11 +3437,13 @@ version = "0.1.0"
 dependencies = [
  "humantime 2.1.0",
  "log",
+ "path-slash",
  "russh",
  "russh-keys",
  "serde",
  "thiserror",
  "tokio",
+ "upsilon-core",
  "upsilon-ssh",
 ]
 

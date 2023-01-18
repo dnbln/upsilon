@@ -27,7 +27,7 @@ use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
-use crate::config::DebugConfig;
+use crate::config::{DebugConfig, GitSshProtocol};
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
 
 pub struct ConfigManager;
@@ -93,7 +93,12 @@ impl Fairing for ConfigManager {
             rocket = rocket.attach(git::GitHttpProtocolFairing);
         }
 
-        if let Some(git_ssh) = git_ssh {
+        if let Some(mut git_ssh) = git_ssh {
+            match &mut git_ssh {
+                GitSshProtocol::Russh(russh) => {
+                    russh.set_vcs_root(vcs.get_path().to_path_buf());
+                }
+            }
             rocket = rocket.attach(git::GitSshFairing::new(git_ssh));
         }
 

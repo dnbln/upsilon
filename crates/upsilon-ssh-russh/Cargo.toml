@@ -13,5 +13,7 @@ tokio.workspace = true
 humantime.workspace = true
 serde.workspace = true
 log.workspace = true
+path-slash.workspace = true
 
 upsilon-ssh.workspace = true
+upsilon-core.workspace = true

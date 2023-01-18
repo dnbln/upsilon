@@ -14,19 +14,20 @@
  *    limitations under the License.
  */
 
-use std::future;
+use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::process::Stdio;
+use std::path::PathBuf;
+use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::info;
+use path_slash::PathExt;
 use russh::server::{Auth, Handle, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec, MethodSet};
 use russh_keys::key::PublicKey;
-use russh_keys::PublicKeyBase64;
 use serde::{Deserialize, Deserializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio::process::ChildStdin;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use upsilon_ssh::async_trait::async_trait;
@@ -57,6 +58,13 @@ pub struct RusshServerConfig {
     port: u16,
     auth_rejection_time_initial: Option<Duration>,
     auth_rejection_time: Duration,
+    vcs_root_dir: PathBuf,
+}
+
+impl RusshServerConfig {
+    pub fn set_vcs_root(&mut self, vcs_root_dir: PathBuf) {
+        self.vcs_root_dir = vcs_root_dir;
+    }
 }
 
 impl Default for RusshServerConfig {
@@ -65,6 +73,7 @@ impl Default for RusshServerConfig {
             port: 22,
             auth_rejection_time_initial: Some(Duration::from_secs(1)),
             auth_rejection_time: Duration::from_secs(10),
+            vcs_root_dir: PathBuf::new(),
         }
     }
 }
@@ -108,9 +117,7 @@ fn parse_duration<'de, D>(s: &str) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(humantime::parse_duration(s)
-        .map_err(|e| serde::de::Error::custom(e))?
-        .into())
+    humantime::parse_duration(s).map_err(serde::de::Error::custom)
 }
 
 fn deserialize_duration<'de, D>(d: D) -> Result<Duration, D::Error>
@@ -158,12 +165,12 @@ impl SSHServerInitializer for RusshServerInitializer {
         let join_handle = {
             let config = config.clone();
 
-            let mut russh_config = russh::server::Config::default();
-            russh_config.auth_rejection_time_initial = config.auth_rejection_time_initial;
-            russh_config.auth_rejection_time = config.auth_rejection_time;
-            russh_config
-                .keys
-                .push(russh_keys::key::KeyPair::generate_ed25519().unwrap());
+            let russh_config = russh::server::Config {
+                auth_rejection_time_initial: config.auth_rejection_time_initial,
+                auth_rejection_time: config.auth_rejection_time,
+                keys: vec![russh_keys::key::KeyPair::generate_ed25519().unwrap()],
+                ..Default::default()
+            };
 
             tokio::spawn(async move {
                 let server = receiver.await.unwrap();
@@ -262,6 +269,7 @@ impl Server for RusshServer {
 pub struct RusshServerHandler {
     internals: Arc<RusshServerInternals>,
     peer_addr: Option<SocketAddr>,
+    stdin: HashMap<ChannelId, ChildStdin>,
 }
 
 impl RusshServerHandler {
@@ -269,6 +277,7 @@ impl RusshServerHandler {
         Self {
             internals: Arc::clone(&server.internals),
             peer_addr,
+            stdin: HashMap::new(),
         }
     }
 
@@ -279,6 +288,18 @@ impl RusshServerHandler {
                 proceed_with_methods: Some(MethodSet::PUBLICKEY),
             },
         ))
+    }
+
+    async fn send_stdin(
+        &mut self,
+        channel_id: ChannelId,
+        data: &[u8],
+    ) -> Result<(), RusshServerError> {
+        if let Some(stdin) = self.stdin.get_mut(&channel_id) {
+            stdin.write_all(data).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -342,11 +363,14 @@ impl Handler for RusshServerHandler {
     }
 
     async fn channel_eof(
-        self,
+        mut self,
         channel: ChannelId,
-        mut session: Session,
+        session: Session,
     ) -> Result<(Self, Session), Self::Error> {
-        session.close(channel);
+        let stdin = self.stdin.remove(&channel);
+        if let Some(mut stdin) = stdin {
+            stdin.shutdown().await?;
+        }
 
         Ok((self, session))
     }
@@ -359,29 +383,80 @@ impl Handler for RusshServerHandler {
         Ok((self, true, session))
     }
 
-    async fn exec_request(
-        self,
+    async fn data(
+        mut self,
         channel: ChannelId,
         data: &[u8],
         session: Session,
     ) -> Result<(Self, Session), Self::Error> {
-        let mut shell = tokio::process::Command::new("bash")
-            .arg("~git/git-sh")
-            .arg(std::str::from_utf8(data).expect("invalid utf8"))
+        self.send_stdin(channel, data).await?;
+
+        Ok((self, session))
+    }
+
+    async fn exec_request(
+        mut self,
+        channel: ChannelId,
+        data: &[u8],
+        session: Session,
+    ) -> Result<(Self, Session), Self::Error> {
+        let git_shell_cmd = std::str::from_utf8(data).expect("invalid utf8");
+
+        #[cfg(not(windows))]
+        let mut cmd = {
+            let mut cmd = tokio::process::Command::new("git");
+            cmd.arg("shell").arg("-c").arg(git_shell_cmd);
+            cmd.current_dir(&self.internals.config.vcs_root_dir);
+            cmd.env(
+                "UPSILON_HOOKS_EXE",
+                upsilon_core::alt_exe("upsilon-git-hooks"),
+            );
+
+            cmd
+        };
+
+        #[cfg(windows)]
+        let mut cmd = {
+            // hack to use wsl instead, git-for-windows doesn't come with git-shell
+
+            let mut cmd = tokio::process::Command::new("bash");
+            cmd.arg("-c").arg(format!("git shell -c {git_shell_cmd:?}"));
+            cmd.current_dir(&self.internals.config.vcs_root_dir);
+            let wsl_git_hooks_exe = upsilon_core::alt_exe("upsilon-git-hooks")
+                .to_slash_lossy()
+                .replace("C:", "/mnt/c");
+
+            dbg!(&wsl_git_hooks_exe);
+
+            cmd.env("UPSILON_HOOKS_EXE", wsl_git_hooks_exe);
+
+            cmd
+        };
+
+        let mut shell = cmd
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
 
         let session_handle = session.handle();
+        let stdin = shell.stdin.take().unwrap();
+        self.stdin.insert(channel, stdin);
         let mut shell_stdout = shell.stdout.take().unwrap();
         let mut shell_stderr = shell.stderr.take().unwrap();
 
         tokio::spawn(async move {
-            async fn forward<R: AsyncRead + Send + Unpin>(
-                session_handle: &Handle,
+            async fn forward<'a, R, Fut, Fwd>(
+                session_handle: &'a Handle,
                 chan_id: ChannelId,
                 r: &mut R,
-            ) -> Result<(), RusshServerError> {
+                mut fwd: Fwd,
+            ) -> Result<(), RusshServerError>
+            where
+                R: AsyncRead + Send + Unpin,
+                Fut: std::future::Future<Output = Result<(), CryptoVec>> + 'a,
+                Fwd: FnMut(&'a Handle, ChannelId, CryptoVec) -> Fut,
+            {
                 const BUF_SIZE: usize = 1024 * 32;
 
                 let mut buf = [0u8; BUF_SIZE];
@@ -393,9 +468,9 @@ impl Handler for RusshServerHandler {
                         break;
                     }
 
-                    if let Err(_) = session_handle
-                        .data(chan_id, CryptoVec::from_slice(&buf))
+                    if fwd(session_handle, chan_id, CryptoVec::from_slice(&buf[..read]))
                         .await
+                        .is_err()
                     {
                         break;
                     }
@@ -404,18 +479,77 @@ impl Handler for RusshServerHandler {
                 Ok(())
             }
 
-            let result = shell.wait().await;
+            loop {
+                enum Pipe {
+                    Stdout(Result<(), RusshServerError>),
+                    Stderr(Result<(), RusshServerError>),
+                    Exit(std::io::Result<ExitStatus>),
+                }
 
-            let status = result?;
+                let stdout_fut = forward(
+                    &session_handle,
+                    channel,
+                    &mut shell_stdout,
+                    |handle, chan, data| async move { handle.data(chan, data).await },
+                );
 
-            forward(&session_handle, channel, &mut shell_stdout).await?;
-            forward(&session_handle, channel, &mut shell_stderr).await?; // TODO: figure out how to send stderr
+                tokio::pin!(stdout_fut);
 
-            let _ = session_handle
-                .exit_status_request(channel, status.code().expect("Terminated by signal") as u32) // TODO: handle signals
-                .await;
+                let stderr_fut = forward(
+                    &session_handle,
+                    channel,
+                    &mut shell_stderr,
+                    |handle, chan, data| async move {
+                        // SSH_EXTENDED_DATA_STDERR = 1
+                        handle.extended_data(chan, 1, data).await
+                    },
+                );
 
-            let _ = session_handle.eof(channel).await;
+                tokio::pin!(stderr_fut);
+
+                let result = tokio::select! {
+                    result = shell.wait() => {
+                        Pipe::Exit(result)
+                    }
+                    result = &mut stdout_fut => {
+                        Pipe::Stdout(result)
+                    }
+                    result = &mut stderr_fut => {
+                        Pipe::Stderr(result)
+                    }
+                };
+
+                match result {
+                    Pipe::Stdout(result) => {
+                        if let Err(err) = result {
+                            dbg!(err);
+                            break;
+                        }
+                    }
+                    Pipe::Stderr(result) => {
+                        if let Err(err) = result {
+                            dbg!(err);
+                            break;
+                        }
+                    }
+                    Pipe::Exit(result) => {
+                        let status = result?;
+
+                        stdout_fut.await?;
+                        stderr_fut.await?;
+
+                        let _ = session_handle
+                            .exit_status_request(
+                                channel,
+                                status.code().expect("Terminated by signal") as u32,
+                            ) // TODO: handle signals
+                            .await;
+
+                        let _ = session_handle.eof(channel).await;
+                        // let _ = session_handle.close(channel).await;
+                    }
+                }
+            }
 
             Ok::<_, RusshServerError>(())
         });
