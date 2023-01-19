@@ -15,9 +15,10 @@
  */
 
 use std::fmt;
-use anyhow::bail;
 
+use anyhow::bail;
 use serde_json::Value;
+
 use crate::TestResult;
 
 #[macro_export]
