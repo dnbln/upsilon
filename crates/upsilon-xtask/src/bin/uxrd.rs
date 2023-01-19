@@ -22,8 +22,7 @@ fn main() -> XtaskResult<()> {
         "xtask",
         "run-dev",
         @workdir = ws_root!(),
-        @logging-error-and-returnok
-    );
+    )?;
 
     Ok(())
 }

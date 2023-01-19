@@ -29,10 +29,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
-use std::task::{Context, Poll};
+use std::task::{Context as AsyncCx, Poll};
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{bail, format_err, Context};
 use log::{error, info};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Child;
@@ -153,7 +153,7 @@ impl TestCx {
         Ok(())
     }
 
-    pub async fn init(config: TestCxConfig) -> Self {
+    pub async fn init(config: TestCxConfig) -> TestResult<Self> {
         pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
 
         let workdir = config.workdir();
@@ -161,12 +161,12 @@ impl TestCx {
         if workdir.exists() {
             tokio::fs::remove_dir_all(&workdir)
                 .await
-                .expect("Failed to clean workdir");
+                .context("Failed to remove workdir")?;
         }
 
         tokio::fs::create_dir_all(&workdir)
             .await
-            .expect("Failed to create workdir");
+            .context("Failed to create workdir")?;
 
         const CONFIG_FILE: &str = "upsilon.yaml";
 
@@ -174,28 +174,25 @@ impl TestCx {
 
         tokio::fs::write(&config_path, &config.config)
             .await
-            .expect("Failed to write config file");
+            .context("Failed to write config file")?;
 
-        let path = {
-            let path = env_var("UPSILON_WEB_BIN");
-            PathBuf::from(path)
-        };
+        let path = env_var_path("UPSILON_WEB_BIN");
 
         let portfile_path = workdir.join(".port");
 
         if portfile_path.exists() {
             tokio::fs::remove_file(&portfile_path)
                 .await
-                .expect("Failed to remove port file");
+                .context("Failed to remove port file")?;
         }
 
         const K_FILE_NAME: &str = "gracefully-shutdown-k";
 
-        let k_file = workdir.join(K_FILE_NAME);
+        let kfile = workdir.join(K_FILE_NAME);
 
         let mut cmd = tokio::process::Command::new(path);
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &k_file);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &kfile);
 
         cmd.env("UPSILON_PORT", config.port.to_string())
             .env(
@@ -216,7 +213,7 @@ impl TestCx {
             cmd.env("UPSILON_GIT-SSH_PORT", config.git_ssh_port.to_string());
         }
 
-        let mut child = cmd.spawn().expect("Failed to spawn web server");
+        let mut child = cmd.spawn().context("Failed to spawn web server")?;
 
         struct WaitForPortFileFuture {
             port_file_path: PathBuf,
@@ -225,7 +222,7 @@ impl TestCx {
         impl Future for WaitForPortFileFuture {
             type Output = ();
 
-            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            fn poll(self: Pin<&mut Self>, cx: &mut AsyncCx<'_>) -> Poll<Self::Output> {
                 if self.get_mut().port_file_path.exists() {
                     Poll::Ready(())
                 } else {
@@ -246,7 +243,7 @@ impl TestCx {
         impl<'a> Future for WaitForWebServerExitFuture<'a> {
             type Output = std::io::Result<std::process::ExitStatus>;
 
-            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            fn poll(self: Pin<&mut Self>, cx: &mut AsyncCx<'_>) -> Poll<Self::Output> {
                 let result = self.get_mut().child.try_wait();
 
                 match result {
@@ -279,16 +276,16 @@ impl TestCx {
         match done {
             Done::PortFile => {}
             Done::WebServerExit(exit_status) => {
-                let exit_status = exit_status.expect("Failed to get web server exit status");
+                let exit_status = exit_status.context("Failed to get web server exit status")?;
 
                 Self::dump_streams(&mut child)
                     .await
-                    .expect("Failed to dump streams");
+                    .context("Failed to dump streams")?;
 
-                panic!("Web server exited with status {exit_status}");
+                bail!("Web server exited with status {exit_status}");
             }
             Done::Timeout => {
-                panic!(
+                bail!(
                     "Failed to start web server in {} seconds",
                     PORT_FILE_TIMEOUT.as_secs()
                 );
@@ -297,7 +294,7 @@ impl TestCx {
 
         let port = tokio::fs::read_to_string(portfile_path)
             .await
-            .expect("Failed to read port file");
+            .context("Failed to read port file")?;
 
         let port: u16 = port.trim().parse().expect("Failed to parse port");
 
@@ -309,18 +306,20 @@ impl TestCx {
         let git_ssh_port = config.git_ssh_port;
         let ssh_protocol_root = format!("ssh://git@localhost:{git_ssh_port}");
 
-        Self {
+        let cx = Self {
             client: Client::new(&root),
             root,
             git_protocol_root,
             ssh_protocol_root,
             child,
             config,
-            kfile: k_file,
+            kfile,
             required_online: false,
             tokens: HashMap::new(),
             cleaned_up: false,
-        }
+        };
+
+        Ok(cx)
     }
 
     pub async fn require_online(&mut self) -> TestResult {
@@ -378,7 +377,7 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
         let status = self
             .child
             .try_wait()?
-            .expect("Child should have exited by now");
+            .ok_or_else(|| format_err!("Child should have exited by now"))?;
 
         Self::dump_streams(&mut self.child).await?;
 
@@ -388,9 +387,7 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
 
         let workdir = self.config.workdir();
 
-        tokio::fs::remove_dir_all(&workdir)
-            .await
-            .expect("Failed to delete workdir");
+        tokio::fs::remove_dir_all(&workdir).await?;
 
         if !self.config.works_offline && !self.required_online {
             bail!(
@@ -518,4 +515,8 @@ fn env_var(name: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| {
         panic!("{name} not set; did you use `cargo xtask test` to run the tests?")
     })
+}
+
+fn env_var_path(name: &str) -> PathBuf {
+    PathBuf::from(env_var(name))
 }

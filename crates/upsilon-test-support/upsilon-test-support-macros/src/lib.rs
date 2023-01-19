@@ -250,18 +250,18 @@ impl InnerFnCall {
             }
 
             setup.append_all(quote! {
-                let mut #param_name = <#ty>::init(#param_name_config).await;
+                let mut #param_name = <#ty>::init(#param_name_config).await?;
             });
 
             for setup_fn in find_attrs(attrs, "setup")? {
                 setup.append_all(quote! {
-                    #setup_fn(&mut #param_name).await;
+                    #setup_fn(&mut #param_name).await?;
                 });
             }
 
             for teardown_fn in find_attrs(attrs, "teardown")? {
                 teardown.append_all(quote! {
-                    #teardown_fn(&mut #param_name).await;
+                    #teardown_fn(&mut #param_name).await?;
                 });
             }
 
@@ -278,26 +278,32 @@ impl InnerFnCall {
             });
         }
 
+        let test_wrapper_fn_name = format_ident!("__upsilon_test_wrapper");
         let inner_fun_name = &self.inner_fun_name;
         let await_token = self.asyncness.as_ref().map(|_| quote! { .await });
 
         tokens.append_all(quote! {
-            #vars_setup
+            async fn #test_wrapper_fn_name() -> TestResult<()> {
+                #vars_setup
 
-            #setup
+                #setup
 
-            let test_result = #inner_fun_name(#(#parameters),*) #await_token;
+                let test_result = #inner_fun_name(#(#parameters),*) #await_token;
 
-            #teardown
+                #teardown
 
-            #finish
+                #finish
 
-            if let Err(e) = test_result {
-                panic!("Test result is Err: {}", e);
+                let _ = test_result?;
+
+                match #panic_reason_name {
+                    Some(e) => Err(e),
+                    None => Ok(()),
+                }
             }
 
-            if let Some(e) = #panic_reason_name {
-                panic!("Error: {}", e);
+            if let Err(e) = #test_wrapper_fn_name().await {
+                panic!("Test result is Err: {}", e);
             }
         });
 

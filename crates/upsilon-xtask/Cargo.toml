@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["string"] }
 git2.workspace = true
 glob = "0.3.1"
 path-slash.workspace = true
