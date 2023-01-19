@@ -220,33 +220,23 @@ impl TestCx {
         }
 
         impl Future for WaitForPortFileFuture {
-            type Output = TestResult<u16>;
+            type Output = ();
 
             fn poll(self: Pin<&mut Self>, cx: &mut AsyncCx<'_>) -> Poll<Self::Output> {
                 let this = self.get_mut();
                 let file = &this.port_file_path;
 
                 if file.exists() {
-                    match std::fs::read_to_string(file) {
-                        Ok(s) => {
-                            // the file can be there, but the webserver didn't write & flush yet,
-                            // leading to a concurrency bug that causes `s` to be empty. We shall
-                            // wait if that is the case, and only parse the port after `s` is
-                            // non-empty.
-                            if s.is_empty() {
-                                cx.waker().wake_by_ref();
-                                return Poll::Pending;
-                            }
+                    let Ok(metadata) = file.metadata() else {
+                        return Poll::Pending;
+                    };
 
-                            let port = s
-                                .trim()
-                                .parse::<u16>()
-                                .context("Failed to parse port file content");
-
-                            Poll::Ready(port.map_err(Into::into))
-                        }
-                        Err(e) => Poll::Ready(Err(e.into())),
+                    if metadata.len() == 0 {
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
                     }
+
+                    Poll::Ready(())
                 } else {
                     cx.waker().wake_by_ref();
                     Poll::Pending
