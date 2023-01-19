@@ -557,12 +557,12 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
 
         let idx = INDEX.fetch_add(1, Ordering::SeqCst);
 
-        let murderer_file = self
+        let kfile = self
             .tempdir(&format!("shutdown-{idx}"))
             .await?
             .join("shutdown");
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut tokio_cmd, &murderer_file);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut tokio_cmd, &kfile);
 
         tokio_cmd.stdout(Stdio::piped());
         tokio_cmd.stderr(Stdio::piped());

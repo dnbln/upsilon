@@ -34,8 +34,8 @@ use clap::Parser;
 struct Run {
     program: String,
     /// On the creation of this file, kill the program.
-    #[clap(short, long = "murderer")]
-    murderer_file: Option<PathBuf>,
+    #[clap(short, long = "kfile")]
+    kfile: Option<PathBuf>,
     #[clap(short, long = "arg")]
     args: Vec<String>,
 }
@@ -79,7 +79,7 @@ fn main() {
     let Run {
         program,
         args,
-        murderer_file,
+        kfile,
     } = run;
 
     let mut cmd = std::process::Command::new(program);
@@ -91,7 +91,7 @@ fn main() {
     }
 
     loop {
-        let murderer_file_created = murderer_file.as_ref().map_or(false, |f| f.exists());
+        let kfile_created = kfile.as_ref().map_or(false, |f| f.exists());
 
         {
             let mut lock = child_mutex.lock().unwrap();
@@ -103,7 +103,7 @@ fn main() {
                     std::process::exit(status.code().unwrap_or(0));
                 }
 
-                if murderer_file_created {
+                if kfile_created {
                     kill_child(&child);
                     std::process::exit(0);
                 }

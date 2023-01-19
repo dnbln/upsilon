@@ -60,7 +60,7 @@ pub struct TestCx {
     ssh_protocol_root: String,
     child: Child,
     config: TestCxConfig,
-    murderer_file: PathBuf,
+    kfile: PathBuf,
 
     required_online: bool,
 
@@ -189,13 +189,13 @@ impl TestCx {
                 .expect("Failed to remove port file");
         }
 
-        const MURDERER_FILE_NAME: &str = "gracefully-shutdown-murderer";
+        const K_FILE_NAME: &str = "gracefully-shutdown-k";
 
-        let murderer_file = workdir.join(MURDERER_FILE_NAME);
+        let k_file = workdir.join(K_FILE_NAME);
 
         let mut cmd = tokio::process::Command::new(path);
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &murderer_file);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &k_file);
 
         cmd.env("UPSILON_PORT", config.port.to_string())
             .env(
@@ -316,7 +316,7 @@ impl TestCx {
             ssh_protocol_root,
             child,
             config,
-            murderer_file,
+            kfile: k_file,
             required_online: false,
             tokens: HashMap::new(),
             cleaned_up: false,
@@ -355,7 +355,7 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
     pub async fn finish(&mut self) -> TestResult<()> {
         self.cleaned_up = true;
 
-        tokio::fs::write(&self.murderer_file, "").await?;
+        tokio::fs::write(&self.kfile, "").await?;
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
