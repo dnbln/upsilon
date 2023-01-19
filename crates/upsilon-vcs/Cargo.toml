@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+git2.workspace = true
+path-slash.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
-path-slash.workspace = true
-git2.workspace = true
 
 upsilon-core.workspace = true
 upsilon-git-hooks.workspace = true

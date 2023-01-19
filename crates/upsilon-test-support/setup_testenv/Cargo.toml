@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-upsilon-test-support.workspace = true
-pretty_env_logger.workspace = true
-log.workspace = true
 git2.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true
+
+upsilon-test-support.workspace = true

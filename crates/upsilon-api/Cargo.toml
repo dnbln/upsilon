@@ -6,19 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket.workspace = true
-serde.workspace = true
-thiserror.workspace = true
-futures.workspace = true
-tokio = { workspace = true, features = ["full"] }
+chrono.workspace = true
 clap.workspace = true
-linkme = "0.3"
+futures.workspace = true
 juniper.workspace = true
 juniper_rocket = "0.8.2"
 jwt = { version = "0.16.0", features = ["openssl"] }
-path-slash.workspace = true
+linkme.workspace = true
 openssl.workspace = true
-chrono.workspace = true
+path-slash.workspace = true
+rocket.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["full"] }
 
 upsilon-asyncvcs.workspace = true
 upsilon-core.workspace = true

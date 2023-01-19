@@ -10,12 +10,11 @@ default = []
 dump_gql_response = []
 
 [dependencies]
-tokio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
-clap.workspace = true
-anyhow.workspace = true
-
-log = "0.4"
-pretty_env_logger = "0.4"
+tokio.workspace = true

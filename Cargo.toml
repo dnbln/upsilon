@@ -7,31 +7,32 @@ members = [
 default-members = ["crates/cargo-guard"]
 
 [workspace.dependencies]
+anyhow = "1.0.66"
+async-trait = "0.1.59"
 bitflags = "2.0.0-rc.1"
+chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.26", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-rocket = { version = "0.5.0-rc.2", features = ["json"] }
+ctrlc = "3.2.0"
+futures = "0.3.25"
+git2 = "0.15"
+humantime = "2.1.0"
+juniper = "0.15.10"
+lazy_static = "1.4.0"
+libc = "0.2"
+linkme = "0.3"
+log = "0.4.17"
+openssl = "0.10.43"
+path-slash = "0.2.1"
+pretty_env_logger = "0.4.0"
 regex = "1.7.0"
 reqwest = "0.11.13"
-anyhow = "1.0.66"
-path-slash = "0.2.1"
-lazy_static = "1.4.0"
-humantime = "2.1.0"
-tokio = { version = "1.22.0", features = ["full"] }
-futures = "0.3.25"
-linkme = "0.3"
+rocket = { version = "0.5.0-rc.2", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "1.0"
-juniper = "0.15.10"
-openssl = "0.10.43"
-chrono = { version = "0.4.23", features = ["serde"] }
-async-trait = "0.1.59"
-git2 = "0.15"
-libc = "0.2"
+tokio = { version = "1.22.0", features = ["full"] }
 winapi = "0.3"
-log = "0.4.17"
-pretty_env_logger = "0.4.0"
-ctrlc = "3.2.0"
+
 
 upsilon-api = { path = "crates/upsilon-api" }
 upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }
@@ -44,7 +45,6 @@ upsilon-data-pg = { path = "crates/upsilon-data-pg" }
 upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
 upsilon-gracefully-shutdown = { path = "crates/upsilon-gracefully-shutdown" }
 upsilon-gracefully-shutdown-host = { path = "crates/upsilon-gracefully-shutdown-host" }
-upsilon-hook-registrar = { path = "crates/upsilon-hook-registrar" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-models = { path = "crates/upsilon-models" }
 upsilon-procx = { path = "crates/upsilon-procx" }

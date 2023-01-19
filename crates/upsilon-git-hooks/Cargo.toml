@@ -10,20 +10,11 @@ default = []
 build-bin = ["clap", "git2", "anyhow"]
 
 [dependencies]
+anyhow = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+git2 = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
-
-[dependencies.clap]
-workspace = true
-optional = true
-
-[dependencies.git2]
-workspace = true
-optional = true
-
-[dependencies.anyhow]
-workspace = true
-optional = true
 
 [[bin]]
 name = "upsilon-git-hooks"

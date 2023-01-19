@@ -40,7 +40,7 @@ fn run_hook(hook: Update) -> GitHookResult<()> {
         repo_config,
     } = hook;
 
-    println!("update {} {} {}", ref_name, old_oid, new_oid);
+    println!("update {ref_name} {old_oid} {new_oid}");
     dbg!(&repo_config);
 
     if repo_config

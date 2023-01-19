@@ -1108,9 +1108,9 @@ dependencies = [
 
 [[package]]
 name = "glob"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
+checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "graphql-parser"
@@ -1747,6 +1747,15 @@ dependencies = [
  "cfg-if",
  "libc",
  "static_assertions",
+]
+
+[[package]]
+name = "nom8"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae01545c9c7fc4486ab7debaf2aad7003ac19431791868fb2e8066df97fad2f8"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -3064,6 +3073,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_datetime"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "808b51e57d0ef8f71115d8f3a01e7d3750d01c79cac4b3eda910f4389fdf92fd"
+
+[[package]]
+name = "toml_edit"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a34cc558345efd7e88b9eda9626df2138b80bb46a7606f695e751c892bc7dac6"
+dependencies = [
+ "indexmap",
+ "itertools",
+ "nom8",
+ "toml_datetime",
+]
+
+[[package]]
 name = "tower-service"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3380,16 +3407,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "upsilon-hook-registrar"
-version = "0.1.0"
-dependencies = [
- "linkme",
- "thiserror",
- "upsilon-data",
- "upsilon-models",
-]
-
-[[package]]
 name = "upsilon-id"
 version = "0.1.0"
 dependencies = [
@@ -3541,6 +3558,9 @@ dependencies = [
  "anyhow",
  "clap",
  "git2",
+ "glob",
+ "path-slash",
+ "toml_edit",
  "zip",
 ]
 

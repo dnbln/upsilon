@@ -7,15 +7,16 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+colored = "2.0"
+git2.workspace = true
+log.workspace = true
+portpicker = "0.1.1"
+pretty_env_logger.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-git2.workspace = true
 similar = "2.2"
-portpicker = "0.1.1"
-colored = "2.0"
-upsilon-test-support-macros = { path = "upsilon-test-support-macros" }
+tokio.workspace = true
+
 upsilon-gracefully-shutdown.workspace = true
-log.workspace = true
-pretty_env_logger.workspace = true
+upsilon-test-support-macros = { path = "upsilon-test-support-macros" }

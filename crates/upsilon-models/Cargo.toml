@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bcrypt = "0.13"
+bitflags.workspace = true
+juniper.workspace = true
+rust-argon2 = "1"
 serde.workspace = true
 thiserror.workspace = true
-rust-argon2 = "1"
-bcrypt = "0.13"
-juniper.workspace = true
-bitflags.workspace = true
 
 upsilon-core.workspace = true
 upsilon-id.workspace = true
