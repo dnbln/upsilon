@@ -83,6 +83,9 @@ enum App {
     #[clap(name = "graphql-schema")]
     #[clap(alias = "gqls")]
     GraphQLSchema,
+    #[clap(name = "graphql-schema-check")]
+    #[clap(alias = "gqlschk")]
+    GraphQLSchemaCheck,
     #[clap(name = "check-cargo-dep-order")]
     #[clap(alias = "ccdo")]
     CheckCargoTomlDepOrder,
@@ -387,6 +390,17 @@ fn check_if_any_deps_in_ws_deps(
     Ok(())
 }
 
+fn gqls_path() -> PathBuf {
+    ws_path!("schemas" / "graphql" / "schema.graphql")
+}
+
+fn extend_filext_new(p: impl AsRef<Path>) -> PathBuf {
+    p.as_ref().with_file_name(format!(
+        "{}.new",
+        p.as_ref().file_name().unwrap().to_string_lossy()
+    ))
+}
+
 const ALIASES: &[&str] = &["uxrd"];
 
 fn main_impl() -> XtaskResult<()> {
@@ -564,9 +578,42 @@ fn main_impl() -> XtaskResult<()> {
                 "run",
                 "-p", "upsilon-api",
                 "--bin", "dump_graphql_schema",
-                "--", ws_path!("schemas" / "graphql" / "schema.graphql"),
+                "--", gqls_path(),
                 @workdir = ws_root!(),
             )?;
+        }
+        App::GraphQLSchemaCheck => {
+            let p = gqls_path();
+            let temp_p = extend_filext_new(&p);
+
+            cargo_cmd!(
+                "run",
+                "-p", "upsilon-api",
+                "--bin", "dump_graphql_schema",
+                "--", &temp_p,
+                @workdir = ws_root!(),
+            )?;
+
+            let contents = std::fs::read_to_string(&p)?;
+            let new_contents = std::fs::read_to_string(&temp_p)?;
+
+            let up_to_date = contents == new_contents;
+
+            if !up_to_date {
+                let diff = upsilon_diff_util::build_diff(&contents, &new_contents);
+
+                eprintln!("GraphQL schema is out of date. Run `cargo xtask gqls` to update it.");
+                eprintln!("Diff:");
+                eprintln!("=====================");
+                eprintln!("{}", diff);
+                eprintln!("=====================");
+            }
+
+            std::fs::remove_file(&temp_p)?;
+
+            if !up_to_date {
+                std::process::exit(1);
+            }
         }
         App::CheckCargoTomlDepOrder => {
             let mut out_of_order = vec![];

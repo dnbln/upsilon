@@ -3368,6 +3368,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "upsilon-diff-util"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "similar",
+]
+
+[[package]]
 name = "upsilon-git-hooks"
 version = "0.1.0"
 dependencies = [
@@ -3472,7 +3480,6 @@ name = "upsilon-test-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "colored",
  "git2",
  "log",
  "portpicker",
@@ -3480,8 +3487,8 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "similar",
  "tokio",
+ "upsilon-diff-util",
  "upsilon-gracefully-shutdown",
  "upsilon-test-support-macros",
 ]
@@ -3561,6 +3568,7 @@ dependencies = [
  "glob",
  "path-slash",
  "toml_edit",
+ "upsilon-diff-util",
  "zip",
 ]
 

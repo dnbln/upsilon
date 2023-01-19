@@ -15,8 +15,10 @@
  */
 
 use std::fmt;
+use anyhow::bail;
 
 use serde_json::Value;
+use crate::TestResult;
 
 #[macro_export]
 macro_rules! expanded_json {
@@ -34,66 +36,22 @@ macro_rules! assert_json_eq {
         let actual = $crate::expanded_json!($actual);
         let expected = $crate::expanded_json!($expected);
 
-        $crate::json_diff::_assert_same_json(&actual, &expected);
+        $crate::json_diff::_assert_same_json(&actual, &expected)?;
     }};
 }
 
-enum ChangeTag {
-    Added,
-    Removed,
-    Equal,
-}
-
-struct JsonDiffResult {
-    lines: Vec<(ChangeTag, String, Option<usize>, Option<usize>)>,
-}
-
-impl fmt::Display for JsonDiffResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (tag, line, old_index, new_index) in &self.lines {
-            use colored::Colorize;
-
-            let line_nums = match (old_index, new_index) {
-                (Some(old), Some(new)) => format!("{old:>2} {new:>2}"),
-                (Some(old), None) => format!("{old:>2}   "),
-                (None, Some(new)) => format!("   {new:>2}"),
-                (None, None) => unreachable!("Both indices are None"),
-            };
-
-            match tag {
-                ChangeTag::Added => write!(f, "{}", format!("{line_nums} + {line}").green())?,
-                ChangeTag::Removed => write!(f, "{}", format!("{line_nums} - {line}").red())?,
-                ChangeTag::Equal => write!(f, "{line_nums}   {line}")?,
-            }
-        }
-        Ok(())
-    }
-}
-
-pub fn _assert_same_json(actual: &Value, expected: &Value) {
+pub fn _assert_same_json(actual: &Value, expected: &Value) -> TestResult {
     if expected != actual {
         let expected_string = serde_json::to_string_pretty(expected).unwrap();
         let actual_string = serde_json::to_string_pretty(actual).unwrap();
 
-        let mut diff = JsonDiffResult { lines: Vec::new() };
-        let text_diff = similar::TextDiff::from_lines(&expected_string, &actual_string);
+        let diff = upsilon_diff_util::build_diff(&expected_string, &actual_string);
 
-        for change in text_diff.iter_all_changes() {
-            let tag = match change.tag() {
-                similar::ChangeTag::Delete => ChangeTag::Removed,
-                similar::ChangeTag::Insert => ChangeTag::Added,
-                similar::ChangeTag::Equal => ChangeTag::Equal,
-            };
+        let sep = "=".repeat(20);
+        eprintln!("JSONs are not equal:\n{sep}\n{diff}\n{sep}\n\n");
 
-            let old_index = change.old_index();
-            let new_index = change.new_index();
-
-            diff.lines
-                .push((tag, change.to_string(), old_index, new_index));
-        }
-
-        eprint!("{}", diff);
-
-        panic!("JSONs are not the same");
+        bail!("JSONs are not the same: \n{diff}");
     }
+
+    Ok(())
 }
