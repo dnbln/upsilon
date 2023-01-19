@@ -3460,6 +3460,7 @@ dependencies = [
 name = "upsilon-ssh-russh"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "humantime 2.1.0",
  "log",
  "russh",

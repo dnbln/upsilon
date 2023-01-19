@@ -469,33 +469,35 @@ impl Handler for RusshServerHandler {
                 Ok(())
             }
 
+            use futures::future::FutureExt;
+
+            let stdout_fut = forward(
+                &session_handle,
+                channel,
+                &mut shell_stdout,
+                |handle, chan, data| async move { handle.data(chan, data).await },
+            ).fuse();
+
+            tokio::pin!(stdout_fut);
+
+            let stderr_fut = forward(
+                &session_handle,
+                channel,
+                &mut shell_stderr,
+                |handle, chan, data| async move {
+                    // SSH_EXTENDED_DATA_STDERR = 1
+                    handle.extended_data(chan, 1, data).await
+                },
+            ).fuse();
+
+            tokio::pin!(stderr_fut);
+
             loop {
                 enum Pipe {
                     Stdout(Result<(), RusshServerError>),
                     Stderr(Result<(), RusshServerError>),
                     Exit(std::io::Result<ExitStatus>),
                 }
-
-                let stdout_fut = forward(
-                    &session_handle,
-                    channel,
-                    &mut shell_stdout,
-                    |handle, chan, data| async move { handle.data(chan, data).await },
-                );
-
-                tokio::pin!(stdout_fut);
-
-                let stderr_fut = forward(
-                    &session_handle,
-                    channel,
-                    &mut shell_stderr,
-                    |handle, chan, data| async move {
-                        // SSH_EXTENDED_DATA_STDERR = 1
-                        handle.extended_data(chan, 1, data).await
-                    },
-                );
-
-                tokio::pin!(stderr_fut);
 
                 let result = tokio::select! {
                     result = shell.wait() => Pipe::Exit(result),
@@ -522,13 +524,14 @@ impl Handler for RusshServerHandler {
                             .exit_status_request(channel, status_code)
                             .await;
 
-                        let _ = session_handle.eof(channel).await;
+                        // let _ = session_handle.eof(channel).await;
                         // let _ = session_handle.close(channel).await;
+
+                        break;
                     }
                 }
             }
 
-            #[allow(unreachable_code)] // need this for type inference
             Ok::<(), RusshServerError>(())
         };
 
