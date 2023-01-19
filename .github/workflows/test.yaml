@@ -25,6 +25,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          # By default actions/checkout checks out a merge commit. Check out the PR head instead.
+          # https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Install lld
         run: sudo apt-get install -y lld
       - name: Install rust
@@ -34,7 +38,7 @@ jobs:
       - name: Run fmt check
         run: cargo xtask fmt-check
       - name: Git checks
-        run: cargo xtask git-checks
+        run: cargo xtask git-checks --checkout
       - name: Check Cargo.toml dependencies order
         run: cargo xtask check-cargo-dep-order
       - name: Check Cargo.toml dependencies from workspace.dependencies
@@ -47,6 +51,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          # By default actions/checkout checks out a merge commit. Check out the PR head instead.
+          # https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Setup env
         run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Install openssl
@@ -74,6 +82,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          # By default actions/checkout checks out a merge commit. Check out the PR head instead.
+          # https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Install lld
         run: sudo apt-get install -y lld
       - name: Install openssl

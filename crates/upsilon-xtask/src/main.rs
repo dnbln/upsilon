@@ -31,7 +31,10 @@ enum App {
     FmtCheck,
     #[clap(name = "git-checks")]
     #[clap(alias = "gchk")]
-    GitChecks,
+    GitChecks {
+        #[clap(short, long)]
+        checkout: bool,
+    },
     #[clap(name = "run-dev")]
     #[clap(alias = "run")]
     #[clap(alias = "r")]
@@ -396,10 +399,12 @@ fn main_impl() -> XtaskResult<()> {
         App::FmtCheck => {
             cargo_cmd!("fmt", "--all", "--check", @workdir = ws_root!())?;
         }
-        App::GitChecks => {
+        App::GitChecks { checkout } => {
             let repo = upsilon_xtask::git_checks::get_repo(&ws_root!())?;
 
-            upsilon_xtask::git_checks::linear_history(&repo)?;
+            if !checkout {
+                upsilon_xtask::git_checks::linear_history(&repo)?;
+            }
         }
         App::BuildDev { dgql, verbose } => {
             build_dev(dgql, verbose)?;
