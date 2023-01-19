@@ -154,9 +154,60 @@ cargo xt
 <p>Integration tests are annotated with <code>#[upsilon_test]</code>, which handles most of
 the setup, and provides a <code>TestCx</code> to the test, which is used to interact with
 the webserver.</p>
+<h2 id="git_daemon"><a class="header" href="#git_daemon"><code>#[git_daemon]</code></a></h2>
 <p>By default, the test server doesn't spawn a <code>git daemon</code>, but can be configured
-to do so by annotating the <code>TestCx</code> parameter
-with <code>#[cfg_setup(upsilon_basic_config_with_git_daemon)]</code>.</p>
+to do so by annotating the <code>TestCx</code> parameter with
+<code>#[cfg_setup(upsilon_basic_config_with_git_daemon)]</code>, or (recommended:)
+by annotating the whole test function with <code>#[git_daemon]</code>.</p>
+<h2 id="git_ssh"><a class="header" href="#git_ssh"><code>#[git_ssh]</code></a></h2>
+<p>Similarly, for using git over the <code>ssh://</code> protocol, you can use
+<code>#[cfg_setup(upsilon_basic_config_with_ssh)]</code> or the (recommended) test
+attribute <code>#[git_ssh]</code>.</p>
+<p>Note that this does not work on windows, as <code>git-shell</code> is not available in
+<code>git-for-windows</code>, so <code>#[git_ssh]</code> also implies
+<code>#[test_attr(cfg_attr(windows, ignore))]</code>.</p>
+<h2 id="offline"><a class="header" href="#offline"><code>#[offline]</code></a></h2>
+<p>This is an attribute that indicates that the test can work offline. It can
+receive an optional argument, to control this behavior.</p>
+<pre><pre class="playground"><code class="language-rust edition2021"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[upsilon_test] // will run in offline mode (default)
+async fn t1(cx: &amp;mut TestCx) -&gt; TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline] // will run in offline mode (explicit)
+async fn t2(cx: &amp;mut TestCx) -&gt; TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline(run)] // will run in offline mode (explicit)
+async fn t3(cx: &amp;mut TestCx) -&gt; TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline(ignore)] // will not run in offline mode (ignored)
+async fn t4(cx: &amp;mut TestCx) -&gt; TestResult {
+    // ...
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Tests that actually require to connect to some other server (over an internet
+connection) should use <code>#[offline(ignore)]</code> to make sure they are online when
+running.</p>
+<h2 id="test_attr"><a class="header" href="#test_attr"><code>#[test_attr(...)]</code></a></h2>
+<p><code>test_attr</code> is an attribute that can be used to annotate the actual test
+function. In practice, it can be used to ignore tests on certain platforms, if
+something the test requires is not available or not working properly on said
+platforms, or to ignore tests that require a network connection when running in
+offline mode, although those specific cases are already handled by other
+attributes (see <code>#[git_ssh]</code>, <code>#[offline]</code>).</p>
 <p>At the very end, <code>#[upsilon_test]</code> will also make sure to clean up the web
 server and terminate any subprocesses it has spawned.</p>
 <p>All tests return a <code>TestResult&lt;()&gt;</code>, which is just

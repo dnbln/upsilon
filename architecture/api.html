@@ -146,12 +146,20 @@
 <h2 id="graphql-api"><a class="header" href="#graphql-api">GraphQL API</a></h2>
 <p>The GraphQL API contains the main API for the webserver. It is implemented in
 the <code>upsilon-api</code> crate.</p>
-<h2 id="git-http-apis"><a class="header" href="#git-http-apis">Git HTTP APIs</a></h2>
+<h2 id="git-over-https"><a class="header" href="#git-over-https">Git over HTTP(s)</a></h2>
 <p>For the webserver to work with git clients over <code>http://</code>, it should invoke the
 <code>git-http-backend</code> CGI backend, which is provided by <code>git</code> itself, on a few
 certain paths.</p>
 <p>The mechanism for passing the request to <code>git-http-backend</code> is implemented in
 the <code>upsilon-web</code> and <code>upsilon-vcs</code> crates.</p>
+<h2 id="git-over-ssh"><a class="header" href="#git-over-ssh">Git over SSH</a></h2>
+<p>The webserver also contains a small handwritten ssh server, which can be 
+used to serve git repositories over ssh (see <code>upsilon-ssh-russh</code>).</p>
+<h2 id="git-over-the-git-protocol"><a class="header" href="#git-over-the-git-protocol">Git over the <code>git://</code> protocol</a></h2>
+<p>The webserver can also be configured to serve git repositories over the
+<code>git://</code> protocol, but as it lacks authentication, it is disabled for 
+private repositories. The logic to spawn the <code>git-daemon</code> process to 
+handle traffic over the <code>git://</code> protocol is in the <code>upsilon-vcs</code> crate.</p>
 
                     </main>
 
