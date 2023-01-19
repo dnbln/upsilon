@@ -476,7 +476,8 @@ impl Handler for RusshServerHandler {
                 channel,
                 &mut shell_stdout,
                 |handle, chan, data| async move { handle.data(chan, data).await },
-            ).fuse();
+            )
+            .fuse();
 
             tokio::pin!(stdout_fut);
 
@@ -488,7 +489,8 @@ impl Handler for RusshServerHandler {
                     // SSH_EXTENDED_DATA_STDERR = 1
                     handle.extended_data(chan, 1, data).await
                 },
-            ).fuse();
+            )
+            .fuse();
 
             tokio::pin!(stderr_fut);
 
