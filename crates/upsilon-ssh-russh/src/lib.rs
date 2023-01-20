@@ -349,18 +349,6 @@ impl Handler for RusshServerHandler {
         }
     }
 
-    async fn auth_succeeded(self, session: Session) -> Result<(Self, Session), Self::Error> {
-        Ok((self, session))
-    }
-
-    async fn channel_close(
-        self,
-        channel: ChannelId,
-        session: Session,
-    ) -> Result<(Self, Session), Self::Error> {
-        Ok((self, session))
-    }
-
     async fn channel_eof(
         mut self,
         channel: ChannelId,
@@ -376,7 +364,7 @@ impl Handler for RusshServerHandler {
 
     async fn channel_open_session(
         self,
-        channel: Channel<Msg>,
+        _channel: Channel<Msg>,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
         Ok((self, true, session))

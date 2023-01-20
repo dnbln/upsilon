@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-use crate::{private, FlatMessage, FlatResponse};
+use crate::private;
 
 pub trait Message: private::ToFlatMessage {
     type Res: Response;

@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
-use crate::refs::{BranchRef, CommitRef, SignatureRef};
+use crate::refs::{BranchRef, CommitRef};
 use crate::{FlatMessage, FlatResponse};
 
 pub struct BranchQuery(pub String);

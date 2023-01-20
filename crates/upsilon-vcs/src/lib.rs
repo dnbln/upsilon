@@ -410,7 +410,7 @@ pub fn init_repo_absolute(
     Ok(Repository { repo })
 }
 
-fn check_repo_exists_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<()> {
+fn check_repo_exists_absolute(_config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
 
     if !path.exists() {
@@ -513,7 +513,7 @@ fn setup_hook(hooks_exe: &Path, hook_path: &Path, hook_name: &str) -> Result<()>
 }
 
 pub async fn read_repo_id_absolute(
-    config: &UpsilonVcsConfig,
+    _config: &UpsilonVcsConfig,
     repo_path: impl AsRef<Path>,
 ) -> Result<String> {
     if !repo_path.as_ref().exists() {
@@ -578,7 +578,7 @@ pub fn get_repo_absolute(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> R
 }
 
 pub fn get_repo_absolute_no_check(
-    config: &UpsilonVcsConfig,
+    _config: &UpsilonVcsConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
     let path = path.as_ref();

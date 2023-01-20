@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+#![allow(incomplete_features)]
 #![feature(inherent_associated_types)]
 
 pub extern crate anyhow;
@@ -25,7 +26,6 @@ pub extern crate upsilon_test_support_macros;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::future::Future;
-use std::io::Write;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
@@ -33,7 +33,7 @@ use std::task::{Context as AsyncCx, Poll};
 use std::time::Duration;
 
 use anyhow::{bail, format_err, Context};
-use log::{error, info};
+use log::info;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Child;
 pub use upsilon_test_support_macros::upsilon_test;
@@ -228,6 +228,7 @@ impl TestCx {
 
                 if file.exists() {
                     let Ok(metadata) = file.metadata() else {
+                        cx.waker().wake_by_ref();
                         return Poll::Pending;
                     };
 

@@ -19,7 +19,7 @@ use upsilon_test_support::prelude::*;
 #[upsilon_test]
 #[offline(ignore)]
 async fn github_mirror(cx: &mut TestCx) -> TestResult {
-    let global_mirror_id = make_global_mirror_from_github(cx).await?;
+    let _global_mirror_id = make_global_mirror_from_github(cx).await?;
 
     Ok(())
 }

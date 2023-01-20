@@ -14,8 +14,6 @@
  *    limitations under the License.
  */
 
-use std::fmt;
-
 use anyhow::bail;
 use serde_json::Value;
 

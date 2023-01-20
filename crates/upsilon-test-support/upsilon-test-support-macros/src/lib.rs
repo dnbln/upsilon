@@ -18,7 +18,7 @@
 #![feature(drain_filter)]
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, TokenStreamExt};
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 use syn::token::Async;

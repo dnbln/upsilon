@@ -17,8 +17,7 @@
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-use clap::error::ErrorKind;
-use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser, ValueHint};
+use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
 use upsilon_xtask::{cargo_cmd, cmd_call, ws_path, ws_root, XtaskResult};

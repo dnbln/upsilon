@@ -419,7 +419,6 @@ impl Server {
                 ),
                 FlatMessage::CommitAuthor(commit) => {
                     let c = &store[commit];
-                    let sig = c.author();
                     FlatResponse::CommitAuthor(SignatureRef {
                         commit_id: commit,
                         kind: SignatureKind::Author,
@@ -427,7 +426,6 @@ impl Server {
                 }
                 FlatMessage::CommitCommitter(commit) => {
                     let c = &store[commit];
-                    let sig = c.committer();
                     FlatResponse::CommitCommitter(SignatureRef {
                         commit_id: commit,
                         kind: SignatureKind::Committer,

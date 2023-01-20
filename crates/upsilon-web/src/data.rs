@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{error, Build, Orbit, Rocket};
 use serde::{Deserialize, Deserializer};
-use upsilon_data::{DataClient, DataClientMaster, DataClientMasterHolder};
+use upsilon_data::{DataClient, DataClientMasterHolder};
 use upsilon_data_cache_inmemory::CacheInMemoryConfig;
 use upsilon_data_inmemory::InMemoryStorageSaveStrategy;
 
