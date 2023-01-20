@@ -31,9 +31,11 @@ pub fn upsilon_test(
 ) -> proc_macro::TokenStream {
     let fun = syn::parse_macro_input!(item as syn::ItemFn);
 
-    expand_upsilon_test(attr.into(), fun)
+    let result = expand_upsilon_test(attr.into(), fun)
         .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+        .into();
+
+    result
 }
 
 fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
@@ -205,7 +207,7 @@ impl InnerFnCall {
         };
 
         let vars_name = format_ident!("__upsilon_test_vars");
-        let panic_reason_name = format_ident!("__upsilon_test_panic_reason");
+        let test_result_name = format_ident!("__upsilon_test_result");
         let works_offline = self.works_offline;
         let config_path = &self.config_path;
         let vars_setup = quote! {
@@ -216,10 +218,11 @@ impl InnerFnCall {
                 works_offline: #works_offline,
                 config_init: #config_path,
             };
-
-            #[allow(unused_mut)]
-            let mut #panic_reason_name = None;
         };
+
+        fn param_name_for_index(index: usize) -> Ident {
+            format_ident!("__upsilon_test_param_{}", index)
+        }
 
         for (i, (attrs, ty)) in params.enumerate() {
             let ty = match **ty {
@@ -236,7 +239,7 @@ impl InnerFnCall {
                 _ => return Err(syn::Error::new(ty.span(), "Expected a reference type")),
             };
 
-            let param_name = format_ident!("__param_{}", i);
+            let param_name = param_name_for_index(i);
             let param_name_config = format_ident!("__param_{}_config", i);
 
             setup.append_all(quote! {
@@ -266,21 +269,22 @@ impl InnerFnCall {
             }
 
             finish.append_all(quote! {
-                if let Err(e) = #param_name.finish().await {
+                if let Err(e) = #param_name.finish(#test_result_name).await {
                     ::upsilon_test_support::log::error!("Error finishing test parameter {}: {}", stringify!(#ty), e);
-
-                    #panic_reason_name.get_or_insert(e);
                 }
             });
 
-            parameters.push(quote! {
-                &mut #param_name
-            });
+            if i != 0 {
+                parameters.push(quote! {
+                    &mut #param_name
+                });
+            }
         }
 
         let test_wrapper_fn_name = format_ident!("__upsilon_test_wrapper");
         let inner_fun_name = &self.inner_fun_name;
-        let await_token = self.asyncness.as_ref().map(|_| quote! { .await });
+
+        let param_name = param_name_for_index(0);
 
         tokens.append_all(quote! {
             async fn #test_wrapper_fn_name() -> TestResult<()> {
@@ -288,18 +292,24 @@ impl InnerFnCall {
 
                 #setup
 
-                let test_result = #inner_fun_name(#(#parameters),*) #await_token;
+                let #test_result_name = match {
+                    use ::upsilon_test_support::futures::future::FutureExt;
+                    let fut = ::core::panic::AssertUnwindSafe(#inner_fun_name(&mut #param_name, #(#parameters),*)).catch_unwind();
+                    fut.await
+                } {
+                    Ok(Ok(v)) => Ok(v),
+                    Ok(Err(e)) => Err(e),
+                    Err(e) => {
+                        #param_name.set_panic_info(e);
+                        Ok(())
+                    },
+                };
 
                 #teardown
 
                 #finish
 
-                let _ = test_result?;
-
-                match #panic_reason_name {
-                    Some(e) => Err(e),
-                    None => Ok(()),
-                }
+                Ok(())
             }
 
             if let Err(e) = #test_wrapper_fn_name().await {

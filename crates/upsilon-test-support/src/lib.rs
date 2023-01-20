@@ -18,14 +18,17 @@
 #![feature(inherent_associated_types)]
 
 pub extern crate anyhow;
+pub extern crate futures;
 pub extern crate git2;
 pub extern crate log;
 pub extern crate serde_json;
 pub extern crate upsilon_test_support_macros;
 
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::future::Future;
+use std::panic::{Location, PanicInfo};
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
@@ -33,6 +36,7 @@ use std::task::{Context as AsyncCx, Poll};
 use std::time::Duration;
 
 use anyhow::{bail, format_err, Context};
+use futures::future::CatchUnwind;
 use log::info;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Child;
@@ -53,6 +57,20 @@ impl From<String> for Username {
 
 pub struct Token(String);
 
+struct TestRtPanicInfo {
+    payload: Box<dyn Any + Send>,
+}
+
+impl From<Box<dyn Any + Send>> for TestRtPanicInfo {
+    fn from(payload: Box<dyn Any + Send>) -> Self {
+        Self { payload }
+    }
+}
+
+struct TestRt {
+    panic: Option<TestRtPanicInfo>,
+}
+
 pub struct TestCx {
     client: Client,
     root: String,
@@ -67,6 +85,7 @@ pub struct TestCx {
     tokens: HashMap<Username, Token>,
 
     cleaned_up: bool,
+    rt: TestRt,
 }
 
 impl TestCx {
@@ -330,9 +349,14 @@ impl TestCx {
             required_online: false,
             tokens: HashMap::new(),
             cleaned_up: false,
+            rt: TestRt { panic: None },
         };
 
         Ok(cx)
+    }
+
+    pub fn set_panic_info(&mut self, pi: Box<dyn Any + Send>) {
+        self.rt.panic = Some(TestRtPanicInfo::from(pi));
     }
 
     pub async fn require_online(&mut self) -> TestResult {
@@ -364,7 +388,21 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
         Ok(p)
     }
 
-    pub async fn finish(&mut self) -> TestResult<()> {
+    pub async fn finish(&mut self, result: TestResult) -> TestResult<()> {
+        let result = self.finish_impl(result).await;
+
+        if let Some(panic_info) = self.rt.panic.take() {
+            std::panic::resume_unwind(panic_info.payload);
+        } else {
+            result
+        }
+    }
+
+    async fn finish_impl(&mut self, mut result: TestResult) -> TestResult<()> {
+        if self.cleaned_up {
+            return Ok(());
+        }
+
         self.cleaned_up = true;
 
         tokio::fs::write(&self.kfile, "").await?;
@@ -410,13 +448,15 @@ call `cx.require_online()` if it really does require online mode"
             );
         }
 
+        let _ = result?;
+
         Ok(())
     }
 }
 
 impl Drop for TestCx {
     fn drop(&mut self) {
-        if !self.cleaned_up {
+        if !self.cleaned_up && !::std::thread::panicking() {
             panic!("TestCx was not cleaned up");
         }
     }
@@ -533,3 +573,47 @@ fn env_var(name: &str) -> String {
 fn env_var_path(name: &str) -> PathBuf {
     PathBuf::from(env_var(name))
 }
+
+// #[derive(thiserror::Error, Debug)]
+// #[error("{msg}")]
+// struct AssertFail {
+//     msg: String,
+//     defused: bool,
+//     location: &'static Location<'static>,
+// }
+//
+// impl AssertFail {
+//     fn new(msg: String, location: &'static Location<'static>) -> Self {
+//         Self {
+//             msg,
+//             defused: false,
+//             location,
+//         }
+//     }
+// }
+//
+// impl Drop for AssertFail {
+//     fn drop(&mut self) {
+//         if !self.defused && !std::thread::panicking() {
+//             panic_at(&format_args!("{}", &self.msg), self.location);
+//         }
+//     }
+// }
+//
+// fn panic_at(fmt: &std::fmt::Arguments, location: &'static Location<'static>) -> ! {
+//     // NOTE This function never crosses the FFI boundary; it's a Rust-to-Rust call
+//     // that gets resolved to the `#[panic_handler]` function.
+//     extern "Rust" {
+//         #[lang = "panic_impl"]
+//         fn panic_impl(pi: &PanicInfo<'_>) -> !;
+//     }
+//
+//     let pi = build_pi(fmt, location);
+//
+//     // SAFETY: `panic_impl` is defined in safe Rust code and thus is safe to call.
+//     unsafe { panic_impl(&pi) }
+// }
+//
+// fn build_pi(fmt: &std::fmt::Arguments, location: &'static Location<'static>) -> PanicInfo<'static> {
+//     PanicInfo::internal_constructor(Some(fmt), location, true)
+// }

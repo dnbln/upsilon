@@ -15,7 +15,7 @@
  */
 
 use std::ffi::{OsStr, OsString};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};

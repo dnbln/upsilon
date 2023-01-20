@@ -3481,6 +3481,7 @@ name = "upsilon-test-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
  "git2",
  "log",
  "portpicker",
@@ -3488,6 +3489,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "upsilon-diff-util",
  "upsilon-gracefully-shutdown",
