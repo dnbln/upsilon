@@ -66,7 +66,7 @@ impl RusshServerConfigTemp {
         }
     }
 
-    pub(crate) fn expect_complete(self) -> CompleteRusshServerConfig {
+    pub(crate) fn expect_complete(&self) -> &CompleteRusshServerConfig {
         match self {
             RusshServerConfigTemp::Complete(config) => config,
             RusshServerConfigTemp::Temp => panic!("RusshServerConfigTemp in Temp state!"),
