@@ -46,7 +46,7 @@ pub use crate::client::Client;
 
 mod client;
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone)]
 pub struct Username(String);
 
 impl From<String> for Username {

@@ -18,99 +18,73 @@ use std::time::Duration;
 
 use upsilon_test_support::prelude::*;
 
-#[upsilon_test]
-async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
+macro_rules! clone_test {
+    (@can_clone: $(#[$attr:meta])* $name:ident: $remote_path_builder_fn:ident) => {
+        #[upsilon_test]
+        $(#[$attr])*
+        async fn $name(cx: &mut TestCx) -> TestResult {
+            make_global_mirror_from_host_repo(cx).await?;
 
-    let _ = cx
-        .clone_without_credentials("clone-upsilon", upsilon_global)
-        .await?;
+            let _ = cx.clone("upsilon-clone", $remote_path_builder_fn, None).await?;
 
-    Ok(())
+            Ok(())
+        }
+    };
+
+    (@can_clone_git_bin: $(#[$attr:meta])* $name:ident: $remote_path_builder_fn:ident) => {
+        #[upsilon_test]
+        $(#[$attr])*
+        async fn $name(cx: &mut TestCx) -> TestResult {
+            make_global_mirror_from_host_repo(cx).await?;
+
+            let _ = cx.clone_git_binary("upsilon-clone", $remote_path_builder_fn, Duration::from_secs(10)).await?;
+
+            Ok(())
+        }
+    };
+
+    (@can_clone_ssh: $(#[$attr:meta])* $name:ident: $remote_path_builder_fn:ident) => {
+        #[upsilon_test]
+        $(#[$attr])*
+        #[git_ssh]
+        async fn $name(cx: &mut TestCx) -> TestResult {
+            make_global_mirror_from_host_repo(cx).await?;
+
+            let username = "test";
+
+            cx.create_user(username, "test", "test").await?;
+
+            let kp = create_ssh_key()?;
+            cx.add_ssh_key_to_user(&kp, username).await?;
+
+            cx.clone("upsilon-clone", $remote_path_builder_fn, Credentials::SshKey(kp))
+                .await?;
+
+            Ok(())
+        }
+    };
+
+    (@clone_twice_same_result: $(#[$attr:meta])* $name:ident: $remote_path_builder_fn:ident) => {
+        #[upsilon_test]
+        $(#[$attr])*
+        async fn $name(cx: &mut TestCx) -> TestResult {
+            make_global_mirror_from_host_repo(cx).await?;
+
+            let (clone1, clone2) = cx
+                .clone_repo_twice("upsilon-clone-1", "upsilon-clone-2", $remote_path_builder_fn, None)
+                .await?;
+
+            assert_same_trunk(&clone1, &clone2)?;
+
+            Ok(())
+        }
+    };
 }
 
-#[upsilon_test]
-async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    let (clone1, clone2) = cx
-        .clone_repo_twice("upsilon-clone-1", "upsilon-clone-2", upsilon_global)
-        .await?;
-
-    assert_same_trunk(&clone1, &clone2)?;
-
-    Ok(())
-}
-
-#[upsilon_test]
-#[git_daemon]
-async fn clone_over_git_protocol(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    let _ = cx
-        .clone_without_credentials("upsilon", upsilon_global_git_protocol)
-        .await?;
-
-    Ok(())
-}
-
-#[upsilon_test]
-#[git_daemon]
-async fn clone_twice_same_result_git_protocol(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    let (clone1, clone2) = cx
-        .clone_repo_twice(
-            "upsilon-clone-1",
-            "upsilon-clone-2",
-            upsilon_global_git_protocol,
-        )
-        .await?;
-
-    assert_same_trunk(&clone1, &clone2)?;
-
-    Ok(())
-}
-
-#[upsilon_test]
-async fn clone_with_git_binary(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    cx.clone_git_binary("upsilon-clone", upsilon_global, Duration::from_secs(10))
-        .await?;
-
-    Ok(())
-}
-
-#[upsilon_test]
-#[git_daemon]
-async fn clone_with_git_binary_over_git_protocol(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    cx.clone_git_binary(
-        "upsilon-clone",
-        upsilon_global_git_protocol,
-        Duration::from_secs(10),
-    )
-    .await?;
-
-    Ok(())
-}
-
-#[upsilon_test]
-#[git_ssh]
-async fn clone_over_ssh(cx: &mut TestCx) -> TestResult {
-    make_global_mirror_from_host_repo(cx).await?;
-
-    let username = "test";
-
-    cx.create_user(username, "test", "test").await?;
-
-    let kp = create_ssh_key()?;
-    cx.add_ssh_key_to_user(&kp, username).await?;
-
-    cx.clone("upsilon-clone", upsilon_global_ssh, Credentials::SshKey(kp))
-        .await?;
-
-    Ok(())
-}
+clone_test! {@can_clone: can_clone_to_local_http: upsilon_global}
+clone_test! {@can_clone: #[git_daemon] can_clone_to_local_git: upsilon_global_git_protocol}
+clone_test! {@can_clone_ssh: can_clone_to_local_ssh: upsilon_global_ssh}
+clone_test! {@can_clone_git_bin: can_clone_to_local_git_binary_http: upsilon_global}
+clone_test! {@can_clone_git_bin: can_clone_to_local_git_binary_git: upsilon_global_git_protocol}
+clone_test! {@clone_twice_same_result: clone_twice_same_result_http: upsilon_global}
+clone_test! {@clone_twice_same_result: clone_twice_same_result_git: upsilon_global_git_protocol}

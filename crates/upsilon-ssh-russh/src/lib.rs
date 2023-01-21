@@ -16,7 +16,6 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,12 +28,11 @@ use russh_keys::PublicKeyBase64;
 use serde::{Deserialize, Deserializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::ChildStdin;
-use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use upsilon_models::users::{UserId, UserSshKey};
 use upsilon_ssh::async_trait::async_trait;
 use upsilon_ssh::{
-    impl_wrapper, CommonSSHError, SSHKey, SSHServer, SSHServerConfig, SSHServerInitializer, SSHServerWrapper
+    impl_wrapper, CommonSSHError, SSHServer, SSHServerConfig, SSHServerInitializer, SSHServerWrapper
 };
 use upsilon_vcs::UpsilonVcsConfig;
 use upsilon_vcs_permissions::{check_user_has_permissions, GitService};
@@ -220,31 +218,6 @@ impl SSHServerInitializer for RusshServerInitializer {
         Ok(server)
     }
 }
-
-// struct RusshKeys {
-//     keys: Vec<(PublicKey, UserId)>,
-// }
-//
-// impl RusshKeys {
-//     fn new() -> Self {
-//         Self { keys: vec![] }
-//     }
-//
-//     async fn add_key(&mut self, key: SSHKey, user: UserId) -> Result<(), RusshServerError> {
-//         self.keys.push((
-//             russh_keys::key::parse_public_key(key.as_bytes(), None)?,
-//             user,
-//         ));
-//
-//         Ok(())
-//     }
-//
-//     fn get(&self, key: &PublicKey) -> Option<UserId> {
-//         self.keys
-//             .iter()
-//             .find_map(|(k, user)| (key == k).then_some(*user))
-//     }
-// }
 
 struct RusshServerInternals {
     config: CompleteRusshServerConfig,

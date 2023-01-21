@@ -425,17 +425,6 @@ impl TestCx {
         Ok(target_url)
     }
 
-    pub async fn clone_without_credentials<F>(
-        &self,
-        name: &str,
-        remote_path: F,
-    ) -> TestResult<(PathBuf, Repository)>
-    where
-        F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
-    {
-        self.clone(name, remote_path, None).await
-    }
-
     pub async fn clone<F>(
         &self,
         name: &str,
@@ -621,10 +610,13 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
         name1: &str,
         name2: &str,
         remote_path: impl Fn(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+        credentials: impl Into<Option<Credentials>>,
     ) -> TestResult<(Repository, Repository)> {
+        let credentials = credentials.into();
+
         let ((_, repo1), (_, repo2)) = tokio::try_join!(
-            self.clone_without_credentials(name1, &remote_path),
-            self.clone_without_credentials(name2, &remote_path)
+            self.clone(name1, &remote_path, credentials.clone()),
+            self.clone(name2, &remote_path, credentials),
         )?;
 
         Ok((repo1, repo2))
@@ -789,6 +781,7 @@ pub fn create_ssh_key() -> TestResult<russh_keys::key::KeyPair> {
     Ok(key_pair)
 }
 
+#[derive(Clone)]
 pub enum Credentials {
     SshKey(russh_keys::key::KeyPair),
     UsernameToken(Username, Token),
