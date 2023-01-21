@@ -69,7 +69,7 @@ macro_rules! ws_path_join {
 
 pub fn workspace_root() -> &'static Path {
     let xtask_dir: &Path = env!("CARGO_MANIFEST_DIR").as_ref();
-    // parent of upsilon-xtask = crates,
+    // parent of upsilon-xtask = dev,
     // parent of crates = workspace root
     xtask_dir.parent().unwrap().parent().unwrap()
 }

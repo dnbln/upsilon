@@ -40,7 +40,7 @@ impl TestGroups {
 }
 
 fn test_binaries() -> std::io::Result<Vec<String>> {
-    let path = ws_path!("crates" / "upsilon-testsuite" / "tests");
+    let path = ws_path!("dev" / "upsilon-testsuite" / "tests");
 
     let mut test_binaries = vec![];
 
@@ -57,9 +57,8 @@ fn test_binaries() -> std::io::Result<Vec<String>> {
             .expect("Invalid file name")
             .to_string();
 
-        if name.ends_with(".rs") {
-            let name = name.replace(".rs", "");
-            test_binaries.push(name);
+        if let Some(name_minus_ext) = name.strip_suffix(".rs") {
+            test_binaries.push(name_minus_ext.to_string());
         }
     }
 
@@ -430,10 +429,19 @@ fn check_dep_order(
 }
 
 fn all_cargo_manifests_except_ws_root() -> XtaskResult<Vec<PathBuf>> {
-    let crates_folder = ws_path!("crates");
-    let crates_folder = crates_folder.to_slash().unwrap();
-    let cargo_toml_files_pattern = format!("{crates_folder}/**/Cargo.toml");
-    let cargo_toml_files = glob::glob(&cargo_toml_files_pattern)?.collect::<Result<Vec<_>, _>>()?;
+    fn collect_from_folder(folder: PathBuf, to: &mut Vec<PathBuf>) -> XtaskResult<()> {
+        let folder = folder.to_slash().unwrap();
+        let cargo_toml_files_pattern = format!("{folder}/**/Cargo.toml");
+        let mut cargo_toml_files = glob::glob(&cargo_toml_files_pattern)?.collect::<Result<Vec<_>, _>>()?;
+
+        to.append(&mut cargo_toml_files);
+        Ok(())
+    }
+
+    let mut cargo_toml_files = vec![];
+
+    collect_from_folder(ws_path!("crates"), &mut cargo_toml_files)?;
+    collect_from_folder(ws_path!("dev"), &mut cargo_toml_files)?;
 
     Ok(cargo_toml_files)
 }
@@ -689,8 +697,8 @@ fn main_impl() -> XtaskResult<()> {
         App::GraphQLSchema => {
             cargo_cmd!(
                 "run",
-                "-p", "upsilon-api",
-                "--bin", "dump_graphql_schema",
+                "-p", "upsilon-dump-gql-schema",
+                "--bin", "upsilon-dump-gql-schema",
                 "--", gqls_path(),
                 @workdir = ws_root!(),
             )?;
@@ -701,8 +709,8 @@ fn main_impl() -> XtaskResult<()> {
 
             cargo_cmd!(
                 "run",
-                "-p", "upsilon-api",
-                "--bin", "dump_graphql_schema",
+                "-p", "upsilon-dump-gql-schema",
+                "--bin", "upsilon-dump-gql-schema",
                 "--", &temp_p,
                 @workdir = ws_root!(),
             )?;

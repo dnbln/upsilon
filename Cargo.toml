@@ -1,10 +1,11 @@
 [workspace]
 members = [
     "crates/*",
-    "crates/upsilon-test-support/setup_testenv",
-    "crates/upsilon-test-support/upsilon-test-support-macros",
+    "dev/*",
+    "dev/upsilon-test-support/setup_testenv",
+    "dev/upsilon-test-support/upsilon-test-support-macros",
 ]
-default-members = ["crates/cargo-guard"]
+default-members = ["dev/cargo-guard"]
 
 [workspace.dependencies]
 anyhow = "1.0.66"
@@ -14,7 +15,7 @@ chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.26", features = ["derive"] }
 ctrlc = "3.2.0"
 futures = "0.3.25"
-git2 = "0.15"
+git2 = "0.16"
 humantime = "2.1.0"
 juniper = "0.15.10"
 lazy_static = "1.4.0"
@@ -37,28 +38,27 @@ winapi = "0.3"
 
 upsilon-api = { path = "crates/upsilon-api" }
 upsilon-asyncvcs = { path = "crates/upsilon-asyncvcs" }
-upsilon-ci = { path = "crates/upsilon-ci" }
 upsilon-core = { path = "crates/upsilon-core" }
 upsilon-data = { path = "crates/upsilon-data" }
 upsilon-data-cache-inmemory = { path = "crates/upsilon-data-cache-inmemory" }
 upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
 upsilon-data-pg = { path = "crates/upsilon-data-pg" }
-upsilon-diff-util = { path = "crates/upsilon-diff-util" }
+upsilon-diff-util = { path = "dev/upsilon-diff-util" }
 upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
-upsilon-gracefully-shutdown = { path = "crates/upsilon-gracefully-shutdown" }
-upsilon-gracefully-shutdown-host = { path = "crates/upsilon-gracefully-shutdown-host" }
+upsilon-gracefully-shutdown = { path = "dev/upsilon-gracefully-shutdown" }
+upsilon-gracefully-shutdown-host = { path = "dev/upsilon-gracefully-shutdown-host" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-models = { path = "crates/upsilon-models" }
 upsilon-procx = { path = "crates/upsilon-procx" }
 upsilon-ssh = { path = "crates/upsilon-ssh" }
 upsilon-ssh-russh = { path = "crates/upsilon-ssh-russh" }
 upsilon-stdx = { path = "crates/upsilon-stdx" }
-upsilon-test-support = { path = "crates/upsilon-test-support" }
+upsilon-test-support = { path = "dev/upsilon-test-support" }
 upsilon-vcs = { path = "crates/upsilon-vcs" }
 upsilon-vcs-permissions = { path = "crates/upsilon-vcs-permissions" }
 upsilon-web = { path = "crates/upsilon-web" }
 upsilon-web-interface = { path = "crates/upsilon-web-interface" }
-upsilon-xtask = { path = "crates/upsilon-xtask" }
+upsilon-xtask = { path = "dev/upsilon-xtask" }
 
 [patch.crates-io]
 procfs = { git = "https://github.com/eminence/procfs", rev = "faf30237720279af23bf2e9190499c3c35aa3955" }

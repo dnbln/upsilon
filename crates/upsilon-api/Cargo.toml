@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 chrono.workspace = true
-clap.workspace = true
 futures.workspace = true
 juniper.workspace = true
 juniper_rocket = "0.8.2"
