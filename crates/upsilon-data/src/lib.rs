@@ -219,6 +219,13 @@ query_impl_trait! {
         {into} user_id: upsilon_models::users::UserId,
         {into} user_name: upsilon_models::users::Username,
     );
+    async fn add_user_ssh_key<'self_ref>(
+        {into} user_id: upsilon_models::users::UserId,
+        {into} key: upsilon_models::users::UserSshKey,
+    ) -> bool;
+    async fn query_user_ssh_key<'self_ref>(
+        {into} key: upsilon_models::users::UserSshKey,
+    ) -> Option<upsilon_models::users::UserId>;
 
     // ===========================
     // ======== Repos ============

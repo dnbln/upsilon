@@ -48,10 +48,16 @@ impl Fairing for GitSshFairing {
             return Err(rocket);
         }
 
+        let data = rocket
+            .state::<upsilon_data::DataClientMasterHolder>()
+            .expect("Failed to get data client from state");
+
         match &self.config {
             GitSshProtocol::Russh(russh_config) => {
+                let russh_config = russh_config.expect_complete();
+
                 match <RusshServer as SSHServer>::Initializer::new(russh_config.clone())
-                    .init()
+                    .init(data.clone())
                     .await
                 {
                     Ok(server) => {

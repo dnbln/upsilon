@@ -30,7 +30,7 @@ use upsilon_models::organization::{
     Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, OrganizationNameRef, Team, TeamDisplayName, TeamId, TeamName, TeamNameRef
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNameRef, RepoNamespace, RepoPermissions};
-use upsilon_models::users::{User, UserId, Username, UsernameRef};
+use upsilon_models::users::{User, UserId, UserSshKey, Username, UsernameRef};
 use upsilon_stdx::TakeIfUnless;
 
 #[derive(Debug, thiserror::Error)]
@@ -89,6 +89,7 @@ struct InMemoryDataStore {
         Arc<RwLock<BTreeMap<OrganizationId, BTreeMap<UserId, OrganizationMember>>>>,
     teams: Arc<RwLock<BTreeMap<TeamId, Team>>>,
     repo_permissions: Arc<RwLock<BTreeMap<RepoId, BTreeMap<UserId, RepoPermissions>>>>,
+    ssh_key_map: Arc<RwLock<BTreeMap<UserSshKey, UserId>>>,
 }
 
 impl InMemoryDataStore {
@@ -104,6 +105,7 @@ impl InMemoryDataStore {
             organization_members: new_map(),
             teams: new_map(),
             repo_permissions: new_map(),
+            ssh_key_map: new_map(),
         }
     }
 }
@@ -182,21 +184,17 @@ impl<'a, T> OptRwGuard<'a, T> {
         match self {
             OptRwGuard::Read(r) => r,
             OptRwGuard::Write(w) => w,
-            OptRwGuard::None => {
-                panic!("OptRwGuard::expect called on OptRwGuard::None: {}", s)
-            }
+            OptRwGuard::None => panic!("OptRwGuard::expect called on OptRwGuard::None: {s}"),
         }
     }
 
     fn expect_mut(&mut self, s: &str) -> &mut T {
         match self {
             OptRwGuard::Read(_r) => {
-                panic!("OptRwGuard::expect_mut called on OptRwGuard::Read: {}", s)
+                panic!("OptRwGuard::expect_mut called on OptRwGuard::Read: {s}")
             }
             OptRwGuard::Write(w) => w,
-            OptRwGuard::None => {
-                panic!("OptRwGuard::expect_mut called on OptRwGuard::None: {}", s)
-            }
+            OptRwGuard::None => panic!("OptRwGuard::expect_mut called on OptRwGuard::None: {s}"),
         }
     }
 }
@@ -260,7 +258,7 @@ impl RwGuardKinds {
 
     fn assert_has_all_perms_for(&self, kind: NamespaceKind) {
         if !self.has_all_perms_for(kind) {
-            panic!("RwGuardKinds::assert_has_all_perms_for: missing permissions for namespace kind: {:?}, have: {:?}", kind, self);
+            panic!("RwGuardKinds::assert_has_all_perms_for: missing permissions for namespace kind: {kind:?}, have: {self:?}");
         }
     }
 
@@ -498,6 +496,31 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             .get_mut(&user_id)
             .map(|user| user.username = user_name)
             .ok_or(InMemoryError::UserNotFound)
+    }
+
+    async fn add_user_ssh_key(
+        &self,
+        user_id: UserId,
+        key: UserSshKey,
+    ) -> Result<bool, Self::Error> {
+        let mut lock = self.store().ssh_key_map.write().await;
+
+        if lock.contains_key(&key) {
+            return Ok(false);
+        }
+
+        lock.insert(key, user_id);
+
+        Ok(true)
+    }
+
+    async fn query_user_ssh_key(
+        &self,
+        key: UserSshKey,
+    ) -> Result<Option<UserId>, Self::Error> {
+        let lock = self.store().ssh_key_map.read().await;
+
+        Ok(lock.get(&key).cloned())
     }
 
     async fn create_repo(&self, repo: Repo) -> Result<(), Self::Error> {

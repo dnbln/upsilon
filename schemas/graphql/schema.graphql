@@ -51,6 +51,7 @@ type MutationRoot {
   _debug__cpGlrFromLocal(name: String!, localPath: String!): Repo!
   addUserRepoPerms(repo: RepoId!, user: UserId!, perms: RepoPermissions!): RepoPermissions!
   rmUserRepoPerms(repo: RepoId!, user: UserId!, perms: RepoPermissions!): RepoPermissions!
+  addUserSshKey(key: String!): Boolean!
 }
 
 scalar UserDisplayName

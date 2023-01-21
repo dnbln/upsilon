@@ -55,6 +55,13 @@ impl From<String> for Username {
     }
 }
 
+impl<'a> From<&'a str> for Username {
+    fn from(value: &'a str) -> Self {
+        Self(value.to_string())
+    }
+}
+
+#[derive(Clone)]
 pub struct Token(String);
 
 struct TestRtPanicInfo {
@@ -99,12 +106,12 @@ impl TestCx {
         f(self.client.clone()).await
     }
 
-    pub async fn with_client_as_user<F, Fut, R>(&self, user: impl Into<String>, f: F) -> R
+    pub async fn with_client_as_user<F, Fut, R>(&self, user: impl Into<Username>, f: F) -> R
     where
         F: FnOnce(Client) -> Fut,
         Fut: Future<Output = R>,
     {
-        match self.tokens.get(&Username(user.into())) {
+        match self.tokens.get(&user.into()) {
             None => f(self.client.clone()).await,
             Some(token) => {
                 let client = self.client.with_token(&token.0);
@@ -398,7 +405,7 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
         }
     }
 
-    async fn finish_impl(&mut self, mut result: TestResult) -> TestResult<()> {
+    async fn finish_impl(&mut self, result: TestResult) -> TestResult<()> {
         if self.cleaned_up {
             return Ok(());
         }

@@ -28,7 +28,7 @@ use std::result::Result as StdResult;
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
 use git2::{ConfigLevel, Oid};
 pub use http_backend::{
-    handle as http_backend_handle, AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
+    handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
 
 pub use self::config::UpsilonVcsConfig;
@@ -43,6 +43,13 @@ impl UpsilonVcsConfig {
 
 pub struct Repository {
     repo: git2::Repository,
+    path: PathBuf,
+}
+
+impl AsRef<Path> for Repository {
+    fn as_ref(&self) -> &Path {
+        self.path.as_ref()
+    }
 }
 
 impl Repository {
@@ -405,9 +412,10 @@ pub fn init_repo_absolute(
 ) -> Result<Repository> {
     let repo = git2::Repository::init_bare(&path)?;
 
-    repo_setup(config, path, &repo, &repo_config)?;
+    let path = path.as_ref().to_path_buf();
+    repo_setup(config, &path, &repo, &repo_config)?;
 
-    Ok(Repository { repo })
+    Ok(Repository { repo, path })
 }
 
 fn check_repo_exists_absolute(_config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<()> {
@@ -558,9 +566,11 @@ pub fn setup_mirror_absolute(
         .bare(true)
         .clone(&mirror_url_clone, &path_clone)?;
 
-    repo_setup(config, path.as_ref(), &repo, repo_config)?;
+    let path = path.as_ref().to_path_buf();
 
-    Ok(Repository { repo })
+    repo_setup(config, &path, &repo, repo_config)?;
+
+    Ok(Repository { repo, path })
 }
 
 pub fn get_repo(config: &UpsilonVcsConfig, path: impl AsRef<Path>) -> Result<Repository> {
@@ -581,10 +591,11 @@ pub fn get_repo_absolute_no_check(
     _config: &UpsilonVcsConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
-    let path = path.as_ref();
+    let path = path.as_ref().to_path_buf();
 
     Ok(Repository {
-        repo: git2::Repository::open_bare(path)?,
+        repo: git2::Repository::open_bare(&path)?,
+        path,
     })
 }
 

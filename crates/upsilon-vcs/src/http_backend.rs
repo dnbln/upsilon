@@ -35,8 +35,6 @@ pub enum HandleError {
     Disabled,
     #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Not authenticated")]
-    NotAuthenticated,
 }
 
 #[derive(Debug)]
@@ -62,7 +60,6 @@ pub struct GitBackendCgiRequest<B: AsyncRead> {
     headers: Vec<(String, String)>,
     remote_addr: SocketAddr,
     req_body: Pin<Box<B>>,
-    auth: bool,
 }
 
 impl<B: AsyncRead> GitBackendCgiRequest<B> {
@@ -81,66 +78,9 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
             headers,
             remote_addr,
             req_body: Box::pin(req_body),
-            auth: false,
-        }
-    }
-
-    /// Authorize the request.
-    pub fn auth(&mut self) {
-        self.auth = true;
-    }
-
-    pub fn auth_required_permissions_kind(
-        &self,
-        config: &UpsilonVcsConfig,
-    ) -> AuthRequiredPermissionsKind {
-        let GitHttpProtocol::Enabled(_config) = &config.http_protocol else {return AuthRequiredPermissionsKind::_none();};
-
-        let mut kind = AuthRequiredPermissionsKind::_read();
-        if self
-            .query_string
-            .as_ref()
-            .map(|qs| qs.get("service").map(String::as_str) == Some("git-receive-pack"))
-            .unwrap_or(false)
-            || self.path_info.ends_with("/git-receive-pack")
-        {
-            kind.write = true;
-        }
-
-        kind
-    }
-}
-
-pub struct AuthRequiredPermissionsKind {
-    read: bool,
-    write: bool,
-}
-
-impl AuthRequiredPermissionsKind {
-    pub fn read(&self) -> bool {
-        self.read
-    }
-
-    pub fn write(&self) -> bool {
-        self.write
-    }
-
-    fn _read() -> Self {
-        Self {
-            read: true,
-            write: false,
-        }
-    }
-
-    fn _none() -> Self {
-        Self {
-            read: false,
-            write: false,
         }
     }
 }
-
-impl<B> GitBackendCgiRequest<B> where B: AsyncRead {}
 
 enum GitBackendCgiResponseState {
     ReadbackBuffer,
@@ -226,7 +166,7 @@ pub async fn handle<B: AsyncRead>(
             if id != 0 {
                 s.push('&');
             }
-            s.push_str(&format!("{}={}", k, v));
+            s.push_str(&format!("{k}={v}"));
         }
         s
     }
@@ -276,10 +216,6 @@ pub async fn handle<B: AsyncRead>(
                 cmd.env(format!("HTTP_{key}"), value);
             }
         }
-    }
-
-    if !req.auth {
-        Err(HandleError::NotAuthenticated)?;
     }
 
     let mut proc = cmd.spawn()?;

@@ -16,7 +16,7 @@
 
 use serde::{Deserialize, Deserializer};
 use upsilon_core::config::{GqlDebugConfig, UsersConfig};
-use upsilon_ssh_russh::RusshServerConfig;
+use upsilon_ssh_russh::{CompleteRusshServerConfig, RusshServerConfig};
 use upsilon_vcs::UpsilonVcsConfig;
 
 use crate::data::DataBackendConfig;
@@ -41,7 +41,40 @@ pub struct Config {
 #[serde(tag = "type")]
 pub enum GitSshProtocol {
     #[serde(rename = "russh")]
-    Russh(RusshServerConfig),
+    Russh(RusshServerConfigTemp),
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(from = "RusshServerConfig")]
+pub enum RusshServerConfigTemp {
+    Incomplete(RusshServerConfig),
+    Temp,
+    Complete(CompleteRusshServerConfig),
+}
+
+impl From<RusshServerConfig> for RusshServerConfigTemp {
+    fn from(value: RusshServerConfig) -> Self {
+        RusshServerConfigTemp::Incomplete(value)
+    }
+}
+
+impl RusshServerConfigTemp {
+    pub fn complete(&mut self, vcs_config: UpsilonVcsConfig) {
+        let old = std::mem::replace(self, RusshServerConfigTemp::Temp);
+        if let RusshServerConfigTemp::Incomplete(config) = old {
+            *self = RusshServerConfigTemp::Complete(config.complete(vcs_config));
+        }
+    }
+
+    pub(crate) fn expect_complete(self) -> CompleteRusshServerConfig {
+        match self {
+            RusshServerConfigTemp::Complete(config) => config,
+            RusshServerConfigTemp::Temp => panic!("RusshServerConfigTemp in Temp state!"),
+            RusshServerConfigTemp::Incomplete(_) => {
+                panic!("RusshServerConfigTemp was not completed!")
+            }
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]

@@ -40,7 +40,7 @@ use upsilon_models::users::emails::UserEmails;
 use upsilon_models::users::password::{
     HashedPassword, PasswordHashAlgorithmDescriptor, PlainPassword
 };
-use upsilon_models::users::{User, UserDisplayName, UserId, Username};
+use upsilon_models::users::{User, UserDisplayName, UserId, UserSshKey, Username};
 use upsilon_vcs::{RepoConfig, RepoVisibility, UpsilonVcsConfig};
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
@@ -728,6 +728,16 @@ impl MutationRoot {
             .await?;
 
         Ok(new_perms)
+    }
+
+    async fn add_user_ssh_key(context: &GraphQLContext, key: String) -> FieldResult<bool> {
+        let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
+
+        let result = context
+            .query(|qm| async move { qm.add_user_ssh_key(auth.claims.sub, UserSshKey(key)).await })
+            .await?;
+
+        Ok(result)
     }
 }
 

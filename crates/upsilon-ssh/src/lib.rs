@@ -17,6 +17,7 @@
 pub extern crate async_trait;
 
 use async_trait::async_trait;
+use upsilon_models::users::UserId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CommonSSHError {
@@ -33,7 +34,7 @@ pub trait SSHServerInitializer {
     type Server: SSHServer;
 
     fn new(config: Self::Config) -> Self;
-    async fn init(self) -> Result<Self::Server, Self::Error>;
+    async fn init(self, dcmh: upsilon_data::DataClientMasterHolder) -> Result<Self::Server, Self::Error>;
 }
 
 #[async_trait]
@@ -43,8 +44,6 @@ pub trait SSHServer {
     type Initializer: SSHServerInitializer<Server = Self, Config = Self::Config>;
 
     async fn stop(&self) -> Result<(), Self::Error>;
-
-    async fn add_key(&self, key: SSHKey) -> Result<(), Self::Error>;
 
     fn into_wrapper(self) -> Box<dyn SSHServerWrapper + Send + Sync>;
 }
@@ -59,7 +58,6 @@ impl SSHKey {
 
 #[async_trait]
 pub trait SSHServerWrapper {
-    async fn add_key(&self, key: SSHKey) -> Result<(), CommonSSHError>;
     async fn stop(&self) -> Result<(), CommonSSHError>;
 }
 
@@ -78,10 +76,6 @@ macro_rules! impl_wrapper {
 
         #[async_trait]
         impl SSHServerWrapper for $wrapper {
-            async fn add_key(&self, key: SSHKey) -> Result<(), CommonSSHError> {
-                self.server.add_key(key).await.map_err(Into::into)
-            }
-
             async fn stop(&self) -> Result<(), CommonSSHError> {
                 self.server.stop().await.map_err(Into::into)
             }

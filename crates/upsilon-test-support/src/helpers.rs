@@ -24,8 +24,11 @@ use std::time::Duration;
 use anyhow::{bail, format_err};
 use git2::{BranchType, Cred, FetchOptions, RemoteCallbacks, Repository};
 use log::info;
+use russh_keys::PublicKeyBase64;
 
-use crate::{env_var, gql_vars, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username};
+use crate::{
+    env_var, gql_vars, Anything, IdHolder, TestCx, TestCxConfig, TestResult, Token, Username
+};
 
 pub async fn register_dummy_user(cx: &mut TestCx) {
     cx.create_user("test", "test", "test")
@@ -362,16 +365,52 @@ sP4+tQMwDeHAL1Lnd02PMRMgO1FuV4YZY7azX5YvgdANJdZ4epOiFP4mxL8M6xWj
 "#;
 
 impl TestCx {
-    async fn _clone_repo(&self, path: PathBuf, target_url: String) -> TestResult<Repository> {
+    fn process_credentials(&self, mut credentials: Option<Credentials>) -> Option<Credentials> {
+        if let Some(Credentials::UsernameAndTokenFromTokenList(username)) = credentials {
+            let token = self.tokens.get(&username).expect("token not found").clone();
+            credentials = Some(Credentials::UsernameToken(username, token));
+        }
+
+        credentials
+    }
+
+    fn add_credentials_to_callbacks(
+        credentials: Option<Credentials>,
+        callbacks: &mut RemoteCallbacks,
+    ) {
+        match credentials {
+            None => {}
+            Some(Credentials::SshKey(kp)) => {
+                callbacks.credentials(move |_url, _username_from_url, _cred_ty| {
+                    Cred::ssh_key_from_memory("git", None, &kp.public_key_base64(), None)
+                });
+            }
+            Some(Credentials::UsernameAndTokenFromTokenList(_)) => {
+                unreachable!("should have been replaced by token")
+            }
+            Some(Credentials::UsernameToken(username, token)) => {
+                callbacks.credentials(move |_url, _username_from_url, _cred_ty| {
+                    Cred::userpass_plaintext(&username.0, &token.0)
+                });
+            }
+        }
+    }
+
+    async fn _clone_repo(
+        &self,
+        path: PathBuf,
+        target_url: String,
+        credentials: Option<Credentials>,
+    ) -> TestResult<Repository> {
+        let credentials = self.process_credentials(credentials);
+
         {
             let path = path.clone();
             tokio::task::spawn_blocking(move || {
                 info!("Cloning {} into {}", target_url, path.display());
 
                 let mut rcb = RemoteCallbacks::new();
-                rcb.credentials(|_url, _username_from_url, _cred_ty| {
-                    Cred::ssh_key_from_memory("git", None, &SSH_KEY, None)
-                });
+                Self::add_credentials_to_callbacks(credentials, &mut rcb);
 
                 let mut fo = FetchOptions::new();
                 fo.remote_callbacks(rcb);
@@ -436,7 +475,23 @@ impl TestCx {
         Ok(target_url)
     }
 
-    pub async fn clone<F>(&self, name: &str, remote_path: F) -> TestResult<(PathBuf, Repository)>
+    pub async fn clone_without_credentials<F>(
+        &self,
+        name: &str,
+        remote_path: F,
+    ) -> TestResult<(PathBuf, Repository)>
+    where
+        F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
+    {
+        self.clone(name, remote_path, None).await
+    }
+
+    pub async fn clone<F>(
+        &self,
+        name: &str,
+        remote_path: F,
+        credentials: impl Into<Option<Credentials>>,
+    ) -> TestResult<(PathBuf, Repository)>
     where
         F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
     {
@@ -444,7 +499,9 @@ impl TestCx {
 
         let target_url = self.build_target_url(remote_path)?;
 
-        let repo = self._clone_repo(path.clone(), target_url).await?;
+        let repo = self
+            ._clone_repo(path.clone(), target_url, credentials.into())
+            .await?;
 
         Ok((path, repo))
     }
@@ -612,11 +669,35 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
         remote_path: impl Fn(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
     ) -> TestResult<(Repository, Repository)> {
         let ((_, repo1), (_, repo2)) = tokio::try_join!(
-            self.clone(name1, &remote_path),
-            self.clone(name2, &remote_path)
+            self.clone_without_credentials(name1, &remote_path),
+            self.clone_without_credentials(name2, &remote_path)
         )?;
 
         Ok((repo1, repo2))
+    }
+
+    pub async fn add_ssh_key_to_user(
+        &mut self,
+        key: &impl PublicKeyBase64,
+        user: impl Into<Username>,
+    ) -> TestResult {
+        let key_string = key.public_key_base64();
+        self.with_client_as_user(user, |cl| async move {
+            cl.gql_query_with_variables::<Anything>(
+                r#"
+mutation ($key: String!) {
+  addUserSshKey(key: $key)
+}
+"#,
+                gql_vars! {
+                    "key": key_string,
+                },
+            )
+            .await
+        })
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -744,4 +825,18 @@ pub fn upsilon_global_git_protocol(rb: GitRemoteRefBuilder) -> GitRemoteRefBuild
 
 pub fn upsilon_global_ssh(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
     rb.protocol(GitAccessProtocol::Ssh).path("upsilon")
+}
+
+pub fn create_ssh_key() -> TestResult<russh_keys::key::KeyPair> {
+    let key_pair =
+        russh_keys::key::KeyPair::generate_rsa(2048, russh_keys::key::SignatureHash::SHA2_512)
+            .ok_or_else(|| format_err!("Failed to generate ssh key pair"))?;
+
+    Ok(key_pair)
+}
+
+pub enum Credentials {
+    SshKey(russh_keys::key::KeyPair),
+    UsernameToken(Username, Token),
+    UsernameAndTokenFromTokenList(Username),
 }

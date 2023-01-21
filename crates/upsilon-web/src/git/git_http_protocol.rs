@@ -32,14 +32,14 @@ use rocket::request::{FromRequest, Outcome};
 use rocket::response::Responder;
 use rocket::{routes, Build, Data, Request, Response, Rocket, State};
 use rocket_basicauth::{BasicAuth, BasicAuthError};
-use tokio::io::AsyncRead;
 use upsilon_api::auth::{AuthContext, AuthToken, AuthTokenError};
 use upsilon_core::config::Cfg;
-use upsilon_data::upsilon_models::repo::{Repo, RepoId, RepoPermissions};
+use upsilon_data::upsilon_models::repo::{Repo, RepoId};
 use upsilon_data::{DataClientMasterHolder, DataQueryMaster};
 use upsilon_vcs::{
-    AuthRequiredPermissionsKind, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, UpsilonVcsConfig
+    GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, UpsilonVcsConfig
 };
+use upsilon_vcs_permissions::{GitService, LackingPermissionsError};
 
 use crate::config::VcsErrorsConfig;
 
@@ -251,6 +251,8 @@ enum GitHttpBackendError {
     MissingWritePermissions,
     #[error("Data backend error: {0}")]
     DataBackendError(#[from] upsilon_data::CommonDataClientError),
+    #[error("Unknown git service")]
+    UnknownGitService,
 }
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
@@ -293,6 +295,9 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendError {
                 vcs_errors.if_verbose(|| self.to_string()),
             )
                 .respond_to(request),
+            GitHttpBackendError::UnknownGitService => {
+                (Status::BadRequest, "Requested unknown git service").respond_to(request)
+            }
         }
     }
 }
@@ -370,6 +375,56 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for GitHttpBackendResponder {
     }
 }
 
+async fn get_service_for_path_and_query(
+    path: &std::path::Path,
+    query: Option<&HashMap<String, String>>,
+) -> Result<GitService, GitHttpBackendError> {
+    fn query_service_is(query: Option<&HashMap<String, String>>, service_name: &str) -> bool {
+        query
+            .and_then(|it| it.get("service"))
+            .map_or(false, |it| it == service_name)
+    }
+
+    let service = if path.ends_with("/git-upload-pack")
+        || query_service_is(query, "git-upload-pack")
+    {
+        GitService::UploadPack
+    } else if path.ends_with("/git-receive-pack") || query_service_is(query, "git-receive-pack") {
+        GitService::ReceivePack
+    } else if path.ends_with("/git-upload-archive") || query_service_is(query, "git-upload-archive")
+    {
+        GitService::UploadArchive
+    } else {
+        return Err(GitHttpBackendError::UnknownGitService);
+    };
+
+    Ok(service)
+}
+
+fn cast_lacking_perms_error(
+    result: Result<(), LackingPermissionsError>,
+    has_auth: bool,
+) -> Result<(), GitHttpBackendError> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(LackingPermissionsError::Read) => {
+            if has_auth {
+                Err(GitHttpBackendError::HiddenRepo)
+            } else {
+                Err(GitHttpBackendError::AuthRequired)
+            }
+        }
+        Err(LackingPermissionsError::Write) => {
+            if has_auth {
+                Err(GitHttpBackendError::MissingWritePermissions)
+            } else {
+                Err(GitHttpBackendError::AuthRequired)
+            }
+        }
+        Err(LackingPermissionsError::DataError(e)) => Err(GitHttpBackendError::DataBackendError(e)),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[rocket::get("/<path..>?<query..>")]
 async fn git_http_backend_cgi_get(
@@ -384,17 +439,21 @@ async fn git_http_backend_cgi_get(
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     let qm = data.query_master();
     let repo = repo_path.get_repo(vcs_config, &qm).await?;
-    let repo_perms_for_user = match &auth_token {
-        Some(auth_token) => qm
-            .query_repo_user_perms(repo.id, auth_token.token.claims.sub)
-            .await?
-            .unwrap_or(repo.global_permissions),
-        None => repo.global_permissions,
-    };
-
     let path = PathBuf::from("/").join(path); // add the root /
 
-    let mut req = GitBackendCgiRequest::new(
+    let service = get_service_for_path_and_query(&path, query.as_ref()).await?;
+
+    let result = upsilon_vcs_permissions::check_user_has_permissions(
+        &repo,
+        service,
+        &qm,
+        auth_token.as_ref().map(|it| it.token.claims.sub),
+    )
+    .await;
+
+    cast_lacking_perms_error(result, auth_token.is_some())?;
+
+    let req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Get,
         path,
         query,
@@ -402,15 +461,6 @@ async fn git_http_backend_cgi_get(
         remote_addr,
         Cursor::new(""),
     );
-
-    let auth_required_kind = req.auth_required_permissions_kind(vcs_config);
-
-    auth_if_user_has_necessary_permissions(
-        repo_perms_for_user,
-        auth_required_kind,
-        auth_token.is_some(),
-        &mut req,
-    )?;
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
@@ -433,18 +483,22 @@ async fn git_http_backend_cgi_post(
 ) -> Result<GitHttpBackendResponder, GitHttpBackendError> {
     let qm = data_client_master.query_master();
     let repo = repo_path.get_repo(vcs_config, &qm).await?;
-    let repo_perms_for_user = match &auth_token {
-        Some(auth_token) => qm
-            .query_repo_user_perms(repo.id, auth_token.token.claims.sub)
-            .await?
-            .unwrap_or(repo.global_permissions),
-        None => repo.global_permissions,
-    };
-
     let path = PathBuf::from("/").join(path); // add the root /
 
+    let service = get_service_for_path_and_query(&path, query.as_ref()).await?;
+
+    let result = upsilon_vcs_permissions::check_user_has_permissions(
+        &repo,
+        service,
+        &qm,
+        auth_token.as_ref().map(|it| it.token.claims.sub),
+    )
+    .await;
+
+    cast_lacking_perms_error(result, auth_token.is_some())?;
+
     let data_stream = data.open(ByteUnit::Mebibyte(20));
-    let mut req = GitBackendCgiRequest::new(
+    let req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Post,
         path,
         query,
@@ -452,15 +506,6 @@ async fn git_http_backend_cgi_post(
         remote_addr,
         data_stream,
     );
-
-    let auth_required_kind = req.auth_required_permissions_kind(vcs_config);
-
-    auth_if_user_has_necessary_permissions(
-        repo_perms_for_user,
-        auth_required_kind,
-        auth_token.is_some(),
-        &mut req,
-    )?;
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
     let status = status_code_from_status_line(&response.status_line);
@@ -488,43 +533,14 @@ async fn git_static_get(
 
     // we only need read perms to send static files
     if !repo_perms_for_user.can_read() {
-        if auth.is_some() {
-            Err(GitHttpBackendError::AuthRequired)?;
+        return if auth.is_some() {
+            Err(GitHttpBackendError::AuthRequired)
         } else {
-            Err(GitHttpBackendError::HiddenRepo)?;
-        }
+            Err(GitHttpBackendError::HiddenRepo)
+        };
     }
 
     let file_path = vcs_config.get_path().join(path);
 
     Ok(NamedFile::open(file_path).await?)
-}
-
-fn auth_if_user_has_necessary_permissions<B: AsyncRead>(
-    user_permissions: RepoPermissions,
-    required_permissions: AuthRequiredPermissionsKind,
-    auth: bool,
-    req: &mut GitBackendCgiRequest<B>,
-) -> Result<(), GitHttpBackendError> {
-    if required_permissions.read() && !user_permissions.can_read() {
-        if !auth {
-            Err(GitHttpBackendError::AuthRequired)?;
-        } else {
-            Err(GitHttpBackendError::HiddenRepo)?;
-        }
-    }
-
-    if required_permissions.write() && !user_permissions.can_write() {
-        if !auth {
-            Err(GitHttpBackendError::AuthRequired)?;
-        } else {
-            Err(GitHttpBackendError::MissingWritePermissions)?;
-        }
-    }
-
-    // if we got here, the user has all the necessary permissions,
-    // so authorize the request.
-    req.auth();
-
-    Ok(())
 }

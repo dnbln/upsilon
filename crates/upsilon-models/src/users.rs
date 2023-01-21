@@ -46,3 +46,6 @@ pub struct User {
     pub emails: UserEmails,
     pub avatar: Option<ImageAssetId>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct UserSshKey(pub String);

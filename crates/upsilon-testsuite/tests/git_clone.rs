@@ -22,7 +22,9 @@ use upsilon_test_support::prelude::*;
 async fn http_can_clone_to_local(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let _ = cx.clone("clone-upsilon", upsilon_global).await?;
+    let _ = cx
+        .clone_without_credentials("clone-upsilon", upsilon_global)
+        .await?;
 
     Ok(())
 }
@@ -45,7 +47,9 @@ async fn clone_twice_same_result(cx: &mut TestCx) -> TestResult {
 async fn clone_over_git_protocol(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    let _ = cx.clone("upsilon", upsilon_global_git_protocol).await?;
+    let _ = cx
+        .clone_without_credentials("upsilon", upsilon_global_git_protocol)
+        .await?;
 
     Ok(())
 }
@@ -98,7 +102,15 @@ async fn clone_with_git_binary_over_git_protocol(cx: &mut TestCx) -> TestResult 
 async fn clone_over_ssh(cx: &mut TestCx) -> TestResult {
     make_global_mirror_from_host_repo(cx).await?;
 
-    cx.clone("upsilon-clone", upsilon_global_ssh).await?;
+    let username = "test";
+
+    cx.create_user(username, "test", "test").await?;
+
+    let kp = create_ssh_key()?;
+    cx.add_ssh_key_to_user(&kp, username).await?;
+
+    cx.clone("upsilon-clone", upsilon_global_ssh, Credentials::SshKey(kp))
+        .await?;
 
     Ok(())
 }

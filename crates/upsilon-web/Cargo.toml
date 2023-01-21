@@ -25,4 +25,5 @@ upsilon-data-cache-inmemory.workspace = true
 upsilon-ssh.workspace = true
 upsilon-ssh-russh.workspace = true
 upsilon-vcs.workspace = true
+upsilon-vcs-permissions.workspace = true
 

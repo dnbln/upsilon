@@ -96,7 +96,7 @@ impl Fairing for ConfigManager {
         if let Some(mut git_ssh) = git_ssh {
             match &mut git_ssh {
                 GitSshProtocol::Russh(russh) => {
-                    russh.set_vcs_root(vcs.get_path().to_path_buf());
+                    russh.complete(vcs.clone());
                 }
             }
             rocket = rocket.attach(git::GitSshFairing::new(git_ssh));

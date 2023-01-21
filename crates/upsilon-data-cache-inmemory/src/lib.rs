@@ -28,6 +28,7 @@ use upsilon_data::{
 };
 use upsilon_models::organization::OrganizationMember;
 use upsilon_models::repo::RepoPermissions;
+use upsilon_models::users::UserSshKey;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CacheInMemoryError {
@@ -50,6 +51,7 @@ struct CacheInMemoryStore {
     org_members: Cache<(OrganizationId, UserId), OrganizationMember>,
     teams: Cache<TeamId, Team>,
     repo_permissions: Cache<(RepoId, UserId), RepoPermissions>,
+    user_ssh_keys: Cache<UserSshKey, UserId>,
 }
 
 pub struct CacheInMemoryDataClient {
@@ -76,6 +78,7 @@ pub struct CacheInMemoryConfigSizes {
     pub max_repo_permissions: usize,
     pub max_org_members: usize,
     pub max_teams: usize,
+    pub max_ssh_keys: usize,
 }
 
 pub struct CacheInMemoryConfig {
@@ -118,6 +121,7 @@ impl DataClient for CacheInMemoryDataClient {
                 org_members: cache(config.sizes.max_org_members),
                 teams: cache(config.sizes.max_teams),
                 repo_permissions: cache(config.sizes.max_repo_permissions),
+                user_ssh_keys: cache(config.sizes.max_ssh_keys),
             }),
             inner: config.inner,
         })
@@ -196,6 +200,29 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
             .set_user_name(user_id, user_name)
             .await
             .convert_error()
+    }
+
+    async fn add_user_ssh_key(
+        &self,
+        user_id: UserId,
+        key: UserSshKey,
+    ) -> Result<bool, Self::Error> {
+        self.store().user_ssh_keys.invalidate(&key).await;
+
+        self.inner.add_user_ssh_key(user_id, key).await.convert_error()
+    }
+
+    async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
+        match self.store().user_ssh_keys.get(&key) {
+            Some(user_id) => Ok(Some(user_id)),
+            None => {
+                let user_id = self.inner.query_user_ssh_key(key.clone()).await.convert_error()?;
+                if let Some(user_id) = user_id {
+                    self.store().user_ssh_keys.insert(key, user_id).await;
+                }
+                Ok(user_id)
+            }
+        }
     }
 
     async fn create_repo(&self, repo: Repo) -> Result<(), Self::Error> {

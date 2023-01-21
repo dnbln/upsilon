@@ -3305,10 +3305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "upsilon-ci"
-version = "0.1.0"
-
-[[package]]
 name = "upsilon-core"
 version = "0.1.0"
 dependencies = [
@@ -3454,6 +3450,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "thiserror",
+ "upsilon-data",
+ "upsilon-models",
 ]
 
 [[package]]
@@ -3469,7 +3467,11 @@ dependencies = [
  "thiserror",
  "tokio",
  "upsilon-core",
+ "upsilon-data",
+ "upsilon-models",
  "upsilon-ssh",
+ "upsilon-vcs",
+ "upsilon-vcs-permissions",
 ]
 
 [[package]]
@@ -3487,6 +3489,7 @@ dependencies = [
  "portpicker",
  "pretty_env_logger",
  "reqwest",
+ "russh-keys",
  "serde",
  "serde_json",
  "thiserror",
@@ -3530,6 +3533,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "upsilon-vcs-permissions"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "thiserror",
+ "upsilon-data",
+ "upsilon-models",
+ "upsilon-vcs",
+]
+
+[[package]]
 name = "upsilon-web"
 version = "0.1.0"
 dependencies = [
@@ -3551,6 +3565,7 @@ dependencies = [
  "upsilon-ssh",
  "upsilon-ssh-russh",
  "upsilon-vcs",
+ "upsilon-vcs-permissions",
 ]
 
 [[package]]

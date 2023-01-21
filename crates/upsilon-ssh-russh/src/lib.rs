@@ -21,18 +21,23 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
+use log::error;
 use russh::server::{Auth, Handle, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec, MethodSet};
 use russh_keys::key::PublicKey;
+use russh_keys::PublicKeyBase64;
 use serde::{Deserialize, Deserializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::ChildStdin;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use upsilon_models::users::{UserId, UserSshKey};
 use upsilon_ssh::async_trait::async_trait;
 use upsilon_ssh::{
     impl_wrapper, CommonSSHError, SSHKey, SSHServer, SSHServerConfig, SSHServerInitializer, SSHServerWrapper
 };
+use upsilon_vcs::UpsilonVcsConfig;
+use upsilon_vcs_permissions::{check_user_has_permissions, GitService};
 
 #[derive(thiserror::Error, Debug)]
 pub enum RusshServerError {
@@ -42,6 +47,8 @@ pub enum RusshServerError {
     RusshKeys(#[from] russh_keys::Error),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("other error: {0}")]
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<RusshServerError> for CommonSSHError {
@@ -57,12 +64,24 @@ pub struct RusshServerConfig {
     port: u16,
     auth_rejection_time_initial: Option<Duration>,
     auth_rejection_time: Duration,
-    vcs_root_dir: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompleteRusshServerConfig {
+    port: u16,
+    auth_rejection_time_initial: Option<Duration>,
+    auth_rejection_time: Duration,
+    vcs_config: UpsilonVcsConfig,
 }
 
 impl RusshServerConfig {
-    pub fn set_vcs_root(&mut self, vcs_root_dir: PathBuf) {
-        self.vcs_root_dir = vcs_root_dir;
+    pub fn complete(self, vcs_config: UpsilonVcsConfig) -> CompleteRusshServerConfig {
+        CompleteRusshServerConfig {
+            port: self.port,
+            auth_rejection_time_initial: self.auth_rejection_time_initial,
+            auth_rejection_time: self.auth_rejection_time,
+            vcs_config,
+        }
     }
 }
 
@@ -72,7 +91,6 @@ impl Default for RusshServerConfig {
             port: 22,
             auth_rejection_time_initial: Some(Duration::from_secs(1)),
             auth_rejection_time: Duration::from_secs(10),
-            vcs_root_dir: PathBuf::new(),
         }
     }
 }
@@ -140,15 +158,15 @@ where
     }
 }
 
-impl SSHServerConfig for RusshServerConfig {}
+impl SSHServerConfig for CompleteRusshServerConfig {}
 
 pub struct RusshServerInitializer {
-    config: RusshServerConfig,
+    config: CompleteRusshServerConfig,
 }
 
 #[async_trait]
 impl SSHServerInitializer for RusshServerInitializer {
-    type Config = RusshServerConfig;
+    type Config = CompleteRusshServerConfig;
     type Error = RusshServerError;
     type Server = RusshServer;
 
@@ -156,7 +174,10 @@ impl SSHServerInitializer for RusshServerInitializer {
         Self { config }
     }
 
-    async fn init(self) -> Result<Self::Server, Self::Error> {
+    async fn init(
+        self,
+        dcmh: upsilon_data::DataClientMasterHolder,
+    ) -> Result<Self::Server, Self::Error> {
         let config = self.config;
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -190,7 +211,7 @@ impl SSHServerInitializer for RusshServerInitializer {
             internals: Arc::new(RusshServerInternals {
                 config,
                 join_handle: Arc::new(join_handle),
-                keys: Mutex::new(RusshKeys::new()),
+                dcmh,
             }),
         };
 
@@ -200,31 +221,35 @@ impl SSHServerInitializer for RusshServerInitializer {
     }
 }
 
-struct RusshKeys {
-    keys: Vec<PublicKey>,
-}
-
-impl RusshKeys {
-    fn new() -> Self {
-        Self { keys: vec![] }
-    }
-
-    async fn add_key(&mut self, key: SSHKey) -> Result<(), RusshServerError> {
-        self.keys
-            .push(russh_keys::key::parse_public_key(key.as_bytes(), None)?);
-
-        Ok(())
-    }
-
-    fn contains(&self, key: &PublicKey) -> bool {
-        self.keys.contains(key)
-    }
-}
+// struct RusshKeys {
+//     keys: Vec<(PublicKey, UserId)>,
+// }
+//
+// impl RusshKeys {
+//     fn new() -> Self {
+//         Self { keys: vec![] }
+//     }
+//
+//     async fn add_key(&mut self, key: SSHKey, user: UserId) -> Result<(), RusshServerError> {
+//         self.keys.push((
+//             russh_keys::key::parse_public_key(key.as_bytes(), None)?,
+//             user,
+//         ));
+//
+//         Ok(())
+//     }
+//
+//     fn get(&self, key: &PublicKey) -> Option<UserId> {
+//         self.keys
+//             .iter()
+//             .find_map(|(k, user)| (key == k).then_some(*user))
+//     }
+// }
 
 struct RusshServerInternals {
-    config: RusshServerConfig,
+    config: CompleteRusshServerConfig,
     join_handle: Arc<JoinHandle<()>>,
-    keys: Mutex<RusshKeys>,
+    dcmh: upsilon_data::DataClientMasterHolder,
 }
 
 #[derive(Clone)]
@@ -234,18 +259,12 @@ pub struct RusshServer {
 
 #[async_trait]
 impl SSHServer for RusshServer {
-    type Config = RusshServerConfig;
+    type Config = CompleteRusshServerConfig;
     type Error = RusshServerError;
     type Initializer = RusshServerInitializer;
 
     async fn stop(&self) -> Result<(), Self::Error> {
         self.internals.join_handle.abort();
-
-        Ok(())
-    }
-
-    async fn add_key(&self, key: SSHKey) -> Result<(), Self::Error> {
-        self.internals.keys.lock().await.add_key(key).await?;
 
         Ok(())
     }
@@ -268,6 +287,7 @@ impl Server for RusshServer {
 pub struct RusshServerHandler {
     internals: Arc<RusshServerInternals>,
     peer_addr: Option<SocketAddr>,
+    user: Option<UserId>,
     stdin: HashMap<ChannelId, ChildStdin>,
 }
 
@@ -276,6 +296,7 @@ impl RusshServerHandler {
         Self {
             internals: Arc::clone(&server.internals),
             peer_addr,
+            user: None,
             stdin: HashMap::new(),
         }
     }
@@ -338,14 +359,27 @@ impl Handler for RusshServerHandler {
     ) -> Result<(Self, Auth), Self::Error> {
         reject_not_git_user!(self, user);
 
-        let result = self.internals.keys.lock().await.contains(public_key);
+        let result = self
+            .internals
+            .dcmh
+            .query_master()
+            .query_user_ssh_key(UserSshKey(public_key.public_key_base64()))
+            .await
+            .map_err(|e| {
+                error!("Failed to query user ssh key: {}", e);
 
-        // testing only. TODO: remove later
-        let result = true;
+                RusshServerError::Other(Box::new(e))
+            })?;
 
         match result {
-            true => Ok((self, Auth::Accept)),
-            false => self.auth_reject_pubkey(),
+            Some(user) => Ok((
+                Self {
+                    user: Some(user),
+                    ..self
+                },
+                Auth::Accept,
+            )),
+            None => self.auth_reject_pubkey(),
         }
     }
 
@@ -391,12 +425,61 @@ impl Handler for RusshServerHandler {
 
         let (service, path) = parse_git_shell_cmd(git_shell_cmd);
 
+        let path = path.strip_prefix('/').unwrap_or(path);
+
+        let repo_id = upsilon_vcs::read_repo_id(&self.internals.config.vcs_config, path)
+            .await
+            .map_err(|e| {
+                error!("Failed to read repo id: {}", e);
+                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.channel_failure(channel);
+                RusshServerError::Other(Box::new(e))
+            })?;
+
+        let repo_id = repo_id
+            .parse::<upsilon_models::repo::RepoId>()
+            .map_err(|e| {
+                error!("Failed to parse repo id: {}", e);
+                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.channel_failure(channel);
+                RusshServerError::Other(Box::new(e))
+            })?;
+
+        let repo = self
+            .internals
+            .dcmh
+            .query_master()
+            .query_repo(repo_id)
+            .await
+            .map_err(|e| {
+                error!("Failed to query repo: {}", e);
+                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.channel_failure(channel);
+                RusshServerError::Other(Box::new(e))
+            })?;
+
+        let user_id = self.user.expect("user not set");
+
+        check_user_has_permissions(
+            &repo,
+            service,
+            &self.internals.dcmh.query_master(),
+            Some(user_id),
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to check repo perms: {}", e);
+            session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+            session.channel_failure(channel);
+            RusshServerError::Other(Box::new(e))
+        })?;
+
         let reconstructed_shell_cmd = reconstruct_shell_cmd(service, path);
 
         let mut cmd = {
             let mut cmd = tokio::process::Command::new("git");
             cmd.arg("shell").arg("-c").arg(reconstructed_shell_cmd);
-            cmd.current_dir(&self.internals.config.vcs_root_dir);
+            cmd.current_dir(self.internals.config.vcs_config.get_path());
 
             cmd
         };
@@ -540,20 +623,24 @@ fn strip_apostrophes(s: &str) -> &str {
     }
 }
 
-fn parse_git_shell_cmd(git_shell_cmd: &str) -> (&str, &str) {
+fn parse_git_shell_cmd(git_shell_cmd: &str) -> (GitService, &str) {
     if let Some(rec_pack_path) = git_shell_cmd.strip_prefix("git-receive-pack ") {
-        ("receive-pack", strip_apostrophes(rec_pack_path))
+        (GitService::ReceivePack, strip_apostrophes(rec_pack_path))
     } else if let Some(upl_ref_path) = git_shell_cmd.strip_prefix("git-upload-pack ") {
-        ("upload-pack", strip_apostrophes(upl_ref_path))
+        (GitService::UploadPack, strip_apostrophes(upl_ref_path))
     } else if let Some(upl_arc_path) = git_shell_cmd.strip_prefix("git-upload-archive ") {
-        ("upload-archive", strip_apostrophes(upl_arc_path))
+        (GitService::UploadArchive, strip_apostrophes(upl_arc_path))
     } else {
         panic!("invalid git shell command: {git_shell_cmd:?}");
     }
 }
 
-fn reconstruct_shell_cmd(service: &str, path: &str) -> String {
-    let path = path.strip_prefix('/').unwrap_or(path);
+fn reconstruct_shell_cmd(service: GitService, path: &str) -> String {
+    let service_str = match service {
+        GitService::ReceivePack => "receive-pack",
+        GitService::UploadPack => "upload-pack",
+        GitService::UploadArchive => "upload-archive",
+    };
 
-    format!("git-{service} '{path}'")
+    format!("git-{service_str} '{path}'")
 }

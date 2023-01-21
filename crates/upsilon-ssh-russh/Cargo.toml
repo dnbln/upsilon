@@ -10,10 +10,14 @@ futures.workspace = true
 humantime.workspace = true
 log.workspace = true
 russh = { version = "0.35.0-beta.8", features = ["openssl"] }
-russh-keys = { version = "0.23.0-beta.1", features = ["openssl"] }
+russh-keys.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 
 upsilon-core.workspace = true
+upsilon-data.workspace = true
+upsilon-models.workspace = true
 upsilon-ssh.workspace = true
+upsilon-vcs.workspace = true
+upsilon-vcs-permissions.workspace = true

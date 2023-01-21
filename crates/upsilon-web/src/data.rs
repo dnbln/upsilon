@@ -76,6 +76,8 @@ struct CacheInMemoryConfigSizes {
     pub max_org_members: usize,
     #[serde(default = "default_cache_size")]
     pub max_teams: usize,
+    #[serde(default = "default_cache_size")]
+    pub max_ssh_keys: usize,
 }
 
 fn default_cache_size() -> usize {
@@ -91,6 +93,7 @@ impl From<CacheInMemoryConfigSizes> for upsilon_data_cache_inmemory::CacheInMemo
             max_repo_permissions: value.max_repo_permissions,
             max_org_members: value.max_org_members,
             max_teams: value.max_teams,
+            max_ssh_keys: value.max_ssh_keys,
         }
     }
 }

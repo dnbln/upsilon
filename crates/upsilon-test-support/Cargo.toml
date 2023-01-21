@@ -13,6 +13,7 @@ log.workspace = true
 portpicker = "0.1.1"
 pretty_env_logger.workspace = true
 reqwest = { workspace = true, features = ["json"] }
+russh-keys.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
