@@ -309,61 +309,6 @@ fn upsilon_host_repo_git() -> PathBuf {
     PathBuf::from(host_repo_path)
 }
 
-// dummy rsa key for testing
-const SSH_KEY: &str = r#"
------BEGIN RSA PRIVATE KEY-----
-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
------END RSA PRIVATE KEY-----
-"#;
-
 impl TestCx {
     fn process_credentials(&self, mut credentials: Option<Credentials>) -> Option<Credentials> {
         if let Some(Credentials::UsernameAndTokenFromTokenList(username)) = credentials {
@@ -401,8 +346,13 @@ impl TestCx {
         path: PathBuf,
         target_url: String,
         credentials: Option<Credentials>,
+        is_ssh: bool,
     ) -> TestResult<Repository> {
         let credentials = self.process_credentials(credentials);
+
+        if is_ssh && !matches!(credentials, Some(Credentials::SshKey(_))) {
+            bail!("SSH access requires SSH credentials");
+        }
 
         {
             let path = path.clone();
@@ -449,7 +399,7 @@ impl TestCx {
         Ok(format!("{}/{path}", self.ssh_protocol_root))
     }
 
-    fn build_target_url<F>(&self, remote_path: F) -> TestResult<String>
+    fn build_target_url<F>(&self, remote_path: F) -> TestResult<(String, bool)>
     where
         F: FnOnce(GitRemoteRefBuilder) -> GitRemoteRefBuilder,
     {
@@ -461,15 +411,15 @@ impl TestCx {
             GitRemoteRef {
                 protocol: GitAccessProtocol::Git,
                 path,
-            } => self.git_repo_url(&path)?,
+            } => (self.git_repo_url(&path)?, false),
             GitRemoteRef {
                 protocol: GitAccessProtocol::Http,
                 path,
-            } => self.http_repo_url(&path),
+            } => (self.http_repo_url(&path), false),
             GitRemoteRef {
                 protocol: GitAccessProtocol::Ssh,
                 path,
-            } => self.ssh_repo_url(&path)?,
+            } => (self.ssh_repo_url(&path)?, true),
         };
 
         Ok(target_url)
@@ -497,10 +447,10 @@ impl TestCx {
     {
         let path = self.tempdir(name).await?;
 
-        let target_url = self.build_target_url(remote_path)?;
+        let (target_url, is_ssh) = self.build_target_url(remote_path)?;
 
         let repo = self
-            ._clone_repo(path.clone(), target_url, credentials.into())
+            ._clone_repo(path.clone(), target_url, credentials.into(), is_ssh)
             .await?;
 
         Ok((path, repo))
@@ -517,7 +467,11 @@ impl TestCx {
     {
         let path = self.tempdir(name).await?;
 
-        let target_url = self.build_target_url(remote_path)?;
+        let (target_url, is_ssh) = self.build_target_url(remote_path)?;
+
+        if is_ssh {
+            bail!("Cannot use git binary with SSH");
+        }
 
         let exit_status = self
             .run_command(
