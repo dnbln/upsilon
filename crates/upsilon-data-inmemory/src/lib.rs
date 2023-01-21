@@ -514,10 +514,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         Ok(true)
     }
 
-    async fn query_user_ssh_key(
-        &self,
-        key: UserSshKey,
-    ) -> Result<Option<UserId>, Self::Error> {
+    async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
         let lock = self.store().ssh_key_map.read().await;
 
         Ok(lock.get(&key).cloned())

@@ -209,14 +209,21 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
     ) -> Result<bool, Self::Error> {
         self.store().user_ssh_keys.invalidate(&key).await;
 
-        self.inner.add_user_ssh_key(user_id, key).await.convert_error()
+        self.inner
+            .add_user_ssh_key(user_id, key)
+            .await
+            .convert_error()
     }
 
     async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
         match self.store().user_ssh_keys.get(&key) {
             Some(user_id) => Ok(Some(user_id)),
             None => {
-                let user_id = self.inner.query_user_ssh_key(key.clone()).await.convert_error()?;
+                let user_id = self
+                    .inner
+                    .query_user_ssh_key(key.clone())
+                    .await
+                    .convert_error()?;
                 if let Some(user_id) = user_id {
                     self.store().user_ssh_keys.insert(key, user_id).await;
                 }

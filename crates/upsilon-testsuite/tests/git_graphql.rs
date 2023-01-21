@@ -20,7 +20,9 @@ use upsilon_test_support::prelude::*;
 async fn get_last_commit_on_branch_same_as_cloned_info(cx: &mut TestCx) -> TestResult {
     let global_mirror_id = make_global_mirror_from_host_repo(cx).await?;
 
-    let (_, clone) = cx.clone_without_credentials("clone-upsilon", upsilon_global).await?;
+    let (_, clone) = cx
+        .clone_without_credentials("clone-upsilon", upsilon_global)
+        .await?;
 
     const BRANCH_NAME: &str = "trunk";
 

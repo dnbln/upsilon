@@ -34,7 +34,10 @@ pub trait SSHServerInitializer {
     type Server: SSHServer;
 
     fn new(config: Self::Config) -> Self;
-    async fn init(self, dcmh: upsilon_data::DataClientMasterHolder) -> Result<Self::Server, Self::Error>;
+    async fn init(
+        self,
+        dcmh: upsilon_data::DataClientMasterHolder,
+    ) -> Result<Self::Server, Self::Error>;
 }
 
 #[async_trait]
