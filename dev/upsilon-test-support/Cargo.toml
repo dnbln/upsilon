@@ -21,4 +21,4 @@ tokio.workspace = true
 
 upsilon-diff-util.workspace = true
 upsilon-gracefully-shutdown.workspace = true
-upsilon-test-support-macros = { path = "upsilon-test-support-macros" }
+upsilon-test-support-macros.workspace = true

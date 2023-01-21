@@ -2698,16 +2698,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "setup_testenv"
-version = "0.1.0"
-dependencies = [
- "git2",
- "log",
- "pretty_env_logger",
- "upsilon-test-support",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3449,6 +3439,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "upsilon-setup-testenv"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "log",
+ "pretty_env_logger",
+ "upsilon-test-support",
 ]
 
 [[package]]

@@ -2,8 +2,6 @@
 members = [
     "crates/*",
     "dev/*",
-    "dev/upsilon-test-support/setup_testenv",
-    "dev/upsilon-test-support/upsilon-test-support-macros",
 ]
 default-members = ["dev/cargo-guard"]
 
@@ -54,6 +52,7 @@ upsilon-ssh = { path = "crates/upsilon-ssh" }
 upsilon-ssh-russh = { path = "crates/upsilon-ssh-russh" }
 upsilon-stdx = { path = "crates/upsilon-stdx" }
 upsilon-test-support = { path = "dev/upsilon-test-support" }
+upsilon-test-support-macros = { path = "dev/upsilon-test-support-macros" }
 upsilon-vcs = { path = "crates/upsilon-vcs" }
 upsilon-vcs-permissions = { path = "crates/upsilon-vcs-permissions" }
 upsilon-web = { path = "crates/upsilon-web" }
