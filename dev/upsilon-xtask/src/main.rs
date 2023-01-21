@@ -432,7 +432,8 @@ fn all_cargo_manifests_except_ws_root() -> XtaskResult<Vec<PathBuf>> {
     fn collect_from_folder(folder: PathBuf, to: &mut Vec<PathBuf>) -> XtaskResult<()> {
         let folder = folder.to_slash().unwrap();
         let cargo_toml_files_pattern = format!("{folder}/**/Cargo.toml");
-        let mut cargo_toml_files = glob::glob(&cargo_toml_files_pattern)?.collect::<Result<Vec<_>, _>>()?;
+        let mut cargo_toml_files =
+            glob::glob(&cargo_toml_files_pattern)?.collect::<Result<Vec<_>, _>>()?;
 
         to.append(&mut cargo_toml_files);
         Ok(())
