@@ -44,7 +44,7 @@ async fn main_impl() -> TestResult {
         workdir: PathBuf::from(env!("UPSILON_TMPDIR")),
         test_name: "clone_to_local_ssh_example",
         source_file_path_hash: 0,
-        works_offline: false,
+        works_offline: true,
         config_init: upsilon_basic_config_with_ssh,
     });
 
