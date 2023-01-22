@@ -28,7 +28,8 @@ async fn example_impl(cx: &mut TestCx) -> TestResult {
     cx.create_user(username, "test", "test").await?;
 
     let kp = create_ssh_key()?;
-    cx.add_ssh_key_to_user(&kp.clone_public_key()?, username).await?;
+    cx.add_ssh_key_to_user(&kp.clone_public_key()?, username)
+        .await?;
 
     let clone_fut = cx.clone("upsilon-clone", upsilon_global_ssh, Credentials::SshKey(kp));
 
