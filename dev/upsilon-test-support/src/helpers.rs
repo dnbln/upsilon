@@ -311,7 +311,15 @@ fn upsilon_host_repo_git() -> PathBuf {
 }
 
 impl TestCx {
-    pub fn process_credentials(
+    pub fn cred_ssh_to_pem(kp: &KeyPair) -> TestResult<String> {
+        let KeyPair::RSA {ref key, ..} = kp else {bail!("Not RSA")};
+        let result_vec = key.private_key_to_pem()?;
+        let k = String::from_utf8(result_vec)?;
+
+        Ok(k)
+    }
+
+    fn process_credentials(
         &self,
         mut credentials: Option<Credentials>,
     ) -> TestResult<Option<Credentials>> {
@@ -321,10 +329,7 @@ impl TestCx {
         }
 
         if let Some(Credentials::SshKey(kp)) = credentials {
-            let mut cursor = std::io::Cursor::new(Vec::new());
-            russh_keys::encode_pkcs8_pem(&kp, &mut cursor)?;
-            let kb = cursor.into_inner();
-            let k = String::from_utf8(kb)?;
+            let k = Self::cred_ssh_to_pem(&kp)?;
 
             credentials = Some(Credentials::SshKeyPem(k));
         }
@@ -378,11 +383,10 @@ impl TestCx {
                 let mut rcb = RemoteCallbacks::new();
                 Self::add_credentials_to_callbacks(credentials, &mut rcb);
                 rcb.certificate_check(|cert, _valid| {
-                    Ok(cert
-                        .as_hostkey()
-                        .map_or(git2::CertificateCheckStatus::CertificatePassthrough, |it| {
-                            git2::CertificateCheckStatus::CertificateOk
-                        }))
+                    Ok(cert.as_hostkey().map_or(
+                        git2::CertificateCheckStatus::CertificatePassthrough,
+                        |_it| git2::CertificateCheckStatus::CertificateOk,
+                    ))
                 });
 
                 let mut fo = FetchOptions::new();
@@ -798,10 +802,9 @@ pub fn upsilon_global_ssh(rb: GitRemoteRefBuilder) -> GitRemoteRefBuilder {
     rb.protocol(GitAccessProtocol::Ssh).path("upsilon")
 }
 
-pub fn create_ssh_key() -> TestResult<russh_keys::key::KeyPair> {
-    let key_pair =
-        russh_keys::key::KeyPair::generate_rsa(2048, russh_keys::key::SignatureHash::SHA2_512)
-            .ok_or_else(|| format_err!("Failed to generate ssh key pair"))?;
+pub fn create_ssh_key() -> TestResult<KeyPair> {
+    let key_pair = KeyPair::generate_rsa(2048, russh_keys::key::SignatureHash::SHA2_256)
+        .ok_or_else(|| format_err!("Failed to generate ssh key pair"))?;
 
     Ok(key_pair)
 }
