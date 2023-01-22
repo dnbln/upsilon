@@ -365,7 +365,7 @@ impl TestCx {
                     Ok(cert
                         .as_hostkey()
                         .map_or(git2::CertificateCheckStatus::CertificatePassthrough, |it| {
-                            git2::CertificateCheckStatus::Ok
+                            git2::CertificateCheckStatus::CertificateOk
                         }))
                 });
 
