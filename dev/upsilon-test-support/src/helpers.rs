@@ -24,6 +24,7 @@ use std::time::Duration;
 use anyhow::{bail, format_err};
 use git2::{BranchType, Cred, FetchOptions, RemoteCallbacks, Repository};
 use log::info;
+use russh_keys::key::KeyPair;
 use russh_keys::PublicKeyBase64;
 
 use crate::{
@@ -310,13 +311,25 @@ fn upsilon_host_repo_git() -> PathBuf {
 }
 
 impl TestCx {
-    fn process_credentials(&self, mut credentials: Option<Credentials>) -> Option<Credentials> {
+    pub fn process_credentials(
+        &self,
+        mut credentials: Option<Credentials>,
+    ) -> TestResult<Option<Credentials>> {
         if let Some(Credentials::UsernameAndTokenFromTokenList(username)) = credentials {
             let token = self.tokens.get(&username).expect("token not found").clone();
             credentials = Some(Credentials::UsernameToken(username, token));
         }
 
-        credentials
+        if let Some(Credentials::SshKey(kp)) = credentials {
+            let mut cursor = std::io::Cursor::new(Vec::new());
+            russh_keys::encode_pkcs8_pem(&kp, &mut cursor)?;
+            let kb = cursor.into_inner();
+            let k = String::from_utf8(kb)?;
+
+            credentials = Some(Credentials::SshKeyPem(k));
+        }
+
+        Ok(credentials)
     }
 
     fn add_credentials_to_callbacks(
@@ -325,9 +338,12 @@ impl TestCx {
     ) {
         match credentials {
             None => {}
-            Some(Credentials::SshKey(kp)) => {
+            Some(Credentials::SshKey(_kp)) => {
+                unreachable!("should have been replaced by pem")
+            }
+            Some(Credentials::SshKeyPem(k)) => {
                 callbacks.credentials(move |_url, _username_from_url, _cred_ty| {
-                    Cred::ssh_key_from_memory("git", None, &kp.public_key_base64(), None)
+                    Cred::ssh_key_from_memory("git", None, &k, None)
                 });
             }
             Some(Credentials::UsernameAndTokenFromTokenList(_)) => {
@@ -348,7 +364,7 @@ impl TestCx {
         credentials: Option<Credentials>,
         is_ssh: bool,
     ) -> TestResult<Repository> {
-        let credentials = self.process_credentials(credentials);
+        let credentials = self.process_credentials(credentials)?;
 
         if is_ssh && !matches!(credentials, Some(Credentials::SshKey(_))) {
             bail!("SSH access requires SSH credentials");
@@ -792,7 +808,8 @@ pub fn create_ssh_key() -> TestResult<russh_keys::key::KeyPair> {
 
 #[derive(Clone)]
 pub enum Credentials {
-    SshKey(russh_keys::key::KeyPair),
+    SshKey(KeyPair),
+    SshKeyPem(String),
     UsernameToken(Username, Token),
     UsernameAndTokenFromTokenList(Username),
 }
