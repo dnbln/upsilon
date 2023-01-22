@@ -20,6 +20,7 @@ pub mod password;
 use std::str::FromStr;
 
 use russh_keys::key::PublicKey;
+use russh_keys::PublicKeyBase64;
 
 use crate::assets::ImageAssetId;
 use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
@@ -51,8 +52,23 @@ pub struct User {
     pub avatar: Option<ImageAssetId>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct UserSshKey(PublicKey);
+
+impl PartialEq for UserSshKey {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (UserSshKey(PublicKey::Ed25519(a)), UserSshKey(PublicKey::Ed25519(b))) => a == b,
+            (
+                UserSshKey(PublicKey::RSA { key: a, .. }),
+                UserSshKey(PublicKey::RSA { key: b, .. }),
+            ) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for UserSshKey {}
 
 impl UserSshKey {
     pub fn new(key: PublicKey) -> Self {
