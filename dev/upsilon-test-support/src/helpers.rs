@@ -407,6 +407,8 @@ impl TestCx {
         let builder = remote_path(builder);
         let remote_ref = builder.build()?;
 
+        dbg!(&remote_ref);
+
         let target_url = match remote_ref {
             GitRemoteRef {
                 protocol: GitAccessProtocol::Git,
@@ -709,6 +711,7 @@ impl<'a> Cmd<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct GitRemoteRef {
     protocol: GitAccessProtocol,
     path: String,
@@ -755,6 +758,7 @@ impl GitRemoteRefBuilder {
     }
 }
 
+#[derive(Debug)]
 pub enum GitAccessProtocol {
     Http,
     Git,

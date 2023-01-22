@@ -3557,6 +3557,7 @@ dependencies = [
  "figment",
  "futures",
  "lazy_static",
+ "path-slash",
  "regex",
  "rocket",
  "rocket-basicauth",

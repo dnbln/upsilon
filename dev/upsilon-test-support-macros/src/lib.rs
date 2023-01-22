@@ -271,6 +271,8 @@ impl InnerFnCall {
             finish.append_all(quote! {
                 if let Err(e) = #param_name.finish(#test_result_name).await {
                     ::upsilon_test_support::log::error!("Error finishing test parameter {}: {}", stringify!(#ty), e);
+
+                    return Err(e);
                 }
             });
 

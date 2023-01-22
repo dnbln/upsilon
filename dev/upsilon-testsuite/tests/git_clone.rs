@@ -85,6 +85,6 @@ clone_test! {@can_clone: can_clone_to_local_http: upsilon_global}
 clone_test! {@can_clone: #[git_daemon] can_clone_to_local_git: upsilon_global_git_protocol}
 clone_test! {@can_clone_ssh: can_clone_to_local_ssh: upsilon_global_ssh}
 clone_test! {@can_clone_git_bin: can_clone_to_local_git_binary_http: upsilon_global}
-clone_test! {@can_clone_git_bin: can_clone_to_local_git_binary_git: upsilon_global_git_protocol}
+clone_test! {@can_clone_git_bin: #[git_daemon] can_clone_to_local_git_binary_git: upsilon_global_git_protocol}
 clone_test! {@clone_twice_same_result: clone_twice_same_result_http: upsilon_global}
 clone_test! {@clone_twice_same_result: clone_twice_same_result_git: upsilon_global_git_protocol}

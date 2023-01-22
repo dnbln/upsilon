@@ -22,6 +22,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use lazy_static::lazy_static;
+use path_slash::PathExt;
 use rocket::data::ByteUnit;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::fs::NamedFile;
@@ -384,6 +385,8 @@ async fn get_service_for_path_and_query(
             .and_then(|it| it.get("service"))
             .map_or(false, |it| it == service_name)
     }
+
+    let path = path.to_slash().expect("Path is not valid UTF-8");
 
     let service = if path.ends_with("/git-upload-pack")
         || query_service_is(query, "git-upload-pack")
