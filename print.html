@@ -198,8 +198,8 @@ used to serve git repositories over ssh (see <code>upsilon-ssh-russh</code>).</p
 private repositories. The logic to spawn the <code>git-daemon</code> process to 
 handle traffic over the <code>git://</code> protocol is in the <code>upsilon-vcs</code> crate.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
-<p>All integration tests go in <code>crates/upsilon-testsuite</code>, with
-<code>crates/upsilon-test-support</code> providing some utilities for them.</p>
+<p>All integration tests go in <code>dev/upsilon-testsuite</code>, with
+<code>dev/upsilon-test-support</code> providing some utilities for them.</p>
 <h2 id="running-the-tests"><a class="header" href="#running-the-tests">Running the tests</a></h2>
 <p>To run the tests, you can use the <code>test</code> xtask:</p>
 <pre><code class="language-bash">cargo xtask test
