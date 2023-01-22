@@ -20,7 +20,7 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::error;
+use log::{error, info};
 use russh::server::{Auth, Handle, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec, MethodSet};
 use russh_keys::key::PublicKey;
@@ -342,6 +342,8 @@ impl Handler for RusshServerHandler {
 
                 RusshServerError::Other(Box::new(e))
             })?;
+
+        info!("Query user ssh key result: {:?}", result);
 
         match result {
             Some(user) => Ok((
