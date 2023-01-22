@@ -733,7 +733,7 @@ impl MutationRoot {
     async fn add_user_ssh_key(context: &GraphQLContext, key: String) -> FieldResult<bool> {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
-        let key = russh_keys::key::parse_public_key(key.as_bytes(), None)?;
+        let key = russh_keys::parse_public_key_base64(&key)?;
 
         let result = context
             .query(|qm| async move {
