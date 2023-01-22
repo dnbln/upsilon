@@ -24,7 +24,7 @@ use std::time::Duration;
 use anyhow::{bail, format_err};
 use git2::{BranchType, Cred, CredentialType, FetchOptions, RemoteCallbacks, Repository};
 use log::info;
-use russh_keys::key::KeyPair;
+use russh_keys::key::{KeyPair, PublicKey};
 use russh_keys::PublicKeyBase64;
 
 use crate::{
@@ -660,10 +660,15 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
 
     pub async fn add_ssh_key_to_user(
         &mut self,
-        key: &impl PublicKeyBase64,
+        key: &PublicKey,
         user: impl Into<Username>,
     ) -> TestResult {
-        let key_string = String::from_utf8(key.public_key_bytes())?;
+
+        let mut key_string_cursor = std::io::Cursor::new(Vec::new());
+        russh_keys::write_public_key_base64(&mut key_string_cursor, key)?;
+        let key_vec = key_string_cursor.into_inner();
+        let key_string = String::from_utf8(key_vec)?;
+
         self.with_client_as_user(user, |cl| async move {
             cl.gql_query_with_variables::<Anything>(
                 r#"
