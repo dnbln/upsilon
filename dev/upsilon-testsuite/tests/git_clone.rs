@@ -55,7 +55,7 @@ macro_rules! clone_test {
             cx.create_user(username, "test", "test").await?;
 
             let kp = create_ssh_key()?;
-            cx.add_ssh_key_to_user(&kp, username).await?;
+            cx.add_ssh_key_to_user(&kp.clone_public_key()?, username).await?;
 
             cx.clone("upsilon-clone", $remote_path_builder_fn, Credentials::SshKey(kp))
                 .await?;
