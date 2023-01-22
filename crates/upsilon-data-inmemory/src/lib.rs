@@ -509,9 +509,6 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
             return Ok(false);
         }
 
-        dbg!(user_id);
-        dbg!(&key);
-
         lock.push((key, user_id));
 
         Ok(true)

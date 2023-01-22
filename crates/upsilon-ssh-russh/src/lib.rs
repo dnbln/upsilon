@@ -343,8 +343,6 @@ impl Handler for RusshServerHandler {
                 RusshServerError::Other(Box::new(e))
             })?;
 
-        info!("Query user ssh key result: {:?}", result);
-
         match result {
             Some(user) => Ok((
                 Self {
@@ -571,7 +569,7 @@ impl Handler for RusshServerHandler {
                             .exit_status_request(channel, status_code)
                             .await;
 
-                        // let _ = session_handle.eof(channel).await;
+                        let _ = session_handle.eof(channel).await;
                         // let _ = session_handle.close(channel).await;
 
                         break;
