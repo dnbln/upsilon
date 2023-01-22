@@ -51,7 +51,7 @@ struct CacheInMemoryStore {
     org_members: Cache<(OrganizationId, UserId), OrganizationMember>,
     teams: Cache<TeamId, Team>,
     repo_permissions: Cache<(RepoId, UserId), RepoPermissions>,
-    user_ssh_keys: Cache<UserSshKey, UserId>,
+    user_ssh_keys: Cache<String, (UserSshKey, UserId)>, // fingerprint -> (key, user_id)
 }
 
 pub struct CacheInMemoryDataClient {
@@ -207,7 +207,10 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
         user_id: UserId,
         key: UserSshKey,
     ) -> Result<bool, Self::Error> {
-        self.store().user_ssh_keys.invalidate(&key).await;
+        self.store()
+            .user_ssh_keys
+            .invalidate(&key.fingerprint())
+            .await;
 
         self.inner
             .add_user_ssh_key(user_id, key)
@@ -216,8 +219,25 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
     }
 
     async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
-        match self.store().user_ssh_keys.get(&key) {
-            Some(user_id) => Ok(Some(user_id)),
+        let kfp = key.fingerprint();
+        match self.store().user_ssh_keys.get(&kfp) {
+            Some((k, user)) => {
+                if k == key {
+                    return Ok(Some(user));
+                } else {
+                    let user_id = self
+                        .inner
+                        .query_user_ssh_key(key.clone())
+                        .await
+                        .convert_error()?;
+
+                    if let Some(u) = user_id {
+                        self.store().user_ssh_keys.insert(kfp, (key, u)).await;
+                    }
+
+                    Ok(user_id)
+                }
+            }
             None => {
                 let user_id = self
                     .inner
@@ -225,7 +245,10 @@ impl<'a> DataClientQueryImpl<'a> for CacheInMemoryQueryImpl<'a> {
                     .await
                     .convert_error()?;
                 if let Some(user_id) = user_id {
-                    self.store().user_ssh_keys.insert(key, user_id).await;
+                    self.store()
+                        .user_ssh_keys
+                        .insert(key.fingerprint(), (key, user_id))
+                        .await;
                 }
                 Ok(user_id)
             }

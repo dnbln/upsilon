@@ -58,6 +58,10 @@ impl UserSshKey {
     pub fn new(key: PublicKey) -> Self {
         UserSshKey(key)
     }
+
+    pub fn fingerprint(&self) -> String {
+        self.0.fingerprint()
+    }
 }
 
 impl FromStr for UserSshKey {
