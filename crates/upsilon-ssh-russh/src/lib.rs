@@ -570,7 +570,7 @@ impl Handler for RusshServerHandler {
                             .await;
 
                         let _ = session_handle.eof(channel).await;
-                        // let _ = session_handle.close(channel).await;
+                        let _ = session_handle.close(channel).await;
 
                         break;
                     }
