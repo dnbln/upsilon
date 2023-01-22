@@ -165,6 +165,9 @@ enum App {
 
         tests_filters: Vec<String>,
     },
+    #[clap(name = "test-support-examples")]
+    #[clap(alias = "tse")]
+    TestSupportExamples { examples: Vec<String> },
     #[clap(name = "pack-release")]
     PackRelease,
     #[clap(name = "install-aliases")]
@@ -283,6 +286,49 @@ fn run_tests(
         @env "UPSILON_TESTSUITE_LOG" => "info",
         @workdir = ws_root!(),
     )?;
+
+    Ok(())
+}
+
+fn run_test_support_examples(
+    setup_testenv: &Path,
+    tmpdir: &Path,
+    examples: &[String],
+) -> XtaskResult<()> {
+    cargo_cmd!(
+        "run",
+        "-p",
+        "upsilon-setup-testenv",
+        "--bin",
+        "upsilon-setup-testenv",
+        "--verbose",
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @env "RUST_LOG" => "info",
+        @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+        @workdir = ws_root!(),
+    )?;
+
+    let mut upsilon_web_binary = ws_path!("target" / "debug" / "upsilon-web");
+    upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
+
+    for example in examples {
+        cargo_cmd!(
+            "run",
+            "-p",
+            "upsilon-test-support",
+            "--example",
+            example,
+            @env "CLICOLOR_FORCE" => "1",
+            @env "UPSILON_TEST_GUARD" => "1",
+            @env "UPSILON_SETUP_TESTENV" => setup_testenv,
+            @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
+            @env "UPSILON_WEB_BIN" => &upsilon_web_binary,
+            @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+            @env "UPSILON_TESTSUITE_LOG" => "info",
+            @env "UPSILON_TMPDIR" => tmpdir,
+            @workdir = ws_root!(),
+        )?;
+    }
 
     Ok(())
 }
@@ -577,6 +623,33 @@ fn main_impl() -> XtaskResult<()> {
                 &tests_filters,
                 &test_groups,
             );
+
+            std::fs::remove_dir_all(&testenv_tests)?;
+
+            result?;
+        }
+        App::TestSupportExamples { examples } => {
+            build_dev(false, false)?;
+
+            let testenv_tests = ws_path!("testenv_tests");
+
+            let tmpdir_root = testenv_tests.join(std::process::id().to_string());
+
+            if tmpdir_root.exists() {
+                std::fs::remove_dir_all(&tmpdir_root)?;
+            }
+
+            std::fs::create_dir_all(&tmpdir_root)?;
+
+            let setup_testenv = tmpdir_root.join("testenv");
+
+            std::fs::create_dir_all(&setup_testenv)?;
+
+            let tmpdir = tmpdir_root.join("tmpdir");
+
+            std::fs::create_dir_all(&tmpdir)?;
+
+            let result = run_test_support_examples(&setup_testenv, &tmpdir, &examples);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 
