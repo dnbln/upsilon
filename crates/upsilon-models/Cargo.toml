@@ -9,6 +9,7 @@ edition = "2021"
 bcrypt = "0.13"
 bitflags.workspace = true
 juniper.workspace = true
+russh-keys.workspace = true
 rust-argon2 = "1"
 serde.workspace = true
 thiserror.workspace = true

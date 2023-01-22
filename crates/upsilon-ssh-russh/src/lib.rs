@@ -24,7 +24,6 @@ use log::error;
 use russh::server::{Auth, Handle, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec, MethodSet};
 use russh_keys::key::PublicKey;
-use russh_keys::PublicKeyBase64;
 use serde::{Deserialize, Deserializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::ChildStdin;
@@ -336,7 +335,7 @@ impl Handler for RusshServerHandler {
             .internals
             .dcmh
             .query_master()
-            .query_user_ssh_key(UserSshKey(public_key.public_key_base64()))
+            .query_user_ssh_key(UserSshKey::new(public_key.clone()))
             .await
             .map_err(|e| {
                 error!("Failed to query user ssh key: {}", e);

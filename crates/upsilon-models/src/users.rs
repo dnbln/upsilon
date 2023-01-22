@@ -17,6 +17,10 @@
 pub mod emails;
 pub mod password;
 
+use std::str::FromStr;
+
+use russh_keys::key::PublicKey;
+
 use crate::assets::ImageAssetId;
 use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};
 use crate::users::emails::UserEmails;
@@ -47,5 +51,22 @@ pub struct User {
     pub avatar: Option<ImageAssetId>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct UserSshKey(pub String);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UserSshKey(PublicKey);
+
+impl UserSshKey {
+    pub fn new(key: PublicKey) -> Self {
+        UserSshKey(key)
+    }
+}
+
+impl FromStr for UserSshKey {
+    type Err = russh_keys::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(UserSshKey(russh_keys::key::parse_public_key(
+            s.as_bytes(),
+            None,
+        )?))
+    }
+}

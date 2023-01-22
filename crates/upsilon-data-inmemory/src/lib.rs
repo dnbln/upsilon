@@ -89,7 +89,7 @@ struct InMemoryDataStore {
         Arc<RwLock<BTreeMap<OrganizationId, BTreeMap<UserId, OrganizationMember>>>>,
     teams: Arc<RwLock<BTreeMap<TeamId, Team>>>,
     repo_permissions: Arc<RwLock<BTreeMap<RepoId, BTreeMap<UserId, RepoPermissions>>>>,
-    ssh_key_map: Arc<RwLock<BTreeMap<UserSshKey, UserId>>>,
+    ssh_key_map: Arc<RwLock<Vec<(UserSshKey, UserId)>>>,
 }
 
 impl InMemoryDataStore {
@@ -105,7 +105,7 @@ impl InMemoryDataStore {
             organization_members: new_map(),
             teams: new_map(),
             repo_permissions: new_map(),
-            ssh_key_map: new_map(),
+            ssh_key_map: Arc::new(RwLock::new(vec![])),
         }
     }
 }
@@ -505,11 +505,11 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     ) -> Result<bool, Self::Error> {
         let mut lock = self.store().ssh_key_map.write().await;
 
-        if lock.contains_key(&key) {
+        if lock.iter().any(|it| it.0 == key) {
             return Ok(false);
         }
 
-        lock.insert(key, user_id);
+        lock.push((key, user_id));
 
         Ok(true)
     }
@@ -517,7 +517,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
         let lock = self.store().ssh_key_map.read().await;
 
-        Ok(lock.get(&key).cloned())
+        Ok(lock.iter().find_map(|(k, u)| (*k == key).then_some(*u)))
     }
 
     async fn create_repo(&self, repo: Repo) -> Result<(), Self::Error> {

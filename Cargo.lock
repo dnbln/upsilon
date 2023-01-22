@@ -3423,6 +3423,7 @@ dependencies = [
  "bcrypt",
  "bitflags 2.0.0-rc.1",
  "juniper",
+ "russh-keys",
  "rust-argon2",
  "serde",
  "thiserror",
