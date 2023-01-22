@@ -1,7 +1,7 @@
 # Testing
 
-All integration tests go in `crates/upsilon-testsuite`, with
-`crates/upsilon-test-support` providing some utilities for them.
+All integration tests go in `dev/upsilon-testsuite`, with
+`dev/upsilon-test-support` providing some utilities for them.
 
 ## Running the tests
 
