@@ -658,16 +658,22 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
         Ok((repo1, repo2))
     }
 
+    pub fn encode_ssh_key(key: &PublicKey) -> TestResult<String> {
+        if !matches!(key, PublicKey::RSA { .. }) {
+            bail!("Only RSA keys are supported");
+        }
+
+        let key_string = PublicKey::public_key_base64(key);
+
+        Ok(key_string)
+    }
+
     pub async fn add_ssh_key_to_user(
         &mut self,
         key: &PublicKey,
         user: impl Into<Username>,
     ) -> TestResult {
-
-        let mut key_string_cursor = std::io::Cursor::new(Vec::new());
-        russh_keys::write_public_key_base64(&mut key_string_cursor, key)?;
-        let key_vec = key_string_cursor.into_inner();
-        let key_string = String::from_utf8(key_vec)?;
+        let key_string = Self::encode_ssh_key(key)?;
 
         self.with_client_as_user(user, |cl| async move {
             cl.gql_query_with_variables::<Anything>(

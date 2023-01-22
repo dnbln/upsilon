@@ -68,9 +68,6 @@ impl FromStr for UserSshKey {
     type Err = russh_keys::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(UserSshKey(russh_keys::key::parse_public_key(
-            s.as_bytes(),
-            None,
-        )?))
+        Ok(UserSshKey(russh_keys::parse_public_key_base64(s)?))
     }
 }
