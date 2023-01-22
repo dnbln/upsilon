@@ -517,7 +517,9 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn query_user_ssh_key(&self, key: UserSshKey) -> Result<Option<UserId>, Self::Error> {
         let lock = self.store().ssh_key_map.read().await;
 
-        Ok(lock.iter().find_map(|(k, u)| (*k == key).then_some(*u)))
+        Ok(lock
+            .iter()
+            .find_map(|(k, u)| (dbg!(k) == dbg!(&key)).then_some(*u)))
     }
 
     async fn create_repo(&self, repo: Repo) -> Result<(), Self::Error> {
