@@ -663,7 +663,7 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
         key: &impl PublicKeyBase64,
         user: impl Into<Username>,
     ) -> TestResult {
-        let key_string = key.public_key_base64();
+        let key_string = String::from_utf8(key.public_key_bytes())?;
         self.with_client_as_user(user, |cl| async move {
             cl.gql_query_with_variables::<Anything>(
                 r#"
