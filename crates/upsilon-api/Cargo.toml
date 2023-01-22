@@ -15,6 +15,7 @@ linkme.workspace = true
 openssl.workspace = true
 path-slash.workspace = true
 rocket.workspace = true
+russh-keys.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }

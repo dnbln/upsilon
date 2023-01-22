@@ -3274,6 +3274,7 @@ dependencies = [
  "openssl",
  "path-slash",
  "rocket",
+ "russh-keys",
  "serde",
  "thiserror",
  "tokio",
