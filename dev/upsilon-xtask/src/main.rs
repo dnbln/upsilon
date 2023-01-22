@@ -284,7 +284,6 @@ fn run_tests(
         @env "UPSILON_WEB_BIN" => upsilon_web_binary,
         @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
         @env "UPSILON_TESTSUITE_LOG" => "info",
-        @env "UPSILON_TMPDIR" => "", // examples get compiled too, so we need this environment variable
         @workdir = ws_root!(),
     )?;
 

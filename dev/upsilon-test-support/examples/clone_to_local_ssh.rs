@@ -41,7 +41,7 @@ async fn example_impl(cx: &mut TestCx) -> TestResult {
 
 async fn main_impl() -> TestResult {
     let cfg = TestCxConfig::new(&CxConfigVars {
-        workdir: PathBuf::from(env!("UPSILON_TMPDIR")),
+        workdir: PathBuf::from(std::env::var("UPSILON_TMPDIR").expect("UPSILON_TMPDIR not set")),
         test_name: "clone_to_local_ssh_example",
         source_file_path_hash: 0,
         works_offline: true,
