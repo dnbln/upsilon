@@ -366,7 +366,7 @@ impl TestCx {
     ) -> TestResult<Repository> {
         let credentials = self.process_credentials(credentials)?;
 
-        if is_ssh && !matches!(credentials, Some(Credentials::SshKey(_))) {
+        if is_ssh && !matches!(credentials, Some(Credentials::SshKeyPem(_))) {
             bail!("SSH access requires SSH credentials");
         }
 
