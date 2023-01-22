@@ -22,7 +22,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use anyhow::{bail, format_err};
-use git2::{BranchType, Cred, FetchOptions, RemoteCallbacks, Repository};
+use git2::{BranchType, Cred, CredentialType, FetchOptions, RemoteCallbacks, Repository};
 use log::info;
 use russh_keys::key::KeyPair;
 use russh_keys::PublicKeyBase64;
@@ -347,7 +347,10 @@ impl TestCx {
                 unreachable!("should have been replaced by pem")
             }
             Some(Credentials::SshKeyPem(k)) => {
-                callbacks.credentials(move |_url, _username_from_url, _cred_ty| {
+                callbacks.credentials(move |_url, _username_from_url, allowed_types| {
+                    if !allowed_types.contains(CredentialType::SSH_MEMORY) {
+                        return Err(git2::Error::from_str("allowed_types & SSH_MEMORY == 0"));
+                    }
                     Cred::ssh_key_from_memory("git", None, &k, None)
                 });
             }
@@ -355,7 +358,13 @@ impl TestCx {
                 unreachable!("should have been replaced by token")
             }
             Some(Credentials::UsernameToken(username, token)) => {
-                callbacks.credentials(move |_url, _username_from_url, _cred_ty| {
+                callbacks.credentials(move |_url, _username_from_url, allowed_types| {
+                    if !allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+                        return Err(git2::Error::from_str(
+                            "allowed_types & USER_PASS_PLAINTEXT == 0",
+                        ));
+                    }
+
                     Cred::userpass_plaintext(&username.0, &token.0)
                 });
             }
