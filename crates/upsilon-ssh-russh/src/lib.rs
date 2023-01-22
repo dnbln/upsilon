@@ -404,7 +404,7 @@ impl Handler for RusshServerHandler {
             .await
             .map_err(|e| {
                 error!("Failed to read repo id: {}", e);
-                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.extended_data(channel, 1, CryptoVec::from_slice(b"Internal server error"));
                 session.channel_failure(channel);
                 RusshServerError::Other(Box::new(e))
             })?;
@@ -413,7 +413,7 @@ impl Handler for RusshServerHandler {
             .parse::<upsilon_models::repo::RepoId>()
             .map_err(|e| {
                 error!("Failed to parse repo id: {}", e);
-                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.extended_data(channel, 1, CryptoVec::from_slice(b"Internal server error"));
                 session.channel_failure(channel);
                 RusshServerError::Other(Box::new(e))
             })?;
@@ -426,7 +426,7 @@ impl Handler for RusshServerHandler {
             .await
             .map_err(|e| {
                 error!("Failed to query repo: {}", e);
-                session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+                session.extended_data(channel, 1, CryptoVec::from_slice(b"Internal server error"));
                 session.channel_failure(channel);
                 RusshServerError::Other(Box::new(e))
             })?;
@@ -442,7 +442,7 @@ impl Handler for RusshServerHandler {
         .await
         .map_err(|e| {
             error!("Failed to check repo perms: {}", e);
-            session.data(channel, CryptoVec::from_slice(b"Internal server error"));
+            session.extended_data(channel, 1, CryptoVec::from_slice(b"Internal server error"));
             session.channel_failure(channel);
             RusshServerError::Other(Box::new(e))
         })?;

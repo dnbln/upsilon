@@ -15,7 +15,9 @@
  */
 
 use std::path::PathBuf;
+use std::time::Duration;
 
+use anyhow::format_err;
 use upsilon_test_support::prelude::*;
 use upsilon_test_support::CxConfigVars;
 
@@ -28,9 +30,11 @@ async fn example_impl(cx: &mut TestCx) -> TestResult {
     let kp = create_ssh_key()?;
     cx.add_ssh_key_to_user(&kp, username).await?;
 
-    let _ = cx
-        .clone("upsilon-clone", upsilon_global_ssh, Credentials::SshKey(kp))
-        .await?;
+    let clone_fut = cx.clone("upsilon-clone", upsilon_global_ssh, Credentials::SshKey(kp));
+
+    let _ = tokio::time::timeout(Duration::from_secs(10), clone_fut)
+        .await
+        .map_err(|e| format_err!("clone timed out: {e}"))??;
 
     Ok(())
 }
