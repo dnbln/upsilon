@@ -361,6 +361,13 @@ impl TestCx {
 
                 let mut rcb = RemoteCallbacks::new();
                 Self::add_credentials_to_callbacks(credentials, &mut rcb);
+                rcb.certificate_check(|cert, _valid| {
+                    Ok(cert
+                        .as_hostkey()
+                        .map_or(git2::CertificateCheckStatus::CertificatePassthrough, |it| {
+                            git2::CertificateCheckStatus::Ok
+                        }))
+                });
 
                 let mut fo = FetchOptions::new();
                 fo.remote_callbacks(rcb);
