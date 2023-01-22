@@ -407,8 +407,6 @@ impl TestCx {
         let builder = remote_path(builder);
         let remote_ref = builder.build()?;
 
-        dbg!(&remote_ref);
-
         let target_url = match remote_ref {
             GitRemoteRef {
                 protocol: GitAccessProtocol::Git,
