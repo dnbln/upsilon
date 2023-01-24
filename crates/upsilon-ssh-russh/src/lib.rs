@@ -20,7 +20,7 @@ use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{error, info};
+use log::error;
 use russh::server::{Auth, Handle, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec, MethodSet};
 use russh_keys::key::PublicKey;

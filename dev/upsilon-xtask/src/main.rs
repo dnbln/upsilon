@@ -33,7 +33,7 @@ impl TestGroups {
         let mut args = Vec::new();
         for group in &self.groups {
             args.push("-E".to_string());
-            args.push(format!("binary({})", group.to_string()));
+            args.push(format!("binary({group})"));
         }
         args
     }
@@ -478,10 +478,10 @@ fn all_cargo_manifests_except_ws_root() -> XtaskResult<Vec<PathBuf>> {
     fn collect_from_folder(folder: PathBuf, to: &mut Vec<PathBuf>) -> XtaskResult<()> {
         let folder = folder.to_slash().unwrap();
         let cargo_toml_files_pattern = format!("{folder}/**/Cargo.toml");
-        let mut cargo_toml_files =
+        let cargo_toml_files =
             glob::glob(&cargo_toml_files_pattern)?.collect::<Result<Vec<_>, _>>()?;
 
-        to.append(&mut cargo_toml_files);
+        to.extend(cargo_toml_files);
         Ok(())
     }
 
@@ -731,7 +731,7 @@ fn main_impl() -> XtaskResult<()> {
                     "--bin",
                     alias,
                     "--path",
-                    ws_path!("crates" / "upsilon-xtask"),
+                    ws_path!("dev" / "upsilon-xtask"),
                 )?;
             }
         }
@@ -800,7 +800,7 @@ fn main_impl() -> XtaskResult<()> {
                 eprintln!("GraphQL schema is out of date. Run `cargo xtask gqls` to update it.");
                 eprintln!("Diff:");
                 eprintln!("=====================");
-                eprintln!("{}", diff);
+                eprintln!("{diff}");
                 eprintln!("=====================");
             }
 

@@ -1,4 +1,6 @@
-# 𝛶 (upsilon) [WIP]
+# 𝛶
+
+**Very much a work-in-progress.**
 
 A simple and lightweight collaboration tool for developers.
 
