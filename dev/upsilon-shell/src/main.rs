@@ -1097,7 +1097,8 @@ impl rustyline::completion::Completer for Helper {
 
                 // at end of line
                 return if (pos >= line.len() && line.chars().last().unwrap().is_whitespace())
-                    || (!line[pos..].is_empty()
+                    // or somewhere in the middle, but has whitespace on both sides
+                    || (pos < line.len()
                         && line[pos - 1..=pos + 1].chars().all(char::is_whitespace))
                 {
                     Ok((
