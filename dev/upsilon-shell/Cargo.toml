@@ -1,0 +1,17 @@
+[package]
+name = "upsilon-shell"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rustyline = { version = "10.1.1", features = ["case_insensitive_history_search", "with-fuzzy"] }
+logos = "0.12.1"
+home = "0.5.4"
+colored = "2.0.0"
+clap.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
