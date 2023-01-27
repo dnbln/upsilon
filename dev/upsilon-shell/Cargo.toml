@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { version = "10.1.1", features = ["case_insensitive_history_search", "with-fuzzy"] }
-logos = "0.12.1"
-home = "0.5.4"
-colored = "2.0.0"
 clap.workspace = true
-tokio.workspace = true
+colored = "2.0.0"
+home = "0.5.4"
+logos = "0.12.1"
 reqwest.workspace = true
+rustyline = { version = "10.1.1", features = ["case_insensitive_history_search", "with-fuzzy"] }
 thiserror.workspace = true
+tokio.workspace = true
 

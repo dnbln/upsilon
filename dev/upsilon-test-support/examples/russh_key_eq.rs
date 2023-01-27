@@ -15,7 +15,8 @@
  */
 
 fn main() {
-    let k = russh_keys::key::KeyPair::generate_rsa(2048, russh_keys::key::SignatureHash::SHA2_512).unwrap();
+    let k = russh_keys::key::KeyPair::generate_rsa(2048, russh_keys::key::SignatureHash::SHA2_512)
+        .unwrap();
 
     let kpub = k.clone_public_key().unwrap();
 
