@@ -1593,6 +1593,29 @@ impl Helper {
 
                 return Some(selected_candidate[pos - name.span.start..].to_string());
             }
+            UshParseError::UnexpectedFlag(flag, possible_values) => {
+                if flag.span.end != pos {
+                    return None;
+                }
+
+                let line_subslice = &line[flag.span.start..pos];
+
+                let mut candidates = possible_values
+                    .into_iter()
+                    .filter_map(|it| {
+                        let c = format!("--{it}");
+                        c.starts_with(line_subslice).then_some(c)
+                    })
+                    .collect::<Vec<_>>();
+
+                if candidates.len() != 1 {
+                    return None;
+                }
+
+                let selected_candidate = candidates.pop().unwrap();
+
+                return Some(selected_candidate[pos - flag.span.start..].to_string());
+            }
             _ => {}
         }
 
