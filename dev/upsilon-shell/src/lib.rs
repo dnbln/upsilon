@@ -195,6 +195,7 @@ commands!(
     HttpUrl "http-url",
     GitUrl "git-url",
     SshUrl "ssh-url",
+    Url "url",
 );
 
 pub struct CompletionContext<'src> {
@@ -338,12 +339,96 @@ pub struct UshCreateRepoCommand {
     pub repo_name: Spanned<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct UshHostInfo {
+    pub hostname: String,
+
+    pub git_http_enabled: bool,
+    pub git_ssh_enabled: bool,
+    pub git_protocol_enabled: bool,
+
+    pub http_port: u16,
+    pub ssh_port: u16,
+    pub git_port: u16,
+
+    pub https_enabled: bool,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum UshRepoAccessProtocol {
+    Git,
+    Http,
+    Ssh,
+}
+
+#[derive(Debug, Clone)]
+pub enum BuildUrlError {
+    ProtocolDisabled,
+}
+
+impl UshRepoAccessProtocol {
+    pub fn build_url(
+        self,
+        repo_path: &str,
+        host_info: &UshHostInfo,
+    ) -> Result<String, BuildUrlError> {
+        let url = match self {
+            Self::Http => {
+                if !host_info.git_http_enabled {
+                    return Err(BuildUrlError::ProtocolDisabled);
+                }
+
+                let (default_port, proto) = if host_info.https_enabled {
+                    (443, "https")
+                } else {
+                    (80, "http")
+                };
+
+                match host_info.http_port {
+                    port if port == default_port => {
+                        format!("{proto}://{}/{repo_path}", host_info.hostname)
+                    }
+                    port => format!("{proto}://{}:{port}/{repo_path}", host_info.hostname),
+                }
+            }
+
+            Self::Git => {
+                if !host_info.git_protocol_enabled {
+                    return Err(BuildUrlError::ProtocolDisabled);
+                }
+
+                match host_info.git_port {
+                    9418 => format!("git://{}/{}", host_info.hostname, repo_path),
+                    port => {
+                        format!("git://{}:{port}/{}", host_info.hostname, repo_path)
+                    }
+                }
+            }
+
+            Self::Ssh => {
+                if !host_info.git_ssh_enabled {
+                    return Err(BuildUrlError::ProtocolDisabled);
+                }
+
+                match host_info.ssh_port {
+                    22 => format!("git@{}:{}", host_info.hostname, repo_path),
+                    port => format!("ssh://git@{}:{port}/{}", host_info.hostname, repo_path),
+                }
+            }
+        };
+
+        Ok(url)
+    }
+}
+
 #[derive(Debug)]
 pub struct UshCloneCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
     pub arg_to: Option<Spanned<UshPath>>,
     pub to: UshPath,
+    pub access_protocol: UshRepoAccessProtocol,
+    pub access_protocol_flag: Option<Spanned<String>>,
 }
 
 #[derive(Debug)]
@@ -365,6 +450,14 @@ pub struct UshSshUrlCommand {
 }
 
 #[derive(Debug)]
+pub struct UshUrlCommand {
+    pub command_name: Spanned<CommandName>,
+    pub repo_path: Spanned<String>,
+    pub protocol: UshRepoAccessProtocol,
+    pub protocol_flag: Option<Spanned<String>>,
+}
+
+#[derive(Debug)]
 pub enum UshParsedCommand {
     Cd(UshCdCommand),
     Ls(UshLsCommand),
@@ -378,6 +471,7 @@ pub enum UshParsedCommand {
     HttpUrl(UshHttpUrlCommand),
     GitUrl(UshGitUrlCommand),
     SshUrl(UshSshUrlCommand),
+    Url(UshUrlCommand),
 }
 
 struct At {
@@ -444,6 +538,7 @@ impl CompletionProvider for UshParsedCommand {
             UshParsedCommand::HttpUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::GitUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::SshUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
+            UshParsedCommand::Url(cmd) => cmd.lookup_element_at(pos, completion_ctx),
         }
     }
 }
@@ -503,16 +598,12 @@ impl CompletionProvider for UshLoginCommand {
 }
 
 impl CompletionProvider for UshCreateUserCommand {}
-
 impl CompletionProvider for UshCreateRepoCommand {}
-
 impl CompletionProvider for UshCloneCommand {}
-
 impl CompletionProvider for UshHttpUrlCommand {}
-
 impl CompletionProvider for UshGitUrlCommand {}
-
 impl CompletionProvider for UshSshUrlCommand {}
+impl CompletionProvider for UshUrlCommand {}
 
 #[derive(logos::Logos, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -582,11 +673,16 @@ pub struct UshCommandParser<'src> {
 }
 
 impl<'src> UshCommandParser<'src> {
+    const GIT: &'static str = "git";
+    const HTTP: &'static str = "http";
+    const PROTO: &'static str = "protocol";
+    const SSH: &'static str = "ssh";
+
     fn new(line: &'src str) -> UshParseResult<Self> {
         let mut lexer = UshCommandLexer::new(line);
 
         let Some((token, span, slice)) = lexer.next() else {return Err(UshParseError::Empty)};
-        let Token::Value = token else {return Err(UshParseError::UnexpectedToken(Spanned::new(span, slice.to_string())));};
+        let Token::Value = token else {return Err(UshParseError::UnexpectedToken(span.spanned_string(slice)));};
 
         let command = UshCommand::get(slice)
             .ok_or(UshParseError::UnknownCommand(span.spanned_string(slice)))?;
@@ -646,6 +742,7 @@ impl<'src> UshCommandParser<'src> {
             UshCommand::HttpUrl => UshParsedCommand::HttpUrl(self.parse_http_url()?),
             UshCommand::GitUrl => UshParsedCommand::GitUrl(self.parse_git_url()?),
             UshCommand::SshUrl => UshParsedCommand::SshUrl(self.parse_ssh_url()?),
+            UshCommand::Url => UshParsedCommand::Url(self.parse_url()?),
         };
 
         self.expect_end()?;
@@ -772,27 +869,50 @@ impl<'src> UshCommandParser<'src> {
         })
     }
 
+    fn proto_group_fg_init(fg: FlagGroup) -> FlagGroup {
+        fg.flag(Self::GIT, |decl| decl)
+            .flag(Self::SSH, |decl| decl)
+            .flag(Self::HTTP, |decl| decl)
+            .required()
+            .group_default(Self::HTTP)
+    }
+
+    fn proto_group() -> (
+        &'static str,
+        fn(FlagGroup) -> FlagGroup,
+        fn(FlagValue) -> (UshRepoAccessProtocol, Option<Spanned<String>>),
+    ) {
+        (Self::PROTO, Self::proto_group_fg_init, |v| match v {
+            FlagValue::Present(spanned, true) if spanned.value == "--git" => {
+                (UshRepoAccessProtocol::Git, Some(spanned))
+            }
+            FlagValue::Present(spanned, true) if spanned.value == "--ssh" => {
+                (UshRepoAccessProtocol::Ssh, Some(spanned))
+            }
+            FlagValue::Present(spanned, true) if spanned.value == "--http" => {
+                (UshRepoAccessProtocol::Http, Some(spanned))
+            }
+            FlagValue::Default(name, true) if name == "git" => (UshRepoAccessProtocol::Git, None),
+            FlagValue::Default(name, true) if name == "ssh" => (UshRepoAccessProtocol::Ssh, None),
+            FlagValue::Default(name, true) if name == "http" => (UshRepoAccessProtocol::Http, None),
+            _ => unreachable!(),
+        })
+    }
+
     fn parse_clone(&mut self) -> UshParseResult<UshCloneCommand> {
         const REPO_PATH: &str = "remote-path";
         const TO: &str = "to";
-        const PROTOCOL: &str = "protocol";
-        const GIT: &str = "git";
-        const SSH: &str = "ssh";
-        const HTTP: &str = "http";
+
+        let (protocol, proto_group_fg_init, proto_group_value) = Self::proto_group();
 
         let arg_store = ArgDeclList::new()
             .arg(REPO_PATH, |decl| decl)
             .arg(TO, |decl| decl.optional())
-            .flag_group(PROTOCOL, |fg| {
-                fg.flag(GIT, |decl| decl)
-                    .flag(SSH, |decl| decl)
-                    .flag(HTTP, |decl| decl)
-                    .required()
-                    .group_default(HTTP)
-            })
+            .flag_group(protocol, proto_group_fg_init)
             .parse_from(self)?;
 
-        let r = arg_store.flag_group_required(PROTOCOL);
+        let (access_protocol, access_protocol_flag) =
+            proto_group_value(arg_store.flag_group_required(protocol));
 
         let repo_path = arg_store.required_arg(REPO_PATH)?;
         let repo_name = repo_path.value.split('/').last().unwrap();
@@ -806,6 +926,8 @@ impl<'src> UshCommandParser<'src> {
             repo_path,
             arg_to,
             to,
+            access_protocol,
+            access_protocol_flag,
         })
     }
 
@@ -851,6 +973,27 @@ impl<'src> UshCommandParser<'src> {
         Ok(UshSshUrlCommand {
             command_name: self.command_name.clone(),
             repo_path,
+        })
+    }
+
+    fn parse_url(&mut self) -> UshParseResult<UshUrlCommand> {
+        const REPO_PATH: &str = "remote-path";
+
+        let (proto, proto_group_fg_init, proto_group_value) = Self::proto_group();
+        let arg_store = ArgDeclList::new()
+            .arg(REPO_PATH, |decl| decl)
+            .flag_group(proto, proto_group_fg_init)
+            .parse_from(self)?;
+
+        let (protocol, protocol_flag) = proto_group_value(arg_store.flag_group_required(proto));
+
+        let repo_path = arg_store.required_arg(REPO_PATH)?;
+
+        Ok(UshUrlCommand {
+            command_name: self.command_name.clone(),
+            repo_path,
+            protocol,
+            protocol_flag,
         })
     }
 }
@@ -1115,22 +1258,28 @@ impl ArgDeclList {
 
         for decl in &self.flags {
             if let Some(default) = decl.default {
-                args.flags
-                    .insert(decl.name.to_string(), FlagValue::Default(default));
+                args.flags.insert(
+                    decl.name.to_string(),
+                    FlagValue::Default(decl.name.to_string(), default),
+                );
             }
         }
 
         for flag_group in &self.flag_groups {
             for decl in &flag_group.flags {
                 if let Some(default) = decl.default {
-                    args.flags
-                        .insert(decl.name.to_string(), FlagValue::Default(default));
+                    args.flags.insert(
+                        decl.name.to_string(),
+                        FlagValue::Default(decl.name.to_string(), default),
+                    );
                 }
             }
 
             if let Some(default) = &flag_group.default {
-                args.flags
-                    .insert(default.to_string(), FlagValue::Default(true));
+                args.flags.insert(
+                    default.to_string(),
+                    FlagValue::Default(default.to_string(), true),
+                );
             }
         }
 
@@ -1171,15 +1320,24 @@ impl ArgDeclList {
             let mut flag_group_value = None::<(String, FlagValue)>;
             for (flag, value) in &args.flags {
                 if flag_group.contains_flag(flag) {
-                    if let FlagValue::Present(..) = value {
-                        if let Some((_old_flag, old_value)) = flag_group_value {
-                            return Err(UshParseError::FlagGroupConflict(
-                                flag_group.group_name.to_string(),
-                                old_value.unwrap_present_spanned().clone(),
-                                value.unwrap_present_spanned().clone(),
-                            ));
-                        } else {
-                            flag_group_value = Some((flag.clone(), value.clone()));
+                    match value {
+                        FlagValue::Present(..) => {
+                            if let Some((_old_flag, old_value @ FlagValue::Present(..))) =
+                                flag_group_value
+                            {
+                                return Err(UshParseError::FlagGroupConflict(
+                                    flag_group.group_name.to_string(),
+                                    old_value.unwrap_present_spanned().clone(),
+                                    value.unwrap_present_spanned().clone(),
+                                ));
+                            } else {
+                                flag_group_value = Some((flag.clone(), value.clone()));
+                            }
+                        }
+                        FlagValue::Default(..) => {
+                            if flag_group_value.is_none() {
+                                flag_group_value = Some((flag.clone(), value.clone()));
+                            }
                         }
                     }
                 }
@@ -1228,14 +1386,14 @@ impl ArgValue {
 #[derive(Clone, Debug)]
 pub enum FlagValue {
     Present(Spanned<String>, bool),
-    Default(bool),
+    Default(String, bool),
 }
 
 impl FlagValue {
     fn value(&self) -> bool {
         match self {
             FlagValue::Present(_, v) => *v,
-            FlagValue::Default(v) => *v,
+            FlagValue::Default(_, v) => *v,
         }
     }
 

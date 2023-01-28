@@ -20,7 +20,9 @@ use std::rc::Rc;
 use clap::Parser;
 use rustyline::error::ReadlineError;
 use rustyline::{ColorMode, CompletionType, Config};
-use upsilon_shell::{parse_line, Helper, UserMap, UshParsedCommand};
+use upsilon_shell::{
+    parse_line, BuildUrlError, Helper, UserMap, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
+};
 
 #[derive(Parser, Debug)]
 pub struct App {
@@ -40,6 +42,21 @@ pub struct App {
     https: bool,
     #[clap(long, default_value = "localhost")]
     hostname: String,
+}
+
+impl App {
+    fn to_ush_host_info(&self) -> UshHostInfo {
+        UshHostInfo {
+            git_ssh_enabled: self.ssh,
+            ssh_port: self.ssh_port,
+            git_protocol_enabled: self.git_protocol,
+            git_port: self.git_protocol_port,
+            git_http_enabled: self.git_http,
+            http_port: self.http_port,
+            https_enabled: self.https,
+            hostname: self.hostname.clone(),
+        }
+    }
 }
 
 const HISTORY_FILE: &str = ".ush-history";
@@ -162,47 +179,44 @@ fn main() {
                 println!("clone {} to {}", clone.repo_path.value, clone.to.0);
             }
             UshParsedCommand::HttpUrl(http_url) => {
-                if app.git_http {
-                    let default_port = if app.https { 443 } else { 80 };
-                    let proto = if app.https { "https" } else { "http" };
-
-                    match app.http_port {
-                        port if port == default_port => {
-                            println!("{proto}://{}/{}", app.hostname, http_url.repo_path.value)
-                        }
-                        port => println!(
-                            "{proto}://{}:{port}/{}",
-                            app.hostname, http_url.repo_path.value
-                        ),
+                match UshRepoAccessProtocol::Http
+                    .build_url(&http_url.repo_path.value, &app.to_ush_host_info())
+                {
+                    Ok(url) => println!("{url}"),
+                    Err(BuildUrlError::ProtocolDisabled) => {
+                        eprintln!("Seems like the http protocol was not enabled")
                     }
-                } else {
-                    eprintln!("Seems like git over http was not enabled");
                 }
             }
             UshParsedCommand::GitUrl(git_url) => {
-                if app.git_protocol {
-                    match app.git_protocol_port {
-                        9418 => println!("git://{}/{}", app.hostname, git_url.repo_path.value),
-                        port => {
-                            println!("git://{}:{port}/{}", app.hostname, git_url.repo_path.value)
-                        }
-                    };
-                } else {
-                    eprintln!("Seems like the git protocol was not enabled");
+                match UshRepoAccessProtocol::Git
+                    .build_url(&git_url.repo_path.value, &app.to_ush_host_info())
+                {
+                    Ok(url) => println!("{url}"),
+                    Err(BuildUrlError::ProtocolDisabled) => {
+                        eprintln!("Seems like the git protocol was not enabled")
+                    }
                 }
             }
             UshParsedCommand::SshUrl(ssh_url) => {
-                if app.ssh {
-                    const SSH_USER: &str = "git";
-                    match app.ssh_port {
-                        22 => println!("{SSH_USER}@{}:{}", app.hostname, ssh_url.repo_path.value),
-                        port => println!(
-                            "ssh://{SSH_USER}@{}:{port}/{}",
-                            app.hostname, ssh_url.repo_path.value
-                        ),
-                    };
-                } else {
-                    eprintln!("Seems like git over ssh was not enabled");
+                match UshRepoAccessProtocol::Ssh
+                    .build_url(&ssh_url.repo_path.value, &app.to_ush_host_info())
+                {
+                    Ok(url) => println!("{url}"),
+                    Err(BuildUrlError::ProtocolDisabled) => {
+                        eprintln!("Seems like the ssh protocol was not enabled")
+                    }
+                }
+            }
+            UshParsedCommand::Url(url) => {
+                match url
+                    .protocol
+                    .build_url(&url.repo_path.value, &app.to_ush_host_info())
+                {
+                    Ok(url) => println!("{url}"),
+                    Err(BuildUrlError::ProtocolDisabled) => {
+                        eprintln!("Seems like the {:?} protocol was not enabled", url.protocol)
+                    }
                 }
             }
         }
