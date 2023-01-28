@@ -30,7 +30,7 @@ use rustyline::completion::{FilenameCompleter, Pair};
 use rustyline::validate::{ValidationContext, ValidationResult};
 use rustyline::{CompletionType, Context};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq, Clone)]
 pub enum UshParseError {
     #[error("empty")]
     Empty,
@@ -58,6 +58,78 @@ pub enum UshParseError {
     EmptyArg(Spanned<String>, ArgHint),
     #[error("parse int error: {0}")]
     ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[cfg(test)]
+impl UshParseError {
+    #[track_caller]
+    fn assert_expected_end_of_input(&self, got: &str) {
+        match self {
+            UshParseError::ExpectedEndOfInput(Spanned { value, .. }) => {
+                assert_eq!(value, got);
+            }
+            _ => panic!("expected ExpectedEndOfInput, got: {self:?}"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_empty_arg(&self, arg: &str, hint: ArgHint) {
+        match self {
+            UshParseError::EmptyArg(Spanned { value, .. }, hint_value) => {
+                assert_eq!(value, arg);
+                assert_eq!(hint_value, &hint);
+            }
+            _ => panic!("expected EmptyArg, got: {self:?}"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_expected_arg(&self, got: &str, possible_values: &[&str]) {
+        match self {
+            UshParseError::ExpectedArg(Spanned { value, .. }, values) => {
+                assert_eq!(value, got);
+                assert_eq!(values, possible_values);
+            }
+            _ => panic!("expected ExpectedArg, got: {self:?}"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_unknown_arg(&self, unexpected: &str) {
+        match self {
+            UshParseError::UnexpectedArg(Spanned { value, .. }) => {
+                assert_eq!(value, unexpected);
+            }
+            _ => panic!("expected UnexpectedArg, got: {self:?}"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_eq_unordered<T: Debug + Ord + Clone, I: IntoIterator<Item = U>, U: Into<T>>(
+        a: &[T],
+        b: I,
+    ) {
+        let mut a = a.to_vec();
+        let mut b = b.into_iter().map(Into::<T>::into).collect::<Vec<_>>();
+        a.sort();
+        b.sort();
+        assert_eq!(a, b);
+    }
+
+    #[track_caller]
+    fn assert_unknown_flag<'a, I: IntoIterator<Item = &'a str>>(
+        &self,
+        unexpected: &str,
+        possible_values: I,
+    ) {
+        match self {
+            UshParseError::UnexpectedFlag(Spanned { value, .. }, values) => {
+                assert_eq!(value, unexpected);
+                Self::assert_eq_unordered(values, possible_values);
+            }
+            _ => panic!("expected UnexpectedFlag, got: {self:?}"),
+        }
+    }
 }
 
 pub type UshParseResult<T> = Result<T, UshParseError>;
@@ -135,7 +207,7 @@ impl<T: Display> Display for Spanned<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommandName(String);
 
 macro_rules! commands {
@@ -204,7 +276,7 @@ pub struct CompletionContext<'src> {
     usermap: Rc<RefCell<UserMap>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshPath(pub String);
 
 impl From<String> for UshPath {
@@ -248,36 +320,36 @@ impl CompletionProvider for Spanned<UshPath> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshCdCommand {
     pub command_name: Spanned<CommandName>,
     pub path: Option<Spanned<UshPath>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshLsCommand {
     pub command_name: Spanned<CommandName>,
     pub path: Option<Spanned<UshPath>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshPwdCommand {
     pub command_name: Spanned<CommandName>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshEchoCommand {
     pub command_name: Spanned<CommandName>,
     pub args: Vec<Spanned<String>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshExitCommand {
     pub command_name: Spanned<CommandName>,
     pub exit_code: Option<Spanned<i32>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Username(pub String);
 
 impl From<String> for Username {
@@ -318,14 +390,14 @@ impl CompletionProvider for Spanned<Username> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshLoginCommand {
     pub command_name: Spanned<CommandName>,
     pub username: Spanned<Username>,
     pub password: Spanned<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshCreateUserCommand {
     pub command_name: Spanned<CommandName>,
     pub username: Spanned<Username>,
@@ -333,13 +405,13 @@ pub struct UshCreateUserCommand {
     pub email: Spanned<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshCreateRepoCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_name: Spanned<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshHostInfo {
     pub hostname: String,
 
@@ -354,14 +426,14 @@ pub struct UshHostInfo {
     pub https_enabled: bool,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum UshRepoAccessProtocol {
     Git,
     Http,
     Ssh,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BuildUrlError {
     ProtocolDisabled,
 }
@@ -421,7 +493,7 @@ impl UshRepoAccessProtocol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshCloneCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
@@ -431,25 +503,25 @@ pub struct UshCloneCommand {
     pub access_protocol_flag: Option<Spanned<String>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshHttpUrlCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshGitUrlCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshSshUrlCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UshUrlCommand {
     pub command_name: Spanned<CommandName>,
     pub repo_path: Spanned<String>,
@@ -457,7 +529,7 @@ pub struct UshUrlCommand {
     pub protocol_flag: Option<Spanned<String>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UshParsedCommand {
     Cd(UshCdCommand),
     Ls(UshLsCommand),
@@ -472,6 +544,150 @@ pub enum UshParsedCommand {
     GitUrl(UshGitUrlCommand),
     SshUrl(UshSshUrlCommand),
     Url(UshUrlCommand),
+}
+
+#[cfg(test)]
+impl UshParsedCommand {
+    #[track_caller]
+    fn assert_cd(&self, path: Option<&UshPath>) {
+        match self {
+            Self::Cd(cmd) => assert_eq!(cmd.path.as_ref().map(|it| &it.value), path),
+            _ => panic!("expected cd command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_ls(&self, path: Option<&UshPath>) {
+        match self {
+            Self::Ls(cmd) => assert_eq!(cmd.path.as_ref().map(|it| &it.value), path),
+            _ => panic!("expected ls command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_pwd(&self) {
+        match self {
+            Self::Pwd(_) => {}
+            _ => panic!("expected pwd command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_echo(&self, args: &[&str]) {
+        match self {
+            Self::Echo(cmd) => {
+                assert_eq!(
+                    cmd.args
+                        .iter()
+                        .map(|it| it.value.as_str())
+                        .collect::<Vec<_>>(),
+                    args
+                );
+            }
+            _ => panic!("expected echo command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_exit(&self, exit_code: Option<i32>) {
+        match self {
+            Self::Exit(UshExitCommand { exit_code: e, .. }) => {
+                assert_eq!(e.map(|it| it.value), exit_code);
+            }
+            _ => panic!("expected exit command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_login(&self, username: &str, password: &str) {
+        match self {
+            Self::Login(cmd) => {
+                assert_eq!(&cmd.username.value.0, username);
+                assert_eq!(&cmd.password.value, password);
+            }
+            _ => panic!("expected login command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_create_user(&self, username: &str, password: &str, email: &str) {
+        match self {
+            Self::CreateUser(cmd) => {
+                assert_eq!(&cmd.username.value.0, username);
+                assert_eq!(&cmd.password.value, password);
+                assert_eq!(&cmd.email.value, email);
+            }
+            _ => panic!("expected create user command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_create_repo(&self, repo_name: &str) {
+        match self {
+            Self::CreateRepo(cmd) => {
+                assert_eq!(&cmd.repo_name.value, repo_name);
+            }
+            _ => panic!("expected create repo command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_clone(
+        &self,
+        remote_path: &str,
+        to: &UshPath,
+        access_protocol: UshRepoAccessProtocol,
+    ) {
+        match self {
+            Self::Clone(cmd) => {
+                assert_eq!(&cmd.repo_path.value, remote_path);
+                assert_eq!(&cmd.to, to);
+                assert_eq!(cmd.access_protocol, access_protocol);
+            }
+            _ => panic!("expected clone command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_http_url(&self, remote_path: &str) {
+        match self {
+            Self::HttpUrl(cmd) => {
+                assert_eq!(&cmd.repo_path.value, remote_path);
+            }
+            _ => panic!("expected http url command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_git_url(&self, remote_path: &str) {
+        match self {
+            Self::GitUrl(cmd) => {
+                assert_eq!(&cmd.repo_path.value, remote_path);
+            }
+            _ => panic!("expected git url command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_ssh_url(&self, remote_path: &str) {
+        match self {
+            Self::SshUrl(cmd) => {
+                assert_eq!(&cmd.repo_path.value, remote_path);
+            }
+            _ => panic!("expected ssh url command"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_url(&self, remote_path: &str, access_protocol: UshRepoAccessProtocol) {
+        match self {
+            Self::Url(cmd) => {
+                assert_eq!(&cmd.repo_path.value, remote_path);
+                assert_eq!(cmd.protocol, access_protocol);
+            }
+            _ => panic!("expected url command"),
+        }
+    }
 }
 
 struct At {
@@ -610,7 +826,7 @@ pub enum Token {
     #[regex(r"[~a-zA-Z0-9_\.\\\\/_:\-]+")]
     Value,
 
-    #[regex(r"'.*'")]
+    #[regex(r"'[^']*'")]
     SingleQuotedValue,
 
     #[regex(r#""([^"\\]*|(\\\\)*\\")*""#)]
@@ -1808,3 +2024,6 @@ pub struct JwtToken(String);
 pub struct UserMap {
     map: HashMap<Username, Vec<JwtToken>>,
 }
+
+#[cfg(test)]
+mod tests;
