@@ -9,9 +9,9 @@ progress.
 - [x] `http://`
     - [x] `clone`s / `fetch`es
     - [x] `push`es
-- [ ] `ssh://` (https://github.com/dnbln/upsilon/issues/1)
-    - [ ] `clone`s / `fetch`es
-    - [ ] `push`es
+- [x] `ssh://` (https://github.com/dnbln/upsilon/issues/1)
+    - [x] `clone`s / `fetch`es
+    - [x] `push`es
 
 ## GraphQL API
 
@@ -21,7 +21,7 @@ progress.
     - [ ] Delete users
 - [ ] Repositories
     - [x] Create
-    - [ ] Clone from mirror
+    - [x] Clone from mirror
     - [ ] Delete
     - [ ] Issues
     - [ ] Pull requests
@@ -31,6 +31,7 @@ progress.
 - [ ] Teams
 
 ## Frontend (https://github.com/dnbln/upsilon/issues/3)
+
 - [ ] Users
 - [ ] Repositories
 - [ ] Organizations
