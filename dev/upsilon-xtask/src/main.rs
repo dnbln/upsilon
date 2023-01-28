@@ -552,7 +552,9 @@ fn check_if_any_deps_in_ws_deps(
             continue;
         }
 
-        let table_like = item.as_table_like().expect("dependencies should be table like");
+        let table_like = item
+            .as_table_like()
+            .expect("dependencies should be table like");
 
         if !table_like.contains_key("workspace") {
             in_ws_deps_for_file.push(k.to_string());
