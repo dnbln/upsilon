@@ -19,8 +19,10 @@ extern crate rocket;
 extern crate upsilon_procx;
 
 use graphql::GraphQLContext;
+pub use graphql::UshArgs;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket, State};
+use upsilon_core::config::Cfg;
 
 use crate::auth::AuthContext;
 
@@ -30,7 +32,15 @@ mod graphql;
 mod error;
 mod repo_lookup_path;
 
-pub struct GraphQLApiConfigurator;
+pub struct GraphQLApiConfigurator {
+    ush_args: UshArgs,
+}
+
+impl GraphQLApiConfigurator {
+    pub fn new(ush_args: UshArgs) -> Self {
+        Self { ush_args }
+    }
+}
 
 #[rocket::async_trait]
 impl Fairing for GraphQLApiConfigurator {
@@ -47,6 +57,7 @@ impl Fairing for GraphQLApiConfigurator {
                 "/",
                 routes![graphiql, get_graphql_handler, post_graphql_handler],
             )
+            .manage(Cfg::new(self.ush_args.clone()))
             .manage(graphql::Schema::new(
                 graphql::QueryRoot,
                 graphql::MutationRoot,

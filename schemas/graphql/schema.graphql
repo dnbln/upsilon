@@ -79,6 +79,7 @@ type GitTreeEntry {
 
 type QueryRoot {
   apiVersion: String!
+  ushCliArgs: [String!]!
   user(userId: UserId!): User!
   viewer: User
   userByUsername(username: Username!): User

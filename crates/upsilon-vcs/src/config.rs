@@ -42,6 +42,13 @@ impl UpsilonVcsConfig {
         matches!(self.http_protocol, GitHttpProtocol::Enabled(_))
     }
 
+    pub fn git_daemon_port(&self) -> Option<u16> {
+        match &self.git_protocol {
+            GitProtocol::Enabled(config) => Some(config.port),
+            GitProtocol::Disabled => None,
+        }
+    }
+
     pub fn get_path(&self) -> &PathBuf {
         &self.actual_path
     }
@@ -105,8 +112,14 @@ impl<'de> Deserialize<'de> for GitProtocol {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct GitProtocolConfig {
+    #[serde(default = "default_git_daemon_port")]
+    pub port: u16,
     #[serde(rename = "git-daemon")]
     pub git_daemon: GitDaemon,
+}
+
+fn default_git_daemon_port() -> u16 {
+    9418
 }
 
 #[derive(Debug, Clone)]

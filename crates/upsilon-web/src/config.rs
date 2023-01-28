@@ -66,6 +66,14 @@ impl RusshServerConfigTemp {
         }
     }
 
+    pub fn port(&self) -> u16 {
+        match self {
+            RusshServerConfigTemp::Complete(config) => config.port,
+            RusshServerConfigTemp::Temp => panic!("RusshServerConfigTemp in Temp state!"),
+            RusshServerConfigTemp::Incomplete(config) => config.port,
+        }
+    }
+
     pub(crate) fn expect_complete(&self) -> &CompleteRusshServerConfig {
         match self {
             RusshServerConfigTemp::Complete(config) => config,

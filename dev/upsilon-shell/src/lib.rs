@@ -25,10 +25,12 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use colored::Colorize;
+use log::debug;
 use logos::Logos;
 use rustyline::completion::{FilenameCompleter, Pair};
 use rustyline::validate::{ValidationContext, ValidationResult};
 use rustyline::{CompletionType, Context};
+use serde::Deserialize;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq, Clone)]
 pub enum UshParseError {
@@ -268,6 +270,7 @@ commands!(
     GitUrl "git-url",
     SshUrl "ssh-url",
     Url "url",
+    UploadSshKey "upload-ssh-key",
 );
 
 pub struct CompletionContext<'src> {
@@ -530,6 +533,12 @@ pub struct UshUrlCommand {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub struct UshUploadSshKeyCommand {
+    pub command_name: Spanned<CommandName>,
+    pub key: Spanned<UshPath>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UshParsedCommand {
     Cd(UshCdCommand),
     Ls(UshLsCommand),
@@ -544,6 +553,7 @@ pub enum UshParsedCommand {
     GitUrl(UshGitUrlCommand),
     SshUrl(UshSshUrlCommand),
     Url(UshUrlCommand),
+    UploadSshKey(UshUploadSshKeyCommand),
 }
 
 #[cfg(test)]
@@ -755,6 +765,7 @@ impl CompletionProvider for UshParsedCommand {
             UshParsedCommand::GitUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::SshUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::Url(cmd) => cmd.lookup_element_at(pos, completion_ctx),
+            UshParsedCommand::UploadSshKey(cmd) => cmd.lookup_element_at(pos, completion_ctx),
         }
     }
 }
@@ -820,6 +831,19 @@ impl CompletionProvider for UshHttpUrlCommand {}
 impl CompletionProvider for UshGitUrlCommand {}
 impl CompletionProvider for UshSshUrlCommand {}
 impl CompletionProvider for UshUrlCommand {}
+impl CompletionProvider for UshUploadSshKeyCommand {
+    fn lookup_element_at(
+        &self,
+        pos: usize,
+        completion_ctx: &CompletionContext,
+    ) -> Option<&dyn CompletionProvider> {
+        if self.key.span.start <= pos && pos <= self.key.span.end {
+            return Some(&self.key as &dyn CompletionProvider);
+        }
+
+        None
+    }
+}
 
 #[derive(logos::Logos, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -959,6 +983,9 @@ impl<'src> UshCommandParser<'src> {
             UshCommand::GitUrl => UshParsedCommand::GitUrl(self.parse_git_url()?),
             UshCommand::SshUrl => UshParsedCommand::SshUrl(self.parse_ssh_url()?),
             UshCommand::Url => UshParsedCommand::Url(self.parse_url()?),
+            UshCommand::UploadSshKey => {
+                UshParsedCommand::UploadSshKey(self.parse_upload_ssh_key()?)
+            }
         };
 
         self.expect_end()?;
@@ -1210,6 +1237,21 @@ impl<'src> UshCommandParser<'src> {
             repo_path,
             protocol,
             protocol_flag,
+        })
+    }
+
+    fn parse_upload_ssh_key(&mut self) -> UshParseResult<UshUploadSshKeyCommand> {
+        const KEY: &str = "key";
+
+        let arg_store = ArgDeclList::new()
+            .arg(KEY, |decl| decl.hint(ArgHint::Path))
+            .parse_from(self)?;
+
+        let key = arg_store.required_arg(KEY)?.cast_to();
+
+        Ok(UshUploadSshKeyCommand {
+            command_name: self.command_name.clone(),
+            key,
         })
     }
 }
@@ -2023,6 +2065,100 @@ pub struct JwtToken(String);
 #[derive(Default, Debug)]
 pub struct UserMap {
     map: HashMap<Username, Vec<JwtToken>>,
+}
+
+struct ClientCore {
+    usermap: Rc<RefCell<UserMap>>,
+    gql_endpoint: String,
+    inner_client: reqwest::Client,
+}
+
+pub struct Client {
+    core: Rc<ClientCore>,
+}
+
+impl Client {
+    pub fn new(gql_endpoint: String) -> Self {
+        Self {
+            core: Rc::new(ClientCore {
+                usermap: Rc::new(RefCell::new(UserMap::default())),
+                gql_endpoint,
+                inner_client: reqwest::Client::new(),
+            }),
+        }
+    }
+
+    pub fn usermap(&self) -> &Rc<RefCell<UserMap>> {
+        &self.core.usermap
+    }
+
+    async fn _gql_query<T: for<'de> Deserialize<'de>>(
+        &self,
+        query: &str,
+        variables: HashMap<String, serde_json::Value>,
+        token: impl Into<Option<&str>>,
+    ) -> GqlQueryResult<T> {
+        let mut req = self.core.inner_client.post(&self.core.gql_endpoint);
+        if let Some(token) = token.into() {
+            req = req.bearer_auth(token);
+        }
+
+        #[derive(Deserialize)]
+        struct GqlResponse<T> {
+            data: T,
+        }
+
+        let res = req
+            .json(&serde_json::json!({
+                "query": query,
+                "variables": variables,
+            }))
+            .send()
+            .await?;
+
+        #[cfg(debug_assertions)]
+        let data = {
+            let t = res.text().await?;
+
+            debug!("GQL response: {t}");
+
+            serde_json::from_str::<GqlResponse<T>>(&t)?.data
+        };
+
+        #[cfg(not(debug_assertions))]
+        let data = res.json::<GqlResponse<T>>().await?.data;
+
+        Ok(data)
+    }
+
+    pub async fn gql_query<T: for<'de> Deserialize<'de>>(
+        &self,
+        query: &str,
+        token: impl Into<Option<&str>>,
+    ) -> GqlQueryResult<T> {
+        self.gql_query_with_variables(query, HashMap::new(), token)
+            .await
+    }
+
+    pub async fn gql_query_with_variables<T: for<'de> Deserialize<'de>>(
+        &self,
+        query: &str,
+        variables: HashMap<String, serde_json::Value>,
+        token: impl Into<Option<&str>>,
+    ) -> GqlQueryResult<T> {
+        self._gql_query(query, variables, token).await
+    }
+}
+
+pub type GqlQueryResult<T> = Result<T, GqlQueryError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum GqlQueryError {
+    #[error("reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+
+    #[error("serde error: {0}")]
+    Serde(#[from] serde_json::Error),
 }
 
 #[cfg(test)]

@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};
+use upsilon_api::{GraphQLApiConfigurator, UshArgs};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
 
@@ -93,14 +94,20 @@ impl Fairing for ConfigManager {
             rocket = rocket.attach(git::GitHttpProtocolFairing);
         }
 
-        if let Some(mut git_ssh) = git_ssh {
-            match &mut git_ssh {
+        let ssh_port = if let Some(mut git_ssh) = git_ssh {
+            let ssh_port = match &mut git_ssh {
                 GitSshProtocol::Russh(russh) => {
                     russh.complete(vcs.clone());
+                    russh.port()
                 }
-            }
+            };
+
             rocket = rocket.attach(git::GitSshFairing::new(git_ssh));
-        }
+
+            Some(ssh_port)
+        } else {
+            None
+        };
 
         let DebugConfig {
             debug_data,
@@ -115,6 +122,26 @@ impl Fairing for ConfigManager {
         if shutdown_endpoint {
             rocket = rocket.mount("/", rocket::routes![shutdown_endpoint]);
         }
+
+        let mut ush_args = vec![];
+
+        if let Some(ssh_port) = ssh_port {
+            ush_args.extend(["--ssh".into(), "--ssh-port".into(), ssh_port.to_string()]);
+        }
+
+        if vcs.http_protocol_enabled() {
+            ush_args.push("--git-http".into());
+        }
+
+        if let Some(git_port) = vcs.git_daemon_port() {
+            ush_args.extend([
+                "--git-protocol".into(),
+                "--git-protocol-port".into(),
+                git_port.to_string(),
+            ]);
+        }
+
+        rocket = rocket.attach(GraphQLApiConfigurator::new(UshArgs::new(ush_args)));
 
         Ok(rocket
             .manage(Cfg::new(vcs))

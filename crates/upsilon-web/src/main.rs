@@ -59,9 +59,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
 
     let portfile = std::env::var("UPSILON_PORTFILE").ok();
 
-    let mut rocket = rocket::custom(figment)
-        .attach(upsilon_api::GraphQLApiConfigurator)
-        .attach(upsilon_web::ConfigManager);
+    let mut rocket = rocket::custom(figment).attach(upsilon_web::ConfigManager);
 
     if let Some(portfile) = portfile {
         rocket = rocket.attach(upsilon_web::PortFileWriter(std::path::PathBuf::from(

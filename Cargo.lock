@@ -3908,9 +3908,13 @@ dependencies = [
  "clap 4.0.27",
  "colored",
  "home",
+ "log",
  "logos",
+ "pretty_env_logger",
  "reqwest",
  "rustyline",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
 ]

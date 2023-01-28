@@ -41,7 +41,7 @@ pub fn spawn_daemon(config: &UpsilonVcsConfig) -> Result<Child, SpawnDaemonError
 
     cmd.arg("daemon")
         .arg(format!("--base-path={}", &config.get_path().display()))
-        .arg(format!("--port={}", daemon_config.port))
+        .arg(format!("--port={}", protocol_config.port))
         .arg(format!(r#"--access-hook="{}""#, access_hook_path.display()));
 
     if daemon_config.reuseaddr {
@@ -143,9 +143,6 @@ impl<'de> Deserialize<'de> for GitDaemon {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct GitDaemonConfig {
-    #[serde(default = "default_git_daemon_port")]
-    pub port: u16,
-
     #[serde(default = "default_reuseaddr")]
     pub reuseaddr: bool,
 
@@ -154,10 +151,6 @@ pub struct GitDaemonConfig {
 
     #[serde(default)]
     pub services: GitDaemonServices,
-}
-
-fn default_git_daemon_port() -> u16 {
-    9418
 }
 
 fn default_reuseaddr() -> bool {

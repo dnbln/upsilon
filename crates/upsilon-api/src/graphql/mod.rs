@@ -50,11 +50,23 @@ use crate::repo_lookup_path::{RepoLookupPath, ResolvedRepoAndNamespace};
 pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, SubscriptionRoot>;
 
 #[derive(Clone)]
+pub struct UshArgs(Vec<String>);
+
+impl UshArgs {
+    pub fn new(args: Vec<String>) -> Self {
+        UshArgs(args)
+    }
+}
+
+#[derive(Clone)]
 pub struct GraphQLContext {
     db: upsilon_data::DataClientMasterHolder,
     vcs_config: Cfg<UpsilonVcsConfig>,
     users_config: Cfg<UsersConfig>,
     debug_config: Cfg<GqlDebugConfig>,
+    ush_args: Cfg<UshArgs>,
+    hostname: Option<String>,
+    http_port: u16,
     auth_context: AuthContext,
     auth: Option<AuthToken>,
 }
@@ -72,6 +84,9 @@ impl<'r> FromRequest<'r> for GraphQLContext {
         let vcs_config = try_outcome!(request.guard::<&State<Cfg<UpsilonVcsConfig>>>().await);
         let users_config = try_outcome!(request.guard::<&State<Cfg<UsersConfig>>>().await);
         let debug_config = try_outcome!(request.guard::<&State<Cfg<GqlDebugConfig>>>().await);
+        let ush_args = try_outcome!(request.guard::<&State<Cfg<UshArgs>>>().await);
+        let http_port = request.rocket().config().port;
+        let hostname = request.host().map(|it| it.domain().to_string());
         let auth_context = try_outcome!(request.guard::<&State<AuthContext>>().await);
         let auth = request.guard::<Option<AuthToken>>().await.unwrap();
 
@@ -80,6 +95,9 @@ impl<'r> FromRequest<'r> for GraphQLContext {
             vcs_config: vcs_config.inner().clone(),
             users_config: users_config.inner().clone(),
             debug_config: debug_config.inner().clone(),
+            ush_args: ush_args.inner().clone(),
+            hostname,
+            http_port,
             auth_context: auth_context.inner().clone(),
             auth,
         })
@@ -92,6 +110,7 @@ impl Sentinel for GraphQLContext {
             || <&State<Cfg<UpsilonVcsConfig>>>::abort(rocket)
             || <&State<Cfg<GqlDebugConfig>>>::abort(rocket)
             || <&State<Cfg<UsersConfig>>>::abort(rocket)
+            || <&State<Cfg<UshArgs>>>::abort(rocket)
             || <&State<AuthContext>>::abort(rocket)
     }
 }
@@ -183,6 +202,23 @@ pub struct QueryRoot;
 impl QueryRoot {
     fn api_version() -> &str {
         "v1"
+    }
+
+    fn ush_cli_args(context: &GraphQLContext) -> Vec<String> {
+        if !context.debug_config.debug_enabled {
+            // we are in production
+            // do not return an error, but also do not return the args
+            return vec!["--upsilon-is-not-debug-rerun-shell-with-'--no-reconfigure'".to_string()];
+        }
+
+        let mut v = (*context.ush_args).0.clone();
+        v.extend(["--http-port".to_string(), context.http_port.to_string()]);
+
+        if let Some(hn) = &context.hostname {
+            v.extend(["--hostname".to_string(), hn.clone()]);
+        }
+
+        v
     }
 
     async fn user(context: &GraphQLContext, user_id: UserId) -> FieldResult<UserRef> {

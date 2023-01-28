@@ -222,7 +222,7 @@ impl TestCx {
 
         cmd.env("UPSILON_PORT", config.port.to_string())
             .env(
-                "UPSILON_VCS_GIT-PROTOCOL_GIT-DAEMON_PORT",
+                "UPSILON_VCS_GIT-PROTOCOL_PORT",
                 config.git_daemon_port.to_string(),
             )
             .env("UPSILON_PORTFILE", &portfile_path)

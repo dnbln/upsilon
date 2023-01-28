@@ -58,14 +58,14 @@ impl From<RusshServerError> for CommonSSHError {
 
 #[derive(Clone, Debug)]
 pub struct RusshServerConfig {
-    port: u16,
+    pub port: u16,
     auth_rejection_time_initial: Option<Duration>,
     auth_rejection_time: Duration,
 }
 
 #[derive(Clone, Debug)]
 pub struct CompleteRusshServerConfig {
-    port: u16,
+    pub port: u16,
     auth_rejection_time_initial: Option<Duration>,
     auth_rejection_time: Duration,
     vcs_config: UpsilonVcsConfig,

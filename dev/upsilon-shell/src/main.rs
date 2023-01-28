@@ -17,11 +17,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use clap::builder::ArgPredicate;
 use clap::Parser;
+use log::info;
 use rustyline::error::ReadlineError;
 use rustyline::{ColorMode, CompletionType, Config};
+use serde::Deserialize;
 use upsilon_shell::{
-    parse_line, BuildUrlError, Helper, UserMap, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
+    parse_line, BuildUrlError, Client, Helper, UserMap, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
 };
 
 #[derive(Parser, Debug)]
@@ -42,9 +45,78 @@ pub struct App {
     https: bool,
     #[clap(long, default_value = "localhost")]
     hostname: String,
+    #[clap(
+        long,
+        default_value = "http://localhost:8000/graphql",
+        default_value_ifs([
+            ("hostname", ArgPredicate::IsPresent, None),
+            ("https", ArgPredicate::IsPresent, None),
+            ("http-port", ArgPredicate::IsPresent, None),
+        ])
+    )]
+    gql_endpoint: Option<String>,
+    /// Do not reconfigure the shell, just connect to the server.
+    #[clap(long = "no-reconfigure", default_value_t = true, action = clap::ArgAction::SetFalse)]
+    reconfigure: bool,
 }
 
 impl App {
+    fn into_parsed(self) -> ParsedApp {
+        let App {
+            ssh,
+            ssh_port,
+            git_protocol,
+            git_protocol_port,
+            git_http,
+            http_port,
+            https,
+            hostname,
+            gql_endpoint,
+            reconfigure,
+        } = self;
+
+        let gql_endpoint = gql_endpoint.unwrap_or_else(|| {
+            let (proto, default_port) = if https { ("https", 443) } else { ("http", 80) };
+            let hostname = hostname.as_str();
+            let port = http_port;
+
+            if port != default_port {
+                format!("{proto}://{hostname}:{port}/graphql")
+            } else {
+                format!("{proto}://{hostname}/graphql")
+            }
+        });
+
+        ParsedApp {
+            ssh,
+            ssh_port,
+            git_protocol,
+            git_protocol_port,
+            git_http,
+            http_port,
+            https,
+            hostname,
+            gql_endpoint,
+            reconfigure,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ParsedApp {
+    ssh: bool,
+    ssh_port: u16,
+    git_protocol: bool,
+    git_protocol_port: u16,
+    git_http: bool,
+    http_port: u16,
+    https: bool,
+    hostname: String,
+    gql_endpoint: String,
+    reconfigure: bool,
+}
+
+impl ParsedApp {
     fn to_ush_host_info(&self) -> UshHostInfo {
         UshHostInfo {
             git_ssh_enabled: self.ssh,
@@ -61,8 +133,73 @@ impl App {
 
 const HISTORY_FILE: &str = ".ush-history";
 
-fn main() {
-    let app = App::parse();
+#[tokio::main]
+async fn main() {
+    pretty_env_logger::init_custom_env("UPSILON_SHELL_LOG");
+
+    let mut app = App::parse().into_parsed();
+
+    {
+        info!("Connecting to {}", app.gql_endpoint);
+
+        let temp_client = Client::new(app.gql_endpoint.clone());
+
+        #[derive(Deserialize)]
+        struct InitialRequestResponse {
+            #[serde(rename = "apiVersion")]
+            api_version: String,
+            #[serde(rename = "ushCliArgs")]
+            ush_cli_args: Vec<String>,
+        }
+
+        let response = temp_client
+            .gql_query::<InitialRequestResponse>(
+                //language=GraphQL
+                "
+query {
+  apiVersion
+  ushCliArgs
+}
+",
+                None,
+            )
+            .await
+            .unwrap();
+
+        let InitialRequestResponse {
+            api_version,
+            ush_cli_args,
+        } = response;
+
+        info!(
+            "Connected to {}, api version is {api_version}",
+            app.gql_endpoint
+        );
+        info!(
+            "{} ush cli args: {:?}",
+            if app.reconfigure {
+                "Reconfiguring with received"
+            } else {
+                "Received"
+            },
+            ush_cli_args
+        );
+
+        if app.reconfigure {
+            app.clone_from(
+                &App::parse_from(
+                    std::env::args_os()
+                        .next()
+                        .into_iter()
+                        .chain(ush_cli_args.into_iter().map(std::ffi::OsString::from)),
+                )
+                .into_parsed(),
+            );
+        }
+    }
+
+    let app = app; // remove mutability
+    let client = Client::new(app.gql_endpoint.clone());
 
     let mut editor = rustyline::Editor::<Helper>::with_config(
         Config::builder()
@@ -74,15 +211,14 @@ fn main() {
     .unwrap();
 
     if editor.load_history(HISTORY_FILE).is_err() {
-        println!("No previous history.");
+        info!("No previous history.");
     }
 
     let cwd = Rc::new(RefCell::new(std::env::current_dir().unwrap()));
-    let usermap = Rc::new(RefCell::new(UserMap::default()));
 
     editor.set_helper(Some(Helper {
         cwd: cwd.clone(),
-        usermap: usermap.clone(),
+        usermap: client.usermap().clone(),
     }));
 
     let exit_code = loop {
@@ -218,6 +354,9 @@ fn main() {
                         eprintln!("Seems like the {:?} protocol was not enabled", url.protocol)
                     }
                 }
+            }
+            UshParsedCommand::UploadSshKey(upload_ssh_key) => {
+                println!("upload ssh key {}", upload_ssh_key.key.value.0);
             }
         }
     };
