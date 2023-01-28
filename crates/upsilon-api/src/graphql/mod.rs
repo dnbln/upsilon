@@ -65,7 +65,7 @@ pub struct GraphQLContext {
     users_config: Cfg<UsersConfig>,
     debug_config: Cfg<GqlDebugConfig>,
     ush_args: Cfg<UshArgs>,
-    hostname: Option<String>,
+    host: Option<(String, Option<u16>)>,
     http_port: u16,
     auth_context: AuthContext,
     auth: Option<AuthToken>,
@@ -86,7 +86,9 @@ impl<'r> FromRequest<'r> for GraphQLContext {
         let debug_config = try_outcome!(request.guard::<&State<Cfg<GqlDebugConfig>>>().await);
         let ush_args = try_outcome!(request.guard::<&State<Cfg<UshArgs>>>().await);
         let http_port = request.rocket().config().port;
-        let hostname = request.host().map(|it| it.domain().to_string());
+        let host = request
+            .host()
+            .map(|it| (it.domain().to_string(), it.port()));
         let auth_context = try_outcome!(request.guard::<&State<AuthContext>>().await);
         let auth = request.guard::<Option<AuthToken>>().await.unwrap();
 
@@ -96,7 +98,7 @@ impl<'r> FromRequest<'r> for GraphQLContext {
             users_config: users_config.inner().clone(),
             debug_config: debug_config.inner().clone(),
             ush_args: ush_args.inner().clone(),
-            hostname,
+            host,
             http_port,
             auth_context: auth_context.inner().clone(),
             auth,
@@ -212,11 +214,17 @@ impl QueryRoot {
         }
 
         let mut v = (*context.ush_args).0.clone();
-        v.extend(["--http-port".to_string(), context.http_port.to_string()]);
+        let mut port = context.http_port;
 
-        if let Some(hn) = &context.hostname {
+        if let Some((hn, http_port)) = &context.host {
             v.extend(["--hostname".to_string(), hn.clone()]);
+
+            if let Some(http_port) = *http_port {
+                port = http_port;
+            }
         }
+
+        v.extend(["--http-port".to_string(), port.to_string()]);
 
         v
     }
