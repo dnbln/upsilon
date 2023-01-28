@@ -19,10 +19,10 @@ mod test_prelude {
 }
 
 mod parse_tests {
-    mod successful_parse;
-    mod extra_args;
-    mod unknown_args;
     mod empty_args;
+    mod extra_args;
+    mod successful_parse;
+    mod unknown_args;
     mod unknown_flags;
 }
 
