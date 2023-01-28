@@ -1544,13 +1544,7 @@ impl Helper {
 
         match err {
             UshParseError::UnknownCommand(command) => {
-                let mut candidates = UshCommand::get_for_prefix(&command.value);
-
-                if candidates.is_empty() || candidates.len() > 1 {
-                    return None;
-                }
-
-                let completion = candidates.pop().unwrap();
+                let completion = iter_single(UshCommand::get_for_prefix(&command.value))?;
 
                 return Some(completion[command.value.len()..].to_string());
             }
@@ -1580,16 +1574,11 @@ impl Helper {
 
                 let line_subslice = &line[name.span.start..pos];
 
-                let mut candidates = possible_args
-                    .into_iter()
-                    .filter(|it| it.starts_with(line_subslice))
-                    .collect::<Vec<_>>();
-
-                if candidates.len() != 1 {
-                    return None;
-                }
-
-                let selected_candidate = candidates.pop().unwrap();
+                let selected_candidate = iter_single(
+                    possible_args
+                        .into_iter()
+                        .filter(|it| it.starts_with(line_subslice)),
+                )?;
 
                 return Some(selected_candidate[pos - name.span.start..].to_string());
             }
@@ -1600,19 +1589,11 @@ impl Helper {
 
                 let line_subslice = &line[flag.span.start..pos];
 
-                let mut candidates = possible_values
-                    .into_iter()
-                    .filter_map(|it| {
+                let selected_candidate =
+                    iter_single(possible_values.into_iter().filter_map(|it| {
                         let c = format!("--{it}");
                         c.starts_with(line_subslice).then_some(c)
-                    })
-                    .collect::<Vec<_>>();
-
-                if candidates.len() != 1 {
-                    return None;
-                }
-
-                let selected_candidate = candidates.pop().unwrap();
+                    }))?;
 
                 return Some(selected_candidate[pos - flag.span.start..].to_string());
             }
@@ -1631,6 +1612,32 @@ impl rustyline::validate::Validator for Helper {
             Ok(_) => Ok(ValidationResult::Valid(None)),
             Err(err) => Ok(ValidationResult::Invalid(Some(err.to_string()))),
         }
+    }
+}
+
+/// Returns the only element of an iterator, or `None` if there are more than one.
+/// This is useful for checking if an iterator has exactly one element.
+///
+/// # Examples
+///
+/// ```
+/// use upsilon_shell::iter_single;
+///
+/// assert_eq!(iter_single(vec![1, 2, 3]), None);
+/// assert_eq!(iter_single(vec![1, 2]), None);
+/// assert_eq!(iter_single(vec![1]), Some(1));
+/// assert_eq!(iter_single(vec![]), None::<i32>);
+/// ```
+pub fn iter_single<I: IntoIterator>(iter: I) -> Option<I::Item> {
+    let mut iter = iter.into_iter();
+
+    let first = iter.next()?;
+    let second = iter.next();
+
+    if second.is_some() {
+        None
+    } else {
+        Some(first)
     }
 }
 

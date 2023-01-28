@@ -159,6 +159,8 @@ enum App {
         no_fail_fast: bool,
         #[clap(long)]
         no_run: bool,
+        #[clap(long)]
+        doc: bool,
 
         #[clap(flatten)]
         test_groups: TestGroups,
@@ -239,6 +241,19 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
     Ok(())
 }
 
+fn run_doctests(verbose: bool, no_fail_fast: bool) -> XtaskResult<()> {
+    cargo_cmd!(
+        "test",
+        "--doc",
+        "--workspace",
+        "--verbose" => @if verbose,
+        "--no-fail-fast" => @if no_fail_fast,
+        @workdir = ws_root!(),
+    )?;
+
+    Ok(())
+}
+
 fn run_tests(
     setup_testenv: &Path,
     offline: bool,
@@ -247,7 +262,27 @@ fn run_tests(
     no_run: bool,
     test_filters: &[String],
     test_groups: &TestGroups,
+    doc: bool,
 ) -> XtaskResult<()> {
+    if doc {
+        macro_rules! redundant_arg {
+            ($arg:expr, $value:expr, $flag:expr) => {
+                if $value {
+                    log::error!(
+                        "The --{} flag is redundant when using the --{} flag",
+                        $arg,
+                        $flag
+                    );
+                }
+            };
+        }
+
+        redundant_arg!("no-run", no_run, "doc");
+        redundant_arg!("offline", offline, "doc");
+
+        return run_doctests(verbose, no_fail_fast);
+    }
+
     cargo_cmd!(
         "build" => @if no_run,
         "run" => @if !no_run,
@@ -517,7 +552,7 @@ fn check_if_any_deps_in_ws_deps(
             continue;
         }
 
-        let table_like = item.as_table_like().expect("deps should be table like");
+        let table_like = item.as_table_like().expect("dependencies should be table like");
 
         if !table_like.contains_key("workspace") {
             in_ws_deps_for_file.push(k.to_string());
@@ -530,9 +565,9 @@ fn check_if_any_deps_in_ws_deps(
                 .expect("workspace key missing") // we checked above
                 .1
                 .as_value()
-                .expect("deps.<name>.workspace should be a boolean value")
+                .expect("dependencies.<name>.workspace should be a boolean value")
                 .as_bool()
-                .expect("deps.<name>.workspace should be a boolean value")
+                .expect("dependencies.<name>.workspace should be a boolean value")
         }
 
         if !dep_ws_value(table_like) {
@@ -562,6 +597,8 @@ fn extend_filext_new(p: impl AsRef<Path>) -> PathBuf {
 const ALIASES: &[&str] = &["uxrd"];
 
 fn main_impl() -> XtaskResult<()> {
+    pretty_env_logger::init();
+
     let app: App = App::parse();
 
     match app {
@@ -599,6 +636,7 @@ fn main_impl() -> XtaskResult<()> {
             verbose,
             no_fail_fast,
             no_run,
+            doc,
             tests_filters,
             test_groups,
         } => {
@@ -622,6 +660,7 @@ fn main_impl() -> XtaskResult<()> {
                 no_run,
                 &tests_filters,
                 &test_groups,
+                doc,
             );
 
             std::fs::remove_dir_all(&testenv_tests)?;
