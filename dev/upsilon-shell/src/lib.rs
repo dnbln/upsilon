@@ -27,9 +27,8 @@ use std::str::FromStr;
 use colored::Colorize;
 use logos::Logos;
 use rustyline::completion::{FilenameCompleter, Pair};
-use rustyline::error::ReadlineError;
 use rustyline::validate::{ValidationContext, ValidationResult};
-use rustyline::{ColorMode, CompletionType, Config, Context};
+use rustyline::{CompletionType, Context};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UshParseError {
@@ -49,6 +48,12 @@ pub enum UshParseError {
     ExpectedArg(Spanned<String>, Vec<String>),
     #[error("unexpected arg: {0}")]
     UnexpectedArg(Spanned<String>),
+    #[error("unexpected flag: {0} (possible values: {1:?})")]
+    UnexpectedFlag(Spanned<String>, Vec<String>),
+    #[error("multiple flags in group '{0}': {1} and {2}")]
+    FlagGroupConflict(String, Spanned<String>, Spanned<String>),
+    #[error("missing required flag group flag: {0} (possible values: {1:?})")]
+    MissingFlagGroupRequiredFlag(String, Vec<String>),
     #[error("expected non-empty arg, got: {0:?}")]
     EmptyArg(Spanned<String>, ArgHint),
     #[error("parse int error: {0}")]
@@ -770,11 +775,24 @@ impl<'src> UshCommandParser<'src> {
     fn parse_clone(&mut self) -> UshParseResult<UshCloneCommand> {
         const REPO_PATH: &str = "remote-path";
         const TO: &str = "to";
+        const PROTOCOL: &str = "protocol";
+        const GIT: &str = "git";
+        const SSH: &str = "ssh";
+        const HTTP: &str = "http";
 
         let arg_store = ArgDeclList::new()
             .arg(REPO_PATH, |decl| decl)
             .arg(TO, |decl| decl.optional())
+            .flag_group(PROTOCOL, |fg| {
+                fg.flag(GIT, |decl| decl)
+                    .flag(SSH, |decl| decl)
+                    .flag(HTTP, |decl| decl)
+                    .required()
+                    .group_default(HTTP)
+            })
             .parse_from(self)?;
+
+        let r = arg_store.flag_group_required(PROTOCOL);
 
         let repo_path = arg_store.required_arg(REPO_PATH)?;
         let repo_name = repo_path.value.split('/').last().unwrap();
@@ -884,9 +902,86 @@ impl ArgDecl {
     }
 }
 
+pub struct FlagDecl {
+    name: Cow<'static, str>,
+    negative_prefix: Option<Cow<'static, str>>,
+    default: Option<bool>,
+}
+
+impl FlagDecl {
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            negative_prefix: None,
+            default: None,
+        }
+    }
+
+    pub fn negative_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.negative_prefix = Some(prefix.into());
+        self
+    }
+
+    pub fn allow_negative(mut self) -> Self {
+        self.negative_prefix = Some("no-".into());
+        self
+    }
+
+    pub fn default(mut self, default: bool) -> Self {
+        self.default = Some(default);
+        self
+    }
+}
+
+pub struct FlagGroup {
+    group_name: Cow<'static, str>,
+    flags: Vec<FlagDecl>,
+    required: bool,
+    default: Option<Cow<'static, str>>,
+}
+
+impl FlagGroup {
+    fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            group_name: name.into(),
+            flags: Vec::new(),
+            required: false,
+            default: None,
+        }
+    }
+
+    pub fn flag<F>(mut self, name: impl Into<Cow<'static, str>>, f: F) -> Self
+    where
+        F: FnOnce(FlagDecl) -> FlagDecl,
+    {
+        let flag = f(FlagDecl::new(name));
+        if flag.default.is_some() || flag.negative_prefix.is_some() {
+            panic!("default and negative flags are not allowed in flag groups");
+        }
+        self.flags.push(flag);
+        self
+    }
+
+    pub fn required(mut self) -> Self {
+        self.required = true;
+        self
+    }
+
+    pub fn group_default(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.default = Some(name.into());
+        self
+    }
+
+    fn contains_flag(&self, name: &str) -> bool {
+        self.flags.iter().any(|f| f.name == name)
+    }
+}
+
 #[derive(Default)]
 pub struct ArgDeclList {
-    decls: Vec<ArgDecl>,
+    args: Vec<ArgDecl>,
+    flags: Vec<FlagDecl>,
+    flag_groups: Vec<FlagGroup>,
 }
 
 impl ArgDeclList {
@@ -899,24 +994,143 @@ impl ArgDeclList {
         F: FnOnce(ArgDecl) -> ArgDecl,
     {
         let decl = decl(ArgDecl::new(name));
-        self.decls.push(decl);
+        self.args.push(decl);
         self
     }
 
-    fn names(&self) -> Vec<String> {
-        self.decls
+    pub fn flag<F>(mut self, name: impl Into<Cow<'static, str>>, decl: F) -> Self
+    where
+        F: FnOnce(FlagDecl) -> FlagDecl,
+    {
+        let decl = decl(FlagDecl::new(name));
+        self.flags.push(decl);
+        self
+    }
+
+    pub fn flag_group<F>(mut self, name: impl Into<Cow<'static, str>>, decl: F) -> Self
+    where
+        F: FnOnce(FlagGroup) -> FlagGroup,
+    {
+        let decl = decl(FlagGroup::new(name));
+        self.flag_groups.push(decl);
+        self
+    }
+
+    fn arg_names(&self) -> Vec<String> {
+        self.args
             .iter()
             .map(|decl| decl.name.to_string())
             .collect::<Vec<_>>()
     }
 
+    fn all_flag_names(&self) -> Vec<String> {
+        self.flags
+            .iter()
+            .chain(self.flag_groups.iter().flat_map(|group| group.flags.iter()))
+            .flat_map(|decl| {
+                let mut v = Vec::with_capacity(2);
+                v.push(decl.name.to_string());
+                v.extend(
+                    decl.negative_prefix
+                        .iter()
+                        .map(|prefix| format!("{}{}", prefix, decl.name)),
+                );
+
+                v
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn parse_arg<'a>(&self, span: Span, slice: &'a str) -> UshParseResult<(&'a str, ArgValue)> {
+        let (name, value) = slice.split_once(':').ok_or_else(|| {
+            UshParseError::ExpectedArg(span.spanned_string(slice), self.arg_names())
+        })?;
+
+        let value_span_start = span.start + name.len() + 1;
+        let value_span = Span {
+            start: value_span_start,
+            ..span
+        };
+
+        let decl = self
+            .args
+            .iter()
+            .find(|decl| decl.name == name)
+            .ok_or_else(|| UshParseError::UnexpectedArg(span.spanned_string(name)))?;
+
+        if value.is_empty() && !decl.allow_empty {
+            return Err(UshParseError::EmptyArg(
+                span.spanned_string(slice),
+                decl.hint,
+            ));
+        }
+
+        Ok((
+            name,
+            ArgValue::Value(value_span.spanned_string(value), span),
+        ))
+    }
+
+    fn parse_flag(&self, span: Span, slice: &str) -> UshParseResult<(&str, FlagValue)> {
+        let Some(flag) = slice.strip_prefix("--") else {
+            unreachable!("Shouldn't have called parse_flag with a non-flag, see parse_from");
+        };
+
+        let (decl, flag_value) = self
+            .flags
+            .iter()
+            .chain(self.flag_groups.iter().flat_map(|group| group.flags.iter()))
+            .find_map(|decl| {
+                if decl.name == flag {
+                    Some((decl, true))
+                } else if decl
+                    .negative_prefix
+                    .as_ref()
+                    .map_or(false, |prefix| format!("{prefix}{}", decl.name) == flag)
+                {
+                    Some((decl, false))
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| {
+                UshParseError::UnexpectedFlag(span.spanned_string(slice), self.all_flag_names())
+            })?;
+
+        Ok((
+            decl.name.as_ref(),
+            FlagValue::Present(span.spanned_string(slice), flag_value),
+        ))
+    }
+
     pub fn parse_from(self, parser: &mut UshCommandParser) -> UshParseResult<ArgStore> {
         let mut args = ArgStore::new();
 
-        for decl in &self.decls {
+        for decl in &self.args {
             if let Some(default) = &decl.default {
                 args.args
                     .insert(decl.name.to_string(), ArgValue::Default(default.clone()));
+            }
+        }
+
+        for decl in &self.flags {
+            if let Some(default) = decl.default {
+                args.flags
+                    .insert(decl.name.to_string(), FlagValue::Default(default));
+            }
+        }
+
+        for flag_group in &self.flag_groups {
+            for decl in &flag_group.flags {
+                if let Some(default) = decl.default {
+                    args.flags
+                        .insert(decl.name.to_string(), FlagValue::Default(default));
+                }
+            }
+
+            if let Some(default) = &flag_group.default {
+                args.flags
+                    .insert(default.to_string(), FlagValue::Default(true));
             }
         }
 
@@ -926,39 +1140,15 @@ impl ArgDeclList {
                     return Err(UshParseError::UnexpectedToken(span.spanned_string(slice)));
                 }
                 Token::Value => {
-                    let (name, value) = slice.split_once(':').ok_or_else(|| {
-                        UshParseError::ExpectedArg(span.spanned_string(slice), self.names())
-                    })?;
+                    if slice.starts_with("--") {
+                        let (name, flag_value) = self.parse_flag(span, slice)?;
 
-                    let value_span_start = span.start + name.len() + 1;
-                    let value_span = Span {
-                        start: value_span_start,
-                        ..span
-                    };
+                        args.flags.insert(name.to_string(), flag_value);
+                    } else {
+                        let (name, value) = self.parse_arg(span, slice)?;
 
-                    let decl = self
-                        .decls
-                        .iter()
-                        .find(|decl| decl.name == name)
-                        .ok_or_else(|| UshParseError::UnexpectedArg(span.spanned_string(name)))?;
-
-                    if value.is_empty() && !decl.allow_empty {
-                        return Err(UshParseError::EmptyArg(
-                            span.spanned_string(slice),
-                            decl.hint,
-                        ));
+                        args.args.insert(name.to_string(), value);
                     }
-
-                    args.args.insert(
-                        name.to_string(),
-                        ArgValue::Value(
-                            Spanned {
-                                span: value_span,
-                                value: value.to_string(),
-                            },
-                            span,
-                        ),
-                    );
                 }
                 t => {
                     return Err(UshParseError::UnexpectedToken(span.spanned_string(slice)));
@@ -967,7 +1157,7 @@ impl ArgDeclList {
         }
 
         let missing_required_args = self
-            .decls
+            .args
             .iter()
             .filter(|decl| decl.required && !args.args.contains_key(decl.name.as_ref()))
             .map(|decl| decl.name.to_string())
@@ -975,6 +1165,39 @@ impl ArgDeclList {
 
         if !missing_required_args.is_empty() {
             return Err(UshParseError::MissingRequiredArgs(missing_required_args));
+        }
+
+        for flag_group in &self.flag_groups {
+            let mut flag_group_value = None::<(String, FlagValue)>;
+            for (flag, value) in &args.flags {
+                if flag_group.contains_flag(flag) {
+                    if let FlagValue::Present(..) = value {
+                        if let Some((_old_flag, old_value)) = flag_group_value {
+                            return Err(UshParseError::FlagGroupConflict(
+                                flag_group.group_name.to_string(),
+                                old_value.unwrap_present_spanned().clone(),
+                                value.unwrap_present_spanned().clone(),
+                            ));
+                        } else {
+                            flag_group_value = Some((flag.clone(), value.clone()));
+                        }
+                    }
+                }
+            }
+
+            if let Some((_flag, value)) = flag_group_value {
+                args.flag_groups
+                    .insert(flag_group.group_name.to_string(), value);
+            } else if flag_group.required {
+                return Err(UshParseError::MissingFlagGroupRequiredFlag(
+                    flag_group.group_name.to_string(),
+                    flag_group
+                        .flags
+                        .iter()
+                        .map(|decl| decl.name.to_string())
+                        .collect(),
+                ));
+            }
         }
 
         Ok(args)
@@ -1002,9 +1225,33 @@ impl ArgValue {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum FlagValue {
+    Present(Spanned<String>, bool),
+    Default(bool),
+}
+
+impl FlagValue {
+    fn value(&self) -> bool {
+        match self {
+            FlagValue::Present(_, v) => *v,
+            FlagValue::Default(v) => *v,
+        }
+    }
+
+    fn unwrap_present_spanned(&self) -> &Spanned<String> {
+        match self {
+            FlagValue::Present(s, ..) => s,
+            FlagValue::Default(..) => panic!("unwrap_present_spanned called on FlagValue::Default"),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ArgStore {
     args: HashMap<String, ArgValue>,
+    flags: HashMap<String, FlagValue>,
+    flag_groups: HashMap<String, FlagValue>,
 }
 
 impl ArgStore {
@@ -1046,6 +1293,22 @@ impl ArgStore {
             }
             None => None,
         }
+    }
+
+    pub fn flag_opt(&self, name: &str) -> Option<bool> {
+        self.flags.get(name).map(|it| it.value())
+    }
+
+    pub fn flag(&self, name: &str) -> bool {
+        self.flag_opt(name)
+            .expect("flag should have been set with default value; unknown flag")
+    }
+
+    pub fn flag_group_required(&self, name: &str) -> FlagValue {
+        self.flag_groups
+            .get(name)
+            .cloned()
+            .expect("flag group should have been set with default value (or previous error handling didn't catch the error); unknown flag group")
     }
 }
 
@@ -1094,24 +1357,19 @@ impl rustyline::completion::Completer for Helper {
             Err(UshParseError::MissingRequiredArgs(args)) => {
                 debug_assert!(!line.is_empty());
 
-                // at end of line
-                return if (pos >= line.len() && line.chars().last().unwrap().is_whitespace())
-                    // or somewhere in the middle, but has whitespace on both sides
-                    || (pos < line.len()
-                    && line[pos - 1..=pos + 1].chars().all(char::is_whitespace))
-                {
-                    Ok((
-                        pos,
-                        args.into_iter()
-                            .map(|arg| Pair {
-                                replacement: format!("{arg}:"),
-                                display: arg,
-                            })
-                            .collect(),
-                    ))
-                } else {
-                    Ok((0, Vec::with_capacity(0)))
-                };
+                if !Self::pos_around_ws(line, pos) {
+                    return Ok((0, Vec::with_capacity(0)));
+                }
+
+                return Ok((
+                    pos,
+                    args.into_iter()
+                        .map(|arg| Pair {
+                            replacement: format!("{arg}:"),
+                            display: arg,
+                        })
+                        .collect(),
+                ));
             }
             Err(UshParseError::UnknownCommand(name)) => {
                 return Ok((
@@ -1136,6 +1394,43 @@ impl rustyline::completion::Completer for Helper {
                         })
                         .collect(),
                 ));
+            }
+            Err(UshParseError::UnexpectedFlag(flag, possible_flags)) => {
+                let flag_name = flag
+                    .value
+                    .strip_prefix("--")
+                    .expect("flag name should start with --");
+
+                let mut candidates = Vec::new();
+
+                for possible_flag in possible_flags {
+                    if possible_flag.starts_with(flag_name) {
+                        let f = format!("--{possible_flag}");
+                        candidates.push(Pair {
+                            replacement: f.clone(),
+                            display: f,
+                        });
+                    }
+                }
+
+                return Ok((flag.span.start, candidates));
+            }
+            Err(UshParseError::MissingFlagGroupRequiredFlag(group, flags)) => {
+                if !Self::pos_around_ws(line, pos) {
+                    return Ok((0, Vec::with_capacity(0)));
+                }
+
+                let mut candidates = Vec::new();
+
+                for flag in flags {
+                    let f = format!("--{flag}");
+                    candidates.push(Pair {
+                        replacement: f.clone(),
+                        display: f,
+                    });
+                }
+
+                return Ok((line.len(), candidates));
             }
             Err(_) => {
                 return Ok((0, Vec::with_capacity(0)));
@@ -1224,6 +1519,18 @@ impl rustyline::hint::Hinter for Helper {
 }
 
 impl Helper {
+    fn pos_around_ws(line: &str, pos: usize) -> bool {
+        if pos >= line.len() {
+            return line.ends_with(char::is_whitespace);
+        }
+
+        if pos == 0 {
+            return line.starts_with(char::is_whitespace);
+        }
+
+        line[pos - 1..pos + 1].chars().all(char::is_whitespace)
+    }
+
     fn hint_completion(
         &self,
         err: UshParseError,
