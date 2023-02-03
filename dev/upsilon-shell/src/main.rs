@@ -233,15 +233,15 @@ query {
         let line = match editor.readline(&format!("ush: [{cwd_str}] >>> ")) {
             Ok(line) => line,
             Err(ReadlineError::Interrupted) => {
-                println!("^C");
+                eprintln!("^C");
                 continue;
             }
             Err(ReadlineError::Eof) => {
-                println!("^D");
+                eprintln!("^D");
                 break 0;
             }
             Err(err) => {
-                println!("Error: {err:?}");
+                eprintln!("Error: {err:?}");
                 break 1;
             }
         };
@@ -249,7 +249,7 @@ query {
         let parsed = match parse_line(&line) {
             Ok(parsed) => parsed,
             Err(err) => {
-                println!("Error: {err}");
+                eprintln!("Error: {err}");
                 continue;
             }
         };
@@ -265,10 +265,11 @@ query {
                     None => home::home_dir().unwrap(),
                 };
 
+
                 if new_path.is_dir() {
                     *cwd.borrow_mut() = new_path;
                 } else {
-                    println!("cd: {}: No such file or directory", new_path.display());
+                    eprintln!("cd: {}: No such directory", new_path.display());
                 }
             }
             UshParsedCommand::Ls(ls) => {

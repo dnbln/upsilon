@@ -80,6 +80,8 @@ jobs:
           # By default actions/checkout checks out a merge commit. Check out the PR head instead.
           # https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
           ref: ${{ github.event.pull_request.head.sha }}
+      # Taken from rust openssl CI
+      # (https://github.com/sfackler/rust-openssl/blob/11797d9ecb73e94b7f55a49274318abc9dc074d2/.github/workflows/ci.yml#L93-L94)
       - name: Setup env
         run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Install openssl
