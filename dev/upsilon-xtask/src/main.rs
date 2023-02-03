@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
-use upsilon_xtask::{cargo_cmd, cmd_call, ws_path, ws_root, XtaskResult};
+use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
 #[derive(Debug, Clone)]
@@ -146,6 +146,10 @@ enum App {
         #[clap(short, long)]
         verbose: bool,
     },
+    #[clap(name = "frontend-run-dev")]
+    #[clap(alias = "frun")]
+    #[clap(alias = "fr")]
+    FrontendRunDev,
     #[clap(name = "test")]
     #[clap(alias = "t")]
     Test {
@@ -630,6 +634,13 @@ fn main_impl() -> XtaskResult<()> {
                 "--",
                 "web",
                 @workdir = ws_path!("testenv"),
+            )?;
+        }
+        App::FrontendRunDev => {
+            npm_cmd!(
+                "run",
+                "dev",
+                @workdir = ws_path!("client")
             )?;
         }
         App::Test {

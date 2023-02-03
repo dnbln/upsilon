@@ -187,8 +187,27 @@ macro_rules! cargo_cmd {
     };
 }
 
+#[macro_export]
+macro_rules! npm_cmd {
+    ($($args:tt)*) => {
+        {
+            let __npm_path = $crate::cmd::npm_path();
+            $crate::cmd_call!(__npm_path, $($args)*)
+        }
+    };
+}
+
 pub fn cargo_path() -> PathBuf {
     PathBuf::from(env!("CARGO"))
+}
+
+#[cfg(not(windows))]
+const NPM_NAME: &str = "npm";
+#[cfg(windows)]
+const NPM_NAME: &str = "npm.cmd";
+
+pub fn npm_path() -> PathBuf {
+    PathBuf::from(NPM_NAME)
 }
 
 #[derive(Debug)]
