@@ -30,7 +30,7 @@ pub mod auth;
 mod graphql;
 
 mod error;
-mod repo_lookup_path;
+mod entity_lookup_path;
 
 pub struct GraphQLApiConfigurator {
     ush_args: UshArgs,

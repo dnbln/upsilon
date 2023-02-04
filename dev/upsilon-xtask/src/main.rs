@@ -600,6 +600,43 @@ fn extend_filext_new(p: impl AsRef<Path>) -> PathBuf {
     ))
 }
 
+fn build_docs() -> XtaskResult<()> {
+    cmd_call!(
+        "mdbook",
+        "build",
+        @workdir = ws_path!("docs"),
+    )?;
+
+    Ok(())
+}
+
+fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
+    let from = from.as_ref();
+    let to = to.as_ref();
+
+
+    if from.is_file() {
+        std::fs::copy(from, to)?;
+        return Ok(());
+    }
+
+    if !to.exists() {
+        std::fs::create_dir_all(to)?;
+    }
+
+    fs_extra::dir::copy(
+        from,
+        to,
+        &fs_extra::dir::CopyOptions {
+            overwrite: true,
+            copy_inside: false,
+            ..Default::default()
+        },
+    )?;
+
+    Ok(())
+}
+
 const ALIASES: &[&str] = &["uxrd"];
 
 fn main_impl() -> XtaskResult<()> {
@@ -637,6 +674,13 @@ fn main_impl() -> XtaskResult<()> {
             )?;
         }
         App::FrontendRunDev => {
+            build_docs()?;
+
+            copy(
+                ws_path!("docs" / "book"),
+                ws_path!("client" / "static" / "docs"),
+            )?;
+
             npm_cmd!(
                 "run",
                 "dev",
@@ -788,11 +832,7 @@ fn main_impl() -> XtaskResult<()> {
             }
         }
         App::BuildDocs => {
-            cmd_call!(
-                "mdbook",
-                "build",
-                @workdir = ws_path!("docs"),
-            )?;
+            build_docs()?;
         }
         App::ServeDocs => {
             cmd_call!(
@@ -803,11 +843,7 @@ fn main_impl() -> XtaskResult<()> {
         }
 
         App::PublishDocs => {
-            cmd_call!(
-                "mdbook",
-                "build",
-                @workdir = ws_path!("docs"),
-            )?;
+            build_docs()?;
 
             #[cfg(windows)]
             cmd_call!(

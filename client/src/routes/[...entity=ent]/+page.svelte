@@ -14,14 +14,13 @@
   -    limitations under the License.
   -->
 
-<script lang="ts" context="module">
-    import NavBar from '$lib/components/NavBar.svelte';
+<script lang="ts">
+    export let data: { entity: string };
+    const {entity} = data;
 </script>
 
 <svelte:head>
-    <title>
-        Upsilon | Home
-    </title>
+    <title>User {user}</title>
 </svelte:head>
 
-<NavBar user="aaa" />
+<h1>User {user}</h1>

@@ -33,7 +33,7 @@ use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
 use upsilon_models::namespace::NamespaceId;
 use upsilon_models::organization::{
-    OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, Team, TeamDisplayName, TeamId, TeamName
+    Organization, OrganizationDisplayName, OrganizationId, OrganizationMember, OrganizationName, Team, TeamDisplayName, TeamId, TeamName
 };
 use upsilon_models::repo::{Repo, RepoId, RepoName, RepoNamespace, RepoPermissions};
 use upsilon_models::users::emails::UserEmails;
@@ -44,8 +44,8 @@ use upsilon_models::users::{User, UserDisplayName, UserId, UserSshKey, Username}
 use upsilon_vcs::{RepoConfig, RepoVisibility, UpsilonVcsConfig};
 
 use crate::auth::{AuthContext, AuthToken, AuthTokenClaims};
+use crate::entity_lookup_path::{EntityLookupPath, ResolvedEntity};
 use crate::error::Error;
-use crate::repo_lookup_path::{RepoLookupPath, ResolvedRepoAndNamespace};
 
 pub type Schema = juniper::RootNode<'static, QueryRoot, MutationRoot, SubscriptionRoot>;
 
@@ -274,25 +274,112 @@ impl QueryRoot {
             .map(RepoRef)
     }
 
-    async fn lookup_repo(context: &GraphQLContext, path: String) -> FieldResult<Option<RepoRef>> {
-        let path = RepoLookupPath::from_iter(path.split('/').collect::<Vec<_>>().into_iter())?;
+    async fn lookup_entity(
+        context: &GraphQLContext,
+        path: String,
+    ) -> FieldResult<Option<EntityRef>> {
+        let path = EntityLookupPath::from_iter(path.split('/').collect::<Vec<_>>().into_iter())?;
 
         let resolved = match context
-            .query(|qm| async move { crate::repo_lookup_path::resolve(&qm, &path).await })
+            .query(|qm| async move { crate::entity_lookup_path::resolve(&qm, &path).await })
             .await?
         {
-            Some(path) => path,
+            Some(entity) => entity,
             None => return Ok(None),
         };
 
-        let repo = match resolved {
-            ResolvedRepoAndNamespace::GlobalNamespace(r)
-            | ResolvedRepoAndNamespace::User(_, r)
-            | ResolvedRepoAndNamespace::Organization(_, r)
-            | ResolvedRepoAndNamespace::Team(_, _, r) => r,
+        let entity_ref = match resolved {
+            ResolvedEntity::GlobalNamespace => EntityRef::GlobalNamespace,
+            ResolvedEntity::User(user) => EntityRef::User(user),
+            ResolvedEntity::Organization(org) => EntityRef::Organization(org),
+            ResolvedEntity::Team(org, team) => EntityRef::Team(org, team),
+            ResolvedEntity::Repo { repo, .. } => EntityRef::Repo(repo),
+        };
+
+        Ok(Some(entity_ref))
+    }
+
+    async fn lookup_repo(context: &GraphQLContext, path: String) -> FieldResult<Option<RepoRef>> {
+        let path = EntityLookupPath::from_iter(path.split('/').collect::<Vec<_>>().into_iter())?;
+
+        let repo = match context
+            .query(|qm| async move { crate::entity_lookup_path::resolve(&qm, &path).await })
+            .await?
+        {
+            Some(ResolvedEntity::Repo { repo, .. }) => repo,
+            _ => return Ok(None),
         };
 
         Ok(Some(RepoRef(repo)))
+    }
+}
+
+pub enum EntityRef {
+    GlobalNamespace,
+    User(User),
+    Organization(Organization),
+    Team(Organization, Team),
+    Repo(Repo),
+}
+
+#[graphql_object(Context = GraphQLContext)]
+impl EntityRef {
+    fn user_id(&self) -> Option<UserId> {
+        match self {
+            EntityRef::User(user) => Some(user.id),
+            _ => None,
+        }
+    }
+
+    async fn user(&self) -> Option<UserRef> {
+        match self {
+            EntityRef::User(user) => Some(UserRef(user.clone())),
+            _ => None,
+        }
+    }
+
+    fn organization_id(&self) -> Option<OrganizationId> {
+        match self {
+            EntityRef::Organization(org) => Some(org.id),
+            EntityRef::Team(org, _) => Some(org.id),
+            _ => None,
+        }
+    }
+
+    async fn organization(&self) -> Option<OrganizationRef> {
+        match self {
+            EntityRef::Organization(org) => Some(OrganizationRef(org.clone())),
+            EntityRef::Team(org, _) => Some(OrganizationRef(org.clone())),
+            _ => None,
+        }
+    }
+
+    fn team_id(&self) -> Option<TeamId> {
+        match self {
+            EntityRef::Team(_, team) => Some(team.id),
+            _ => None,
+        }
+    }
+
+    async fn team(&self) -> Option<TeamRef> {
+        match self {
+            EntityRef::Team(_org, team) => Some(TeamRef(team.clone())),
+            _ => None,
+        }
+    }
+
+    fn repo_id(&self) -> Option<RepoId> {
+        match self {
+            EntityRef::Repo(repo) => Some(repo.id),
+            _ => None,
+        }
+    }
+
+    async fn repo(&self) -> Option<RepoRef> {
+        match self {
+            EntityRef::Repo(repo) => Some(RepoRef(repo.clone())),
+            _ => None,
+        }
     }
 }
 

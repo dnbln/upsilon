@@ -13,6 +13,7 @@ chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.26", features = ["derive"] }
 ctrlc = "3.2.0"
 futures = "0.3.25"
+fs_extra = "1.2.0"
 git2 = "0.16"
 humantime = "2.1.0"
 juniper = "0.15.10"
