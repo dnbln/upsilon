@@ -265,7 +265,6 @@ query {
                     None => home::home_dir().unwrap(),
                 };
 
-
                 if new_path.is_dir() {
                     *cwd.borrow_mut() = new_path;
                 } else {

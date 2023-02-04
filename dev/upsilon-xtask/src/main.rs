@@ -614,7 +614,6 @@ fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
     let from = from.as_ref();
     let to = to.as_ref();
 
-
     if from.is_file() {
         std::fs::copy(from, to)?;
         return Ok(());

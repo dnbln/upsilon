@@ -29,8 +29,8 @@ use crate::auth::AuthContext;
 pub mod auth;
 mod graphql;
 
-mod error;
 mod entity_lookup_path;
+mod error;
 
 pub struct GraphQLApiConfigurator {
     ush_args: UshArgs,
