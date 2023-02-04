@@ -20,6 +20,6 @@ export async function load({params, fetch}: { params: { entity: string }, fetch:
     let entity = params.entity;
 
     return {
-        user: params.entity,
+        entity: params.entity,
     };
 }

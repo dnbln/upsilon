@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-    <title>User {user}</title>
+    <title>{entity}</title>
 </svelte:head>
 
-<h1>User {user}</h1>
+<h1>Entity {entity}</h1>
