@@ -14,6 +14,13 @@
   -    limitations under the License.
   -->
 
+<script lang="ts" context="module">
+    import { setRelayEnvironment } from 'svelte-relay';
+    import env from '$lib/api/gql-environment';
+
+    setRelayEnvironment(env);
+</script>
+
 <script lang="ts">
     export let data: { entity: string };
     const {entity} = data;

@@ -42,11 +42,15 @@ fn kill_child_by_id(id: u32) {
     add_children_to_vec(&mut children_to_terminate, id);
 
     for child in children_to_terminate {
+        // SAFETY: correct usage of libc::kill
+        #[allow(unsafe_code)]
         let success = unsafe { libc::kill(child as libc::pid_t, libc::SIGTERM) == 0 };
 
         if !success {
-            let errno_location: *mut libc::c_int = unsafe { libc::__errno_location() };
-            let errno = unsafe { *errno_location };
+            // get errno if failed
+            // SAFETY: we are reading errno, can't go wrong.
+            #[allow(unsafe_code)]
+            let errno: libc::c_int = unsafe { *libc::__errno_location() };
 
             if errno == libc::ESRCH {
                 continue;

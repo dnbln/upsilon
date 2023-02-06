@@ -17,6 +17,8 @@
 use std::process::Child;
 
 pub fn kill_child(_child: &Child) {
+    // SAFETY: correct usage of GenerateConsoleCtrlEvent
+    #[allow(unsafe_code)]
     let success = unsafe {
         winapi::um::wincon::GenerateConsoleCtrlEvent(
             winapi::um::wincon::CTRL_BREAK_EVENT,

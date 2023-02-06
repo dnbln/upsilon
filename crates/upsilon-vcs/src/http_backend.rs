@@ -246,6 +246,7 @@ pub async fn handle<B: AsyncRead>(
         .expect("Missing \\r\\n\\r\\n in HTTP response");
 
     // SAFETY: Headers are guaranteed to be ASCII
+    #[allow(unsafe_code)]
     let headers = unsafe { std::str::from_utf8_unchecked(&buf_ref[..headers_end]) };
     let buffer = &buf_ref[headers_end + 4..]; // +4 for the actual \r\n\r\n
 

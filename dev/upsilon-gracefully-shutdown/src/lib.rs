@@ -77,6 +77,8 @@ async fn grace(child: &mut Child, grace_period: Duration) {
             #[cfg(windows)]
             {
                 println!("Terminating process");
+                // SAFETY: correct usage of TerminateProcess
+                #[allow(unsafe_code)]
                 let success = unsafe {
                     winapi::um::processthreadsapi::TerminateProcess(
                         child.raw_handle().expect("Cannot get raw handle")
@@ -95,8 +97,13 @@ async fn grace(child: &mut Child, grace_period: Duration) {
 
 pub async fn gracefully_shutdown(child: &mut Child, grace_period: Duration) {
     #[cfg(unix)]
-    let success =
-        unsafe { libc::kill(child_proc_id(child).try_into().unwrap(), libc::SIGINT) == 0 };
+    let success = {
+        // SAFETY: correct usage of kill
+        #[allow(unsafe_code)]
+        unsafe {
+            libc::kill(child_proc_id(child).try_into().unwrap(), libc::SIGINT) == 0
+        }
+    };
 
     // on windows, the gracefully-shutdown-host will handle this
     #[cfg(windows)]

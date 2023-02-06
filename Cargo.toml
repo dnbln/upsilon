@@ -5,6 +5,13 @@ members = [
 ]
 default-members = ["dev/cargo-guard"]
 
+[workspace.metadata.lints]
+unsafe_code = "deny"
+
+clippy.uninlined_format_args = "deny"
+clippy.empty_structs_with_brackets = "warn"
+clippy.cast_possible_truncation = "warn"
+
 [workspace.dependencies]
 anyhow = "1.0.66"
 async-trait = "0.1.59"

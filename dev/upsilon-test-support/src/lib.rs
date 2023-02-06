@@ -131,6 +131,10 @@ impl TestCx {
         let mut buffer = Vec::with_capacity(32 * 1024);
         stream.read_to_end(&mut buffer).await?;
 
+        if buffer.is_empty() {
+            return Ok(());
+        }
+
         let sep = "\n".repeat(6);
 
         output
@@ -143,7 +147,7 @@ impl TestCx {
             )
             .await?;
 
-        output.write(&buffer).await?;
+        output.write_all(&buffer).await?;
 
         output
             .write_all(
