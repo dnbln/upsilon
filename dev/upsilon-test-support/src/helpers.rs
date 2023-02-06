@@ -735,7 +735,7 @@ impl<'a> Display for Cmd<'a> {
         write!(f, "{:?}", self.program)?;
 
         for arg in &self.args {
-            write!(f, " {:?}", arg)?;
+            write!(f, " {arg:?}")?;
         }
 
         Ok(())

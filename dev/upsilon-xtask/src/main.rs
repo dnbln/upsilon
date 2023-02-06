@@ -199,6 +199,11 @@ enum App {
     #[clap(name = "check-cargo-dep-from-workspace")]
     #[clap(alias = "ccdw")]
     CheckCargoDepFromWorkspace,
+    #[clap(name = "lint")]
+    #[clap(alias = "l")]
+    #[clap(alias = "check")]
+    #[clap(alias = "clippy")]
+    Lint,
 }
 
 fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
@@ -955,6 +960,18 @@ fn main_impl() -> XtaskResult<()> {
                 }
                 std::process::exit(1);
             }
+        }
+        App::Lint => {
+            let cranky_config = cargo_cranky::config::CrankyConfig::get_config()?;
+            let clippy_flags = cranky_config.extra_right_args();
+
+            cargo_cmd!(
+                "clippy",
+                "--all",
+                "--",
+                ...clippy_flags,
+                @workdir = ws_root!(),
+            )?;
         }
     }
 

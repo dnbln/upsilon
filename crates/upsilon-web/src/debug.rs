@@ -91,17 +91,14 @@ impl Fairing for DebugDataDriverFairing {
             if !stdout_str.is_empty() {
                 write!(
                     &mut stdout,
-                    "Debug Data Driver stdout:\n{guard}\n{}{guard}\n",
-                    stdout_str,
-                    guard = guard
+                    "Debug Data Driver stdout:\n{guard}\n{stdout_str}{guard}\n",
                 )?;
             }
 
             if !stderr_str.is_empty() {
                 write!(
                     &mut stdout,
-                    "Debug Data Driver stderr:\n{guard}\n{}{guard}\n",
-                    stderr_str
+                    "Debug Data Driver stderr:\n{guard}\n{stderr_str}{guard}\n",
                 )?;
             }
 
@@ -121,7 +118,7 @@ impl Fairing for DebugDataDriverFairing {
             let result = debug_data_driver_task(port, linux_exists, upsilon_exists).await;
 
             if let Err(e) = result {
-                error!("Failed to run debug data driver: {}", e);
+                error!("Failed to run debug data driver: {e}");
             }
         });
     }

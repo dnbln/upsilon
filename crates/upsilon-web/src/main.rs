@@ -37,7 +37,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     let default_rocket_config = match &profile {
         x if x == DEV_PROFILE => rocket::Config::debug_default(),
         x if x == RELEASE_PROFILE => rocket::Config::release_default(),
-        _ => panic!("Invalid profile: {}", profile),
+        _ => panic!("Invalid profile: {profile}"),
     };
 
     let default_rocket_config = rocket::Config {

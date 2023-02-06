@@ -35,8 +35,8 @@ impl Client {
 
     pub(crate) fn new(port: u16) -> Self {
         let reqwest_client = reqwest::Client::new();
-        let root = format!("http://localhost:{}", port);
-        let root_graphql = format!("{}/graphql", root);
+        let root = format!("http://localhost:{port}");
+        let root_graphql = format!("{root}/graphql");
 
         Self {
             reqwest_client,
