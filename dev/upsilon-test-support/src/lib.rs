@@ -563,7 +563,7 @@ pub struct IdHolder {
 
 pub mod helpers;
 
-pub mod json_diff;
+pub use upsilon_json_diff::assert_json_eq;
 
 pub mod prelude {
     pub use anyhow::bail;

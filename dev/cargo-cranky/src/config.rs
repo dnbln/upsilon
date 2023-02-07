@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env::current_dir;
 use std::io;
 
@@ -95,7 +95,7 @@ impl From<CrankyConfigMap> for CrankyConfig {
     }
 }
 
-type LintMap = HashMap<String, LintLevelOrGroup>;
+type LintMap = BTreeMap<String, LintLevelOrGroup>;
 
 #[derive(Deserialize)]
 #[serde(untagged)]

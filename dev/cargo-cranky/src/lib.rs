@@ -1,3 +1,3 @@
-#![feature(hash_drain_filter)]
+#![feature(btree_drain_filter)]
 
 pub mod config;

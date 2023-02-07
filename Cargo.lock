@@ -4278,6 +4278,7 @@ dependencies = [
  "logos",
  "serde_json",
  "serde_yaml",
+ "upsilon-json-diff",
 ]
 
 [[package]]
@@ -4529,6 +4530,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "upsilon-json-diff"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "upsilon-diff-util",
+]
+
+[[package]]
 name = "upsilon-models"
 version = "0.1.0"
 dependencies = [
@@ -4634,6 +4643,7 @@ dependencies = [
  "tokio",
  "upsilon-diff-util",
  "upsilon-gracefully-shutdown",
+ "upsilon-json-diff",
  "upsilon-test-support-macros",
 ]
 

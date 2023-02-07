@@ -1,5 +1,5 @@
 /*
- *        Copyright (c) 2022-2023 Dinu Blanovschi
+ *        Copyright (c) 2023 Dinu Blanovschi
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
  *    limitations under the License.
  */
 
-use anyhow::bail;
-use serde_json::Value;
+pub extern crate serde_json;
 
-use crate::TestResult;
+use serde_json::Value;
 
 #[macro_export]
 macro_rules! expanded_json {
@@ -35,11 +34,12 @@ macro_rules! assert_json_eq {
         let actual = $crate::expanded_json!($actual);
         let expected = $crate::expanded_json!($expected);
 
-        $crate::json_diff::_assert_same_json(&actual, &expected)?;
+        $crate::_assert_same_json(&actual, &expected);
     }};
 }
 
-pub fn _assert_same_json(actual: &Value, expected: &Value) -> TestResult {
+#[track_caller]
+pub fn _assert_same_json(actual: &Value, expected: &Value) {
     if expected != actual {
         let expected_string = serde_json::to_string_pretty(expected).unwrap();
         let actual_string = serde_json::to_string_pretty(actual).unwrap();
@@ -49,8 +49,6 @@ pub fn _assert_same_json(actual: &Value, expected: &Value) -> TestResult {
         let sep = "=".repeat(20);
         eprintln!("JSONs are not equal:\n{sep}\n{diff}\n{sep}\n\n");
 
-        bail!("JSONs are not the same: \n{diff}");
+        panic!("JSONs are not the same: \n{diff}");
     }
-
-    Ok(())
 }

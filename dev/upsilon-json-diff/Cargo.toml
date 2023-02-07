@@ -1,18 +1,11 @@
 [package]
-name = "ukonf"
+name = "upsilon-json-diff"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lalrpop-util = "0.19.8"
-logos.workspace = true
 serde_json.workspace = true
-serde_yaml.workspace = true
 
-[dev-dependencies]
-upsilon-json-diff.workspace = true
-
-[build-dependencies]
-lalrpop = "0.19.8"
+upsilon-diff-util.workspace = true

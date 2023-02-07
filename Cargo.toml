@@ -58,6 +58,7 @@ upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
 upsilon-gracefully-shutdown = { path = "dev/upsilon-gracefully-shutdown" }
 upsilon-gracefully-shutdown-host = { path = "dev/upsilon-gracefully-shutdown-host" }
 upsilon-id = { path = "crates/upsilon-id" }
+upsilon-json-diff = { path = "dev/upsilon-json-diff" }
 upsilon-models = { path = "crates/upsilon-models" }
 upsilon-procx = { path = "crates/upsilon-procx" }
 upsilon-ssh = { path = "crates/upsilon-ssh" }

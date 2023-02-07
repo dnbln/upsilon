@@ -26,6 +26,42 @@ use ukonf::UkonfFunctions;
 use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
+macro_rules! expand_known_test_group {
+    ({@testsuitebin $name:literal: $bin:literal}) => {
+        (
+            $name,
+            concat!("package(upsilon-testsuite) & binary(", $bin, ")"),
+            &[],
+        )
+    };
+    ({@package $name:literal}) => {
+        ($name, concat!("package(", $name, ")"), &[])
+    };
+    ({@package $name:literal, aliases: $aliases:tt}) => {
+        ($name, concat!("package(", $name, ")"), &$aliases)
+    };
+}
+
+macro_rules! known_test_groups {
+    ($($group:tt),* $(,)?) => {
+        const KNOWN_TEST_GROUPS: &[(&str, &str, &[&str])] = &[
+            $(
+                expand_known_test_group!($group),
+            )*
+        ];
+    };
+}
+
+known_test_groups! {
+    {@testsuitebin "git-clone": "git_clone"},
+    {@testsuitebin "git-graphql": "git_graphql"},
+    {@testsuitebin "github-mirror": "github_mirror"},
+    {@testsuitebin "lookup-repo": "lookup_repo"},
+    {@testsuitebin "viewer": "viewer"},
+    {@package "ukonf"},
+    {@package "upsilon-shell", aliases: ["ush"]},
+}
+
 #[derive(Debug, Clone)]
 struct TestGroups {
     groups: Vec<String>,
@@ -36,46 +72,24 @@ impl TestGroups {
         let mut args = Vec::new();
         for group in &self.groups {
             args.push("-E".to_string());
-            args.push(format!("binary({group})"));
+            args.push(
+                KNOWN_TEST_GROUPS
+                    .iter()
+                    .find_map(|(g, expr, _)| (g == group).then_some(expr))
+                    .unwrap()
+                    .to_string(),
+            );
         }
         args
     }
 }
 
-fn test_binaries() -> std::io::Result<Vec<String>> {
-    let path = ws_path!("dev" / "upsilon-testsuite" / "tests");
-
-    let mut test_binaries = vec![];
-
-    let dir = std::fs::read_dir(path)?;
-    for file in dir {
-        let file = file?;
-
-        let path = file.path();
-
-        let name = path
-            .file_name()
-            .expect("Missing file name")
-            .to_str()
-            .expect("Invalid file name")
-            .to_string();
-
-        if let Some(name_minus_ext) = name.strip_suffix(".rs") {
-            test_binaries.push(name_minus_ext.to_string());
-        }
-    }
-
-    Ok(test_binaries)
-}
-
 impl FromArgMatches for TestGroups {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
-        let test_binaries = test_binaries()?;
-
         let mut groups = vec![];
-        for test_binary in test_binaries {
-            if matches.get_flag(&test_binary) {
-                groups.push(test_binary);
+        for (group, _, _) in KNOWN_TEST_GROUPS {
+            if matches.get_flag(*group) {
+                groups.push(group.to_string());
             }
         }
 
@@ -83,12 +97,10 @@ impl FromArgMatches for TestGroups {
     }
 
     fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
-        let test_binaries = test_binaries()?;
-
         let mut groups = vec![];
-        for test_binary in test_binaries {
-            if matches.get_flag(&test_binary) {
-                groups.push(test_binary);
+        for (group, _, _) in KNOWN_TEST_GROUPS {
+            if matches.get_flag(&group) {
+                groups.push(group.to_string());
             }
         }
 
@@ -100,14 +112,13 @@ impl FromArgMatches for TestGroups {
 
 impl Args for TestGroups {
     fn augment_args(mut cmd: Command) -> Command {
-        let Ok(test_binaries) = test_binaries() else { return cmd; };
-
-        for test_bin in test_binaries {
+        for (group, _, aliases) in KNOWN_TEST_GROUPS {
             cmd = cmd.arg(
-                Arg::new(test_bin.clone())
-                    .long(test_bin.clone())
+                Arg::new(group)
+                    .long(group)
                     .action(ArgAction::SetTrue)
-                    .help(format!("Filter tests from the {test_bin} binary")),
+                    .aliases(aliases.iter().map(|it| it.to_string()))
+                    .help(format!("Filter tests from the {group} test group")),
             );
         }
 

@@ -446,7 +446,7 @@ impl Scope {
         let val = self.vars.get(name);
 
         if let Some(val) = val {
-            if indirections == 1 {
+            if indirections == 0 {
                 return Some(val.clone());
             }
 
@@ -461,3 +461,6 @@ impl Scope {
 }
 
 pub mod value;
+
+#[cfg(test)]
+mod tests;

@@ -21,4 +21,5 @@ tokio.workspace = true
 
 upsilon-diff-util.workspace = true
 upsilon-gracefully-shutdown.workspace = true
+upsilon-json-diff.workspace = true
 upsilon-test-support-macros.workspace = true
