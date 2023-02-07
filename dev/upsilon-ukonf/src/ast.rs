@@ -421,7 +421,7 @@ impl<'a> ResolvedKey<'a> {
             ResolvedKey::Indirection(k) => {
                 let (r, ind) = k.lower();
                 (r, ind + 1)
-            },
+            }
         }
     }
 }

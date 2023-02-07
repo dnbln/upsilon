@@ -28,8 +28,15 @@ pub struct CrankyConfig {
     lints: Vec<LintCfg>,
 }
 
-fn append_for_lint_level(level: LintLevel, lints: &mut Vec<LintCfg>, name_prefix: &mut Vec<String>, map: &mut LintMap) {
-    for (name, value) in map.drain_filter(|_, l| matches!(l, LintLevelOrGroup::Level(l) if *l == level)) {
+fn append_for_lint_level(
+    level: LintLevel,
+    lints: &mut Vec<LintCfg>,
+    name_prefix: &mut Vec<String>,
+    map: &mut LintMap,
+) {
+    for (name, value) in
+        map.drain_filter(|_, l| matches!(l, LintLevelOrGroup::Level(l) if *l == level))
+    {
         let LintLevelOrGroup::Level(level) = value else {
             unreachable!();
         };
@@ -38,15 +45,13 @@ fn append_for_lint_level(level: LintLevel, lints: &mut Vec<LintCfg>, name_prefix
         let name = name_prefix.join("::");
         name_prefix.pop();
 
-        lints.push(LintCfg {
-            name,
-            level,
-        });
+        lints.push(LintCfg { name, level });
     }
 
-    for (name, value) in map.iter_mut().filter(|(_, v)| {
-        matches!(v, LintLevelOrGroup::Group(_))
-    }) {
+    for (name, value) in map
+        .iter_mut()
+        .filter(|(_, v)| matches!(v, LintLevelOrGroup::Group(_)))
+    {
         let LintLevelOrGroup::Group(map) = value else {
             unreachable!();
         };
@@ -56,20 +61,33 @@ fn append_for_lint_level(level: LintLevel, lints: &mut Vec<LintCfg>, name_prefix
         name_prefix.pop();
     }
 
-    for _ in map.drain_filter(
-        |_, l| matches!(l, LintLevelOrGroup::Group(map) if map.is_empty())
-    ) {}
+    for _ in map.drain_filter(|_, l| matches!(l, LintLevelOrGroup::Group(map) if map.is_empty())) {}
 }
 
 impl From<CrankyConfigMap> for CrankyConfig {
     fn from(mut value: CrankyConfigMap) -> Self {
         let mut lints = Vec::new();
 
-        append_for_lint_level(LintLevel::Forbid, &mut lints, &mut Vec::new(), &mut value.map);
+        append_for_lint_level(
+            LintLevel::Forbid,
+            &mut lints,
+            &mut Vec::new(),
+            &mut value.map,
+        );
         append_for_lint_level(LintLevel::Deny, &mut lints, &mut Vec::new(), &mut value.map);
-        append_for_lint_level(LintLevel::ForceWarn, &mut lints, &mut Vec::new(), &mut value.map);
+        append_for_lint_level(
+            LintLevel::ForceWarn,
+            &mut lints,
+            &mut Vec::new(),
+            &mut value.map,
+        );
         append_for_lint_level(LintLevel::Warn, &mut lints, &mut Vec::new(), &mut value.map);
-        append_for_lint_level(LintLevel::Allow, &mut lints, &mut Vec::new(), &mut value.map);
+        append_for_lint_level(
+            LintLevel::Allow,
+            &mut lints,
+            &mut Vec::new(),
+            &mut value.map,
+        );
 
         assert!(value.map.is_empty());
 
@@ -97,7 +115,6 @@ impl CrankyConfig {
         // Search for Cargo.toml in all parent directories.
         let dir = current_dir()?;
 
-
         // redirect cargo output into the void
         let cursor = io::Cursor::new(Vec::<u8>::new());
         let shell = cargo::core::Shell::from_write(Box::new(cursor));
@@ -106,31 +123,27 @@ impl CrankyConfig {
         };
         let mut cargo_config = cargo::Config::new(shell, dir, home_dir);
 
-        cargo_config.configure(
-            0,
-            false,
-            None,
-            false,
-            false,
-            false,
-            &None,
-            &[],
-            &[],
-        )?;
-
+        cargo_config.configure(0, false, None, false, false, false, &None, &[], &[])?;
 
         let arg_matches = cargo::util::command_prelude::ArgMatches::default();
         let mut ws = arg_matches.workspace(&cargo_config)?;
 
-        fn get_from_custom_metadata_lints_table(value: &toml_edit::easy::Value) -> Result<CrankyConfig> {
+        fn get_from_custom_metadata_lints_table(
+            value: &toml_edit::easy::Value,
+        ) -> Result<CrankyConfig> {
             Ok(value.clone().try_into()?)
         }
 
         const METADATA_KEY: &str = "lints";
 
-        fn get_from_custom_metadata(value: Option<&toml_edit::easy::Value>) -> Result<CrankyConfig> {
-            Ok(value.and_then(|metadata| metadata.get(METADATA_KEY))
-                .map(get_from_custom_metadata_lints_table).transpose()?.unwrap_or_default())
+        fn get_from_custom_metadata(
+            value: Option<&toml_edit::easy::Value>,
+        ) -> Result<CrankyConfig> {
+            Ok(value
+                .and_then(|metadata| metadata.get(METADATA_KEY))
+                .map(get_from_custom_metadata_lints_table)
+                .transpose()?
+                .unwrap_or_default())
         }
 
         let cfg = get_from_custom_metadata(ws.custom_metadata())?;
