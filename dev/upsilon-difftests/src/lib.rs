@@ -5,9 +5,12 @@ extern crate ra_ap_hir_ty;
 extern crate ra_ap_syntax;
 
 use std::path::PathBuf;
+
 use ra_ap_ide_db::FxHashMap;
 use ra_ap_paths::AbsPathBuf;
-use ra_ap_project_model::{CargoConfig, CargoFeatures, InvocationLocation, InvocationStrategy, ProjectManifest, ProjectWorkspace, UnsetTestCrates};
+use ra_ap_project_model::{
+    CargoConfig, CargoFeatures, InvocationLocation, InvocationStrategy, ProjectManifest, ProjectWorkspace, UnsetTestCrates
+};
 use ra_ap_rust_analyzer::cli::load_cargo::LoadCargoConfig;
 
 pub type DifftestsResult<T = ()> = anyhow::Result<T>;

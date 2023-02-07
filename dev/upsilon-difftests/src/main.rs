@@ -43,9 +43,11 @@ fn main_impl() -> DifftestsResult {
 
     let packages = ["upsilon-testsuite", "upsilon-shell"];
 
-    for p in ws.packages()
+    for p in ws
+        .packages()
         .map(|it| &ws[it])
-        .filter(|it| packages.iter().any(|p| p == &it.name)) {
+        .filter(|it| packages.iter().any(|p| p == &it.name))
+    {
         println!("P: {}", p.name);
         dbg!(&p);
         for target in &p.targets {

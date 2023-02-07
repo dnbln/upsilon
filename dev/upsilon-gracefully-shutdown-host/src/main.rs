@@ -161,14 +161,16 @@ fn main() -> ExitCode {
                         }
 
                         std::thread::sleep(Duration::from_millis(100));
-                    };
+                    }
 
                     kill_child_with_prep_result(&child, prep_result);
 
-                    let code = dbg!(child.try_wait().expect("Failed to wait for child process")
+                    let code = dbg!(child
+                        .try_wait()
+                        .expect("Failed to wait for child process")
                         .expect("Child should have exited by now")
                         .code())
-                        .unwrap_or(1);
+                    .unwrap_or(1);
 
                     return ExitCode::from(code.try_into().unwrap_or(1));
                 }
