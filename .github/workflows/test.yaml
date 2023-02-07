@@ -37,11 +37,14 @@ jobs:
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Run fmt check
       run: cargo xtask fmt-check
-    - name: Git checks
+    - if: success() || failure()
+      name: Git checks
       run: cargo xtask git-checks --checkout
-    - name: Check Cargo.toml dependencies order
+    - if: success() || failure()
+      name: Check Cargo.toml dependencies order
       run: cargo xtask check-cargo-dep-order
-    - name: Check Cargo.toml dependencies from workspace.dependencies
+    - if: success() || failure()
+      name: Check Cargo.toml dependencies from workspace.dependencies
       run: cargo xtask check-cargo-dep-from-workspace
   test-linux:
     name: Test (Linux)

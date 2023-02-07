@@ -98,14 +98,17 @@ jobs {
       {
         name: 'Git checks'
         run: 'cargo xtask git-checks --checkout'
+        if: 'success() || failure()'
       }
       {
         name: 'Check Cargo.toml dependencies order'
         run: 'cargo xtask check-cargo-dep-order'
+        if: 'success() || failure()'
       }
       {
         name: 'Check Cargo.toml dependencies from workspace.dependencies'
         run: 'cargo xtask check-cargo-dep-from-workspace'
+        if: 'success() || failure()'
       }
     ]
   }
