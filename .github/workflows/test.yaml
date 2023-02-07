@@ -83,6 +83,8 @@ jobs:
       run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install openssl
       run: vcpkg install openssl:x64-windows-static-md
+    - name: Cleanup vcpkg build trees
+      run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
     - name: Install nextest

@@ -140,6 +140,10 @@ jobs {
         name: 'Install openssl'
         run: 'vcpkg install openssl:x64-windows-static-md'
       }
+      {
+        name: 'Cleanup vcpkg build trees'
+        run: 'del -Recurse -Force $env:VCPKG_ROOT\\buildtrees'
+      }
       install_rust
       install_nextest
       {
