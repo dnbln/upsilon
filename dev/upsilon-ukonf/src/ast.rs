@@ -366,7 +366,7 @@ impl StrLit {
         match self {
             StrLit::Apostrophe(s) => Cow::Borrowed(&s.0[1..s.0.len() - 1]),
             StrLit::Quote(s) => Cow::Owned(unquote(&s.0[1..s.0.len() - 1])),
-            StrLit::TripleQuote(s) => Cow::Borrowed(&s.0[3..s.0.len() - 3]),
+            StrLit::TripleQuote(s) => Cow::Owned(patch_triple_quote_string(&s.0[3..s.0.len() - 3])),
         }
     }
 }
@@ -399,6 +399,16 @@ fn unquote(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(windows)]
+fn patch_triple_quote_string(s: &str) -> String {
+    s.replace('\r', "")
+}
+
+#[cfg(not(windows))]
+fn patch_triple_quote_string(s: &str) -> String {
+    s.to_string()
 }
 
 pub struct Ident(pub(crate) Spanned<String>);

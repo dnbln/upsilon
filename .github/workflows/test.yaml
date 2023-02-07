@@ -60,9 +60,9 @@ jobs:
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
-      run: "\r\n          env\r\n        "
+      run: "\n          env\n        "
     - name: Collect other system information
-      run: "\r\n          git --version\r\n        "
+      run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
@@ -91,7 +91,7 @@ jobs:
       run: 'ls env:'
       shell: pwsh
     - name: Collect other system information
-      run: "\r\n          git --version\r\n        "
+      run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
