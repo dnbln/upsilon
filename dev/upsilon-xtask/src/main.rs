@@ -679,7 +679,6 @@ pub fn ukonf_normal_functions() -> UkonfFunctions {
     fns
 }
 
-
 const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[];
 
 pub fn ukonf_ci_functions() -> UkonfFunctions {
