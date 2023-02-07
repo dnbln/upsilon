@@ -179,6 +179,8 @@ enum App {
         no_run: bool,
         #[clap(long)]
         doc: bool,
+        #[clap(long)]
+        no_capture: bool,
 
         #[clap(flatten)]
         test_groups: TestGroups,
@@ -222,6 +224,8 @@ enum App {
     UkonfToYaml { from: PathBuf, to: PathBuf },
     #[clap(name = "gen-ci-files")]
     GenCiFiles,
+    #[clap(name = "clean-instrumentation-files")]
+    CleanInstrumentationFiles,
 }
 
 fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
@@ -287,6 +291,7 @@ fn run_tests(
     verbose: bool,
     no_fail_fast: bool,
     no_run: bool,
+    no_capture: bool,
     test_filters: &[String],
     test_groups: &TestGroups,
     doc: bool,
@@ -336,6 +341,7 @@ fn run_tests(
         "--verbose" => @if verbose,
         "--no-fail-fast" => @if no_fail_fast,
         "--no-run" => @if no_run,
+        "--no-capture" => @if no_capture,
         ...test_groups.to_args(),
         ...test_filters,
         @env "CLICOLOR_FORCE" => "1",
@@ -774,6 +780,7 @@ fn main_impl() -> XtaskResult<()> {
             verbose,
             no_fail_fast,
             no_run,
+            no_capture,
             doc,
             tests_filters,
             test_groups,
@@ -796,6 +803,7 @@ fn main_impl() -> XtaskResult<()> {
                 verbose,
                 no_fail_fast,
                 no_run,
+                no_capture,
                 &tests_filters,
                 &test_groups,
                 doc,
@@ -1056,6 +1064,16 @@ fn main_impl() -> XtaskResult<()> {
         App::GenCiFiles => {
             for (from, to) in CI_FILES {
                 gen_ci_file(from, to)?;
+            }
+        }
+        App::CleanInstrumentationFiles => {
+            let paths = glob::glob(ws_path!("**" / "default_*.profraw").to_str().unwrap())?;
+            for path in paths {
+                let path = path?;
+
+                dbg!(&path);
+
+                std::fs::remove_file(path)?;
             }
         }
     }

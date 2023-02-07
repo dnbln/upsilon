@@ -185,6 +185,17 @@ impl TestCx {
 
     pub async fn init(config: TestCxConfig) -> TestResult<Self> {
         pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
+        let test_name = config.test_name;
+        let difftests_tempdir = config.tempdir.join("upsilon-difftests");
+        if !difftests_tempdir.exists() {
+            tokio::fs::create_dir_all(&difftests_tempdir).await?;
+        }
+        let (difftests_env_name, difftests_env_value) = upsilon_difftests_testclient::init(
+            upsilon_difftests_testclient::TestDesc {
+                name: test_name.to_string(),
+            },
+            &difftests_tempdir,
+        )?;
 
         let workdir = config.workdir();
 
@@ -222,7 +233,11 @@ impl TestCx {
 
         let mut cmd = tokio::process::Command::new(path);
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut cmd, &kfile);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(
+            &mut cmd,
+            &kfile,
+            Duration::from_secs(60),
+        );
 
         cmd.env("UPSILON_PORT", config.port.to_string())
             .env(
@@ -234,6 +249,7 @@ impl TestCx {
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .env("UPSILON_DEBUG_SHUTDOWN-ENDPOINT", "true")
             .env("UPSILON_WORKERS", "3")
+            .env(difftests_env_name, difftests_env_value)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
@@ -418,28 +434,35 @@ Help: Annotate it with `#[offline(ignore)]` instead."#
 
         tokio::fs::write(&self.kfile, "").await?;
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        while tokio::fs::read(&self.kfile).await?.is_empty() && self.child.try_wait()?.is_none() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
 
-        let exited_normally = if self.child.try_wait()?.is_none() {
-            info!("Gracefully shutting down the web server");
+        let _ = self.client.post_empty("/api/shutdown").await;
 
-            upsilon_gracefully_shutdown::gracefully_shutdown(
-                &mut self.child,
-                Duration::from_secs(10),
-            )
-            .await;
+        let child_wait_fut = self.child.wait();
 
-            false
-        } else {
-            true
+        let r = tokio::time::timeout(Duration::from_secs(20), child_wait_fut).await;
+
+        let (exited_normally, status) = match r {
+            Err(_) => {
+                info!("Gracefully shutting down the web server");
+
+                upsilon_gracefully_shutdown::gracefully_shutdown(
+                    &mut self.child,
+                    Duration::from_secs(60),
+                )
+                .await;
+
+                (
+                    false,
+                    self.child
+                        .try_wait()?
+                        .ok_or_else(|| format_err!("Child should have exited by now"))?,
+                )
+            }
+            Ok(status) => (true, status?),
         };
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        let status = self
-            .child
-            .try_wait()?
-            .ok_or_else(|| format_err!("Child should have exited by now"))?;
 
         Self::dump_streams(&mut self.child).await?;
 

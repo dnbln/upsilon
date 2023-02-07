@@ -30,3 +30,11 @@ pub fn kill_child(_child: &Child) {
         panic!("Failed to generate Ctrl+C event");
     }
 }
+
+pub type PrepResult = ();
+
+pub fn kill_child_with_prep_result(child: &Child, _prep_result: PrepResult) {
+    kill_child(child);
+}
+
+pub fn prepare(_child: &Child) -> PrepResult {}

@@ -35,6 +35,7 @@ struct ParsedFile {
     ast: Option<ast::AstFile>,
 }
 
+
 struct Files {
     files: Vec<ParsedFile>,
 }

@@ -17,7 +17,24 @@
 use std::process::Child;
 
 pub fn kill_child(child: &Child) {
-    kill_child_by_id(child.id());
+    let prep = prepare(child);
+    kill_child_with_prep_result(child, prep);
+}
+
+pub fn kill_child_with_prep_result(_child: &Child, prep_result: PrepResult) {
+    for child in prep_result {
+        kill_child_with_sigterm(child);
+    }
+}
+
+pub type PrepResult = Vec<u32>;
+
+pub fn prepare(child: &Child) -> PrepResult {
+    let mut children_to_terminate = vec![];
+
+    add_children_to_vec(&mut children_to_terminate, child.id());
+
+    children_to_terminate
 }
 
 fn add_children_to_vec(children: &mut Vec<u32>, child: u32) {
@@ -36,29 +53,23 @@ fn add_children_to_vec(children: &mut Vec<u32>, child: u32) {
     });
 }
 
-fn kill_child_by_id(id: u32) {
-    let mut children_to_terminate: Vec<u32> = vec![];
+fn kill_child_with_sigterm(id: u32) {
+    // SAFETY: correct usage of libc::kill
+    #[allow(unsafe_code)]
+    let success = unsafe { libc::kill(id as libc::pid_t, libc::SIGTERM) == 0 };
 
-    add_children_to_vec(&mut children_to_terminate, id);
-
-    for child in children_to_terminate {
-        // SAFETY: correct usage of libc::kill
+    if !success {
+        // get errno if failed
+        // SAFETY: we are reading errno, can't go wrong.
         #[allow(unsafe_code)]
-        let success = unsafe { libc::kill(child as libc::pid_t, libc::SIGTERM) == 0 };
+        let errno: libc::c_int = unsafe { *libc::__errno_location() };
 
-        if !success {
-            // get errno if failed
-            // SAFETY: we are reading errno, can't go wrong.
-            #[allow(unsafe_code)]
-            let errno: libc::c_int = unsafe { *libc::__errno_location() };
-
-            if errno == libc::ESRCH {
-                continue;
-            }
+        if errno == libc::ESRCH {
+            return;
         }
+    }
 
-        if !success {
-            panic!("Failed to kill child process with id {}", child);
-        }
+    if !success {
+        panic!("Failed to kill child process with id {}", child);
     }
 }

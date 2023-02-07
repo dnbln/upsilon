@@ -21,7 +21,7 @@ use tokio::process::{Child, Command};
 #[cfg(all(not(target_os = "linux"), not(windows)))]
 compile_error!("Unsupported target platform");
 
-fn graceful_shutdown_host_setup(cmd: &mut Command, kfile: &Path) {
+fn graceful_shutdown_host_setup(cmd: &mut Command, kfile: &Path, grace: Duration) {
     let old_cmd = std::mem::replace(
         cmd,
         Command::new(upsilon_core::alt_exe("upsilon-gracefully-shutdown-host")),
@@ -30,6 +30,7 @@ fn graceful_shutdown_host_setup(cmd: &mut Command, kfile: &Path) {
     cmd.arg(old_cmd.as_std().get_program());
 
     cmd.arg("--kfile").arg(kfile);
+    cmd.arg("--grace").arg(format!("{}s", grace.as_secs()));
 
     cmd.args(
         old_cmd
@@ -40,13 +41,13 @@ fn graceful_shutdown_host_setup(cmd: &mut Command, kfile: &Path) {
 }
 
 #[cfg(target_os = "linux")]
-pub fn setup_for_graceful_shutdown(cmd: &mut Command, kfile: &Path) {
-    graceful_shutdown_host_setup(cmd, kfile);
+pub fn setup_for_graceful_shutdown(cmd: &mut Command, kfile: &Path, grace: Duration) {
+    graceful_shutdown_host_setup(cmd, kfile, grace);
 }
 
 #[cfg(windows)]
-pub fn setup_for_graceful_shutdown(cmd: &mut Command, kfile: &Path) {
-    graceful_shutdown_host_setup(cmd, kfile);
+pub fn setup_for_graceful_shutdown(cmd: &mut Command, kfile: &Path, grace: Duration) {
+    graceful_shutdown_host_setup(cmd, kfile, grace);
 
     cmd.creation_flags(
         winapi::um::winbase::CREATE_NEW_PROCESS_GROUP | winapi::um::winbase::NORMAL_PRIORITY_CLASS,

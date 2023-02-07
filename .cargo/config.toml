@@ -10,7 +10,7 @@ xd = "x d"
 [target.'cfg(all())']
 rustflags = [
     "--cfg", "uuid_unstable",
-    "-Zshare-generics=y"
+    "-Zshare-generics=y",
 ]
 
 [target.x86_64-unknown-linux-gnu]
@@ -30,9 +30,15 @@ opt-level = 0
 debug = 2
 incremental = true
 codegen-units = 512
+rustflags = [
+    "-C", "instrument-coverage"
+]
 
 [profile.release]
 opt-level = 3
 debug = 0
 incremental = false
 codegen-units = 256
+
+[unstable]
+profile-rustflags = true

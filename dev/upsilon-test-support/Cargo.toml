@@ -20,6 +20,7 @@ thiserror.workspace = true
 tokio.workspace = true
 
 upsilon-diff-util.workspace = true
+upsilon-difftests-testclient.workspace = true
 upsilon-gracefully-shutdown.workspace = true
 upsilon-json-diff.workspace = true
 upsilon-test-support-macros.workspace = true

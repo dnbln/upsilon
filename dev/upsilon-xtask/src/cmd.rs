@@ -182,7 +182,12 @@ macro_rules! cargo_cmd {
     ($($args:tt)*) => {
         {
             let __cargo_path = $crate::cmd::cargo_path();
-            $crate::cmd_call!(__cargo_path, $($args)*)
+            $crate::cmd_call!(
+                __cargo_path,
+                @env "LLVM_PROFILE_FILE" =>
+                    $crate::ws_path!("target" / "difftests" / "profiles" / "prof_%m_%p.profraw"),
+                $($args)*
+            )
         }
     };
 }
