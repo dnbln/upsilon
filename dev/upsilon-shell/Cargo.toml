@@ -10,7 +10,7 @@ clap.workspace = true
 colored = "2.0.0"
 home = "0.5.4"
 log.workspace = true
-logos = "0.12.1"
+logos.workspace = true
 pretty_env_logger.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 rustyline = { version = "10.1.1", features = ["case_insensitive_history_search", "with-fuzzy"] }

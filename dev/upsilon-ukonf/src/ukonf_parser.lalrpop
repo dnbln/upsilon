@@ -1,0 +1,82 @@
+use crate::ast::*;
+
+grammar(file_id: FileId);
+
+pub AstFile: AstFile = {
+    <imports: AstImport*>
+    <items: AstItem*> => AstFile { imports, items },
+};
+
+AstItem: AstItem = {
+    <doc_patch: KV> => AstItem::DocPatch(doc_patch),
+    <decl: AstDecl> => AstItem::Decl(decl),
+};
+
+AstDecl: AstDecl = {
+    <let_kw: LetKw> <name: Ident> <colon: Colon> <value: AstVal> => AstDecl{ let_kw, name, colon, value },
+};
+
+KV: KV = {
+    <key: K+> <colon: Colon> <value: AstVal> => KV { key, colon, value },
+};
+
+SpanOf<T>: Span = {
+    <l: @L> <t: T> <r: @R> => Span::new(l, r, file_id),
+};
+
+SpannedInto<T, R>: R = {
+    <span: SpanOf<T>> => span.into(),
+};
+
+Import: Import = SpannedInto<"import", Import>;
+LetKw: LetKw = SpannedInto<"let", LetKw>;
+Null: Null = SpannedInto<"null", Null>;
+
+
+Semicolon: Semicolon = SpannedInto<";", Semicolon>;
+OpenBracket: OpenBracket = SpannedInto<"[", OpenBracket>;
+CloseBracket: CloseBracket = SpannedInto<"]", CloseBracket>;
+OpenBrace: OpenBrace = SpannedInto<"{", OpenBrace>;
+CloseBrace: CloseBrace = SpannedInto<"}", CloseBrace>;
+DollarBrace: DollarBrace = SpannedInto<"${", DollarBrace>;
+Colon: Colon = SpannedInto<":", Colon>;
+
+AstImport: AstImport = {
+    <import_kw: Import> <path: AstVal> <semicolon: Semicolon> => AstImport::new(import_kw, path, semicolon),
+};
+
+Ident: Ident = {
+    <l: @L> <name: r"[a-zA-Z_][a-zA-Z0-9_-]*"> <r: @R> => Ident(Span::new(l, r, file_id).spanned_string(name)),
+};
+
+K: K = {
+    <ident: Ident> => K::Name(ident),
+    StrLit => K::StrLit(<>),
+    <dollar_brace: DollarBrace> <inner: K> <r_brace: CloseBrace> => K::Ref(dollar_brace, Box::new(inner), r_brace),
+};
+
+StrLit: StrLit = {
+    <l: @L> <s: r#"'([^']*)'"#> <r: @R> => StrLit::Apostrophe(Span::new(l, r, file_id).spanned_string(s)),
+    <l: @L> <s: r#""([^\\"]|\\(\\\\)*")*""#> <r: @R> => StrLit::Quote(Span::new(l, r, file_id).spanned_string(s)),
+    <l: @L> <s: r#""""([^"]*|"{1,2}[^"])*""""#> <r: @R> => StrLit::TripleQuote(Span::new(l, r, file_id).spanned_string(s)),
+};
+
+NumLit: NumLit = {
+    <l: @L> <s: r"-?[0-9]+"> <r: @R> => NumLit::Int(Span::new(l, r, file_id).spanned(s.parse().unwrap())),
+    <l: @L> <s: r"-?[0-9]+\.[0-9]+"> <r: @R> => NumLit::Float(Span::new(l, r, file_id).spanned(s.parse().unwrap())),
+};
+
+BoolLit: BoolLit = {
+    <l: @L> <s: "true"> <r: @R> => BoolLit {value: true, span: Span::new(l, r, file_id)},
+    <l: @L> <s: "false"> <r: @R> => BoolLit {value: false, span: Span::new(l, r, file_id)},
+};
+
+AstVal: AstVal = {
+    <null: Null> => AstVal::Null(null),
+    <ident: Ident> => AstVal::Ident(ident),
+    <str_lit: StrLit> => AstVal::Str(str_lit),
+    <num_lit: NumLit> => AstVal::Num(num_lit),
+    <bool_lit: BoolLit> => AstVal::Bool(bool_lit),
+    <open_bracket: OpenBracket> <values: AstVal*> <close_bracket: CloseBracket> => AstVal::Arr(open_bracket, values, close_bracket),
+    <open_brace: OpenBrace> <items: AstItem*> <close_brace: CloseBrace> => AstVal::Obj(open_brace, items, close_brace),
+};

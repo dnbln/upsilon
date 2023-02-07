@@ -17,6 +17,7 @@
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
+use anyhow::format_err;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
@@ -204,6 +205,10 @@ enum App {
     #[clap(alias = "check")]
     #[clap(alias = "clippy")]
     Lint,
+    #[clap(name = "ukonf-to-yaml")]
+    UkonfToYaml { from: PathBuf, to: PathBuf },
+    #[clap(name = "gen-ci-files")]
+    GenCiFiles,
 }
 
 fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
@@ -641,6 +646,32 @@ fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
     Ok(())
 }
 
+fn ukonf_to_yaml(from: PathBuf, to: &Path) -> XtaskResult<()> {
+    let result = ukonf::UkonfRunner::new(ukonf::UkonfConfig::new(vec![]))
+        .run(from)
+        .map_err(|err| format_err!("Failed to run ukonf: {err}"))?;
+    let yaml = result.into_value().to_yaml();
+    let yaml_string = serde_yaml::to_string(&yaml)?;
+    std::fs::write(to, yaml_string)?;
+
+    Ok(())
+}
+
+fn gen_ci_file(from: &str, to: &str) -> XtaskResult<()> {
+    ukonf_to_yaml(PathBuf::from(from), Path::new(to))
+}
+
+const CI_FILES: &[(&str, &str)] = &[
+    (
+        ".ci/github-workflows/publish-docs.ukonf",
+        ".github/workflows/publish-docs.yaml",
+    ),
+    (
+        ".ci/github-workflows/test.ukonf",
+        ".github/workflows/test.yaml",
+    ),
+];
+
 const ALIASES: &[&str] = &["uxrd"];
 
 fn main_impl() -> XtaskResult<()> {
@@ -972,6 +1003,14 @@ fn main_impl() -> XtaskResult<()> {
                 ...clippy_flags,
                 @workdir = ws_root!(),
             )?;
+        }
+        App::UkonfToYaml { from, to } => {
+            ukonf_to_yaml(from, &to)?;
+        }
+        App::GenCiFiles => {
+            for (from, to) in CI_FILES {
+                gen_ci_file(from, to)?;
+            }
         }
     }
 

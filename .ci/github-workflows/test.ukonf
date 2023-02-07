@@ -1,0 +1,189 @@
+name: 'Test'
+
+on: {
+  push: {
+    branches: [ 'trunk' ]
+    paths: [
+      'crates/**'
+      'dev/**'
+      'Cargo.toml'
+      'Cargo.lock'
+      'rustfmt.toml'
+      'clippy.toml'
+      '.cargo/**'
+      '.config/nextest.toml'
+      '.github/workflows/test.yaml'
+      'schemas/graphql/schema.graphql'
+    ]
+  }
+
+  pull_request: {
+    branches: [ 'trunk' ]
+  }
+}
+
+env: {
+  CARGO_TERM_COLOR: 'always'
+}
+
+let checkout: {
+  name: 'Checkout'
+  uses: 'actions/checkout@v3'
+  with: {
+    ref: '${{ github.event.pull_request.head.sha }}'
+  }
+}
+
+let install_lld: {
+  name: 'Install lld'
+  run: 'sudo apt-get install -y lld'
+}
+
+let install_openssl: {
+  name: 'Install openssl'
+  run: 'sudo apt-get install -y libssl-dev'
+}
+
+let install_rust: {
+  name: 'Install rust'
+  run: 'rustup update nightly && rustup default nightly'
+}
+
+let install_rustfmt: {
+  name: 'Install rustfmt'
+  run: 'rustup component add rustfmt'
+}
+
+let compile_xtask: {
+  name: 'Compile xtask'
+  run: 'cargo build -p upsilon-xtask --bin upsilon-xtask --verbose'
+}
+
+let install_nextest: {
+  name: 'Install nextest'
+  uses: 'taiki-e/install-action@nextest'
+}
+
+let compile_binaries_and_tests: {
+  name: 'Compile binaries and tests'
+  run: 'cargo xtask test --verbose --no-run'
+}
+
+let run_tests: {
+  name: 'Run tests'
+  run: 'cargo xtask test --verbose --no-fail-fast'
+}
+
+let run_doctests: {
+  name: 'Run doctests'
+  run: 'cargo xtask test --verbose --no-fail-fast --doc'
+}
+
+jobs: {
+  style-checks: {
+    name: 'Style checks'
+    runs-on: 'ubuntu-latest'
+    steps: [
+      checkout
+      install_lld
+      install_rust
+      install_rustfmt
+      compile_xtask
+      {
+        name: 'Run fmt check'
+        run: 'cargo xtask fmt-check'
+      }
+      {
+        name: 'Git checks'
+        run: 'cargo xtask git-checks --checkout'
+      }
+      {
+        name: 'Check Cargo.toml dependencies order'
+        run: 'cargo xtask check-cargo-dep-order'
+      }
+      {
+        name: 'Check Cargo.toml dependencies from workspace.dependencies'
+        run: 'cargo xtask check-cargo-dep-from-workspace'
+      }
+    ]
+  }
+
+  gql-schema-up-to-date: {
+    name: 'Check whether the GraphQL schema is up-to-date'
+    runs-on: 'ubuntu-latest'
+    steps: [
+      checkout
+      install_lld
+      install_rust
+      install_rustfmt
+      compile_xtask
+      {
+        name: 'Run gql schema check'
+        run: 'cargo xtask graphql-schema-check'
+      }
+    ]
+  }
+
+  test-win: {
+    name: 'Test (Windows)'
+    runs-on: 'windows-latest'
+
+    steps: [
+      checkout
+      {
+        name: 'Setup env'
+        run: 'echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append'
+      }
+      {
+        name: 'Install openssl'
+        run: 'vcpkg install openssl:x64-windows-static-md'
+      }
+      install_rust
+      install_nextest
+      {
+        name: 'Print environment'
+        shell: 'pwsh'
+        run: 'ls env:'
+      }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      compile_xtask
+      compile_binaries_and_tests
+      run_tests
+      run_doctests
+    ]
+  }
+
+  test-linux: {
+    name: 'Test (Linux)'
+    runs-on: 'ubuntu-latest'
+
+    steps: [
+      checkout
+      install_lld
+      install_openssl
+      install_rust
+      install_nextest
+      {
+        name: 'Print environment'
+        run: """
+          env
+        """
+      }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      compile_xtask
+      compile_binaries_and_tests
+      run_tests
+      run_doctests
+    ]
+  }
+}
