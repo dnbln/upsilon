@@ -1,9 +1,11 @@
 name: 'Test'
 
-on: {
-  push: {
-    branches: [ 'trunk' ]
-    paths: [
+let nightly: 'nightly-2023-02-03'
+
+on {
+  push {
+    branches [ 'trunk' ]
+    paths [
       'crates/**'
       'dev/**'
       'Cargo.toml'
@@ -17,19 +19,19 @@ on: {
     ]
   }
 
-  pull_request: {
-    branches: [ 'trunk' ]
+  pull_request {
+    branches [ 'trunk' ]
   }
 }
 
-env: {
+env {
   CARGO_TERM_COLOR: 'always'
 }
 
 let checkout: {
   name: 'Checkout'
   uses: 'actions/checkout@v3'
-  with: {
+  with {
     ref: '${{ github.event.pull_request.head.sha }}'
   }
 }
@@ -46,7 +48,7 @@ let install_openssl: {
 
 let install_rust: {
   name: 'Install rust'
-  run: 'rustup update nightly && rustup default nightly'
+  run: concat('rustup toolchain install ', nightly, ' && rustup default ', nightly)
 }
 
 let install_rustfmt: {
@@ -79,11 +81,11 @@ let run_doctests: {
   run: 'cargo xtask test --verbose --no-fail-fast --doc'
 }
 
-jobs: {
-  style-checks: {
+jobs {
+  style-checks {
     name: 'Style checks'
     runs-on: 'ubuntu-latest'
-    steps: [
+    steps [
       checkout
       install_lld
       install_rust
@@ -108,10 +110,10 @@ jobs: {
     ]
   }
 
-  gql-schema-up-to-date: {
+  gql-schema-up-to-date {
     name: 'Check whether the GraphQL schema is up-to-date'
     runs-on: 'ubuntu-latest'
-    steps: [
+    steps [
       checkout
       install_lld
       install_rust
@@ -124,11 +126,11 @@ jobs: {
     ]
   }
 
-  test-win: {
+  test-win {
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
 
-    steps: [
+    steps [
       checkout
       {
         name: 'Setup env'
@@ -158,11 +160,11 @@ jobs: {
     ]
   }
 
-  test-linux: {
+  test-linux {
     name: 'Test (Linux)'
     runs-on: 'ubuntu-latest'
 
-    steps: [
+    steps [
       checkout
       install_lld
       install_openssl

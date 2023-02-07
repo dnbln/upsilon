@@ -1,24 +1,24 @@
 name: 'Publish docs'
 
-on: {
-  push: {
-    branches: [ "trunk" ]
-    paths: [
+on {
+  push {
+    branches [ "trunk" ]
+    paths [
       'docs/**'
       '.github/workflows/publish-docs.yaml'
     ]
   }
 }
 
-env: {
+env {
   CARGO_TERM_COLOR: 'always'
 }
 
-jobs: {
-  publish-docs: {
+jobs {
+  publish-docs {
     name: 'Publish docs'
     runs-on: 'ubuntu-latest'
-    steps: [
+    steps [
       {
         name: 'Checkout'
         uses: 'actions/checkout@v3'
@@ -34,7 +34,7 @@ jobs: {
       {
         name: 'Install mdbook'
         uses: 'peaceiris/actions-mdbook@v1'
-        with: {
+        with {
           mdbook-version: 'latest'
         }
       }
@@ -49,7 +49,7 @@ jobs: {
       {
         name: 'Deploy'
         uses: 'peaceiris/actions-gh-pages@v3'
-        with: {
+        with {
           github_token: '${{ secrets.GITHUB_TOKEN }}'
           publish_dir: './docs/book'
         }

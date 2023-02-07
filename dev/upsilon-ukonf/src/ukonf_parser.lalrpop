@@ -17,7 +17,9 @@ AstDecl: AstDecl = {
 };
 
 KV: KV = {
-    <key: K+> <colon: Colon> <value: AstVal> => KV { key, colon, value },
+    <key: K+> <colon: Colon> <value: AstVal> => KV { key, colon: Some(colon), value },
+    <key: K+> <value: Obj> => KV {key, colon: None, value},
+    <key: K+> <value: Arr> => KV {key, colon: None, value},
 };
 
 SpanOf<T>: Span = {
@@ -34,12 +36,15 @@ Null: Null = SpannedInto<"null", Null>;
 
 
 Semicolon: Semicolon = SpannedInto<";", Semicolon>;
+OpenParen: OpenParen = SpannedInto<"(", OpenParen>;
+CloseParen: CloseParen = SpannedInto<")", CloseParen>;
 OpenBracket: OpenBracket = SpannedInto<"[", OpenBracket>;
 CloseBracket: CloseBracket = SpannedInto<"]", CloseBracket>;
 OpenBrace: OpenBrace = SpannedInto<"{", OpenBrace>;
 CloseBrace: CloseBrace = SpannedInto<"}", CloseBrace>;
 DollarBrace: DollarBrace = SpannedInto<"${", DollarBrace>;
 Colon: Colon = SpannedInto<":", Colon>;
+Comma: Comma = SpannedInto<",", Comma>;
 
 AstImport: AstImport = {
     <import_kw: Import> <path: AstVal> <semicolon: Semicolon> => AstImport::new(import_kw, path, semicolon),
@@ -71,12 +76,34 @@ BoolLit: BoolLit = {
     <l: @L> <s: "false"> <r: @R> => BoolLit {value: false, span: Span::new(l, r, file_id)},
 };
 
+Arr: AstVal = {
+    <open_bracket: OpenBracket> <values: AstVal*> <close_bracket: CloseBracket> => AstVal::Arr(open_bracket, values, close_bracket),
+};
+
+Obj: AstVal = {
+    <open_brace: OpenBrace> <items: AstItem*> <close_brace: CloseBrace> => AstVal::Obj(open_brace, items, close_brace),
+};
+
 AstVal: AstVal = {
     <null: Null> => AstVal::Null(null),
     <ident: Ident> => AstVal::Ident(ident),
     <str_lit: StrLit> => AstVal::Str(str_lit),
     <num_lit: NumLit> => AstVal::Num(num_lit),
     <bool_lit: BoolLit> => AstVal::Bool(bool_lit),
-    <open_bracket: OpenBracket> <values: AstVal*> <close_bracket: CloseBracket> => AstVal::Arr(open_bracket, values, close_bracket),
-    <open_brace: OpenBrace> <items: AstItem*> <close_brace: CloseBrace> => AstVal::Obj(open_brace, items, close_brace),
+    <function_call: FunctionCall> => AstVal::FunctionCall(function_call),
+    Arr,
+    Obj,
+};
+
+CommaList<T>: Punctuated<T, Comma> = {
+    <values: (T Comma)*> <trailing_value: T?> => {
+        Punctuated {
+            values,
+            trailing_value: trailing_value.map(Box::new),
+        }
+    },
+};
+
+FunctionCall: AstFunctionCall = {
+    <name: Ident> <open_paren: OpenParen> <args: CommaList<AstVal>> <close_paren: CloseParen> => AstFunctionCall { name, open_paren, args, close_paren },
 };

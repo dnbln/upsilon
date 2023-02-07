@@ -147,13 +147,43 @@ impl UkonfParser {
     }
 }
 
+#[derive(Default)]
+pub struct UkonfFunctions {
+    functions: BTreeMap<String, fn(&[UkonfValue]) -> Result<UkonfValue, String>>,
+}
+
+impl UkonfFunctions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_fn(
+        mut self,
+        name: impl Into<String>,
+        f: fn(&[UkonfValue]) -> Result<UkonfValue, String>,
+    ) -> Self {
+        self.functions.insert(name.into(), f);
+        self
+    }
+
+    pub fn add_fn(
+        &mut self,
+        name: impl Into<String>,
+        f: fn(&[UkonfValue]) -> Result<UkonfValue, String>,
+    ) -> &mut Self {
+        self.functions.insert(name.into(), f);
+        self
+    }
+}
+
 pub struct UkonfRunner {
     config: UkonfConfig,
+    functions: UkonfFunctions,
 }
 
 impl UkonfRunner {
-    pub fn new(config: UkonfConfig) -> Self {
-        Self { config }
+    pub fn new(config: UkonfConfig, functions: UkonfFunctions) -> Self {
+        Self { config, functions }
     }
 
     fn find_file(&self, file: &str) -> Option<PathBuf> {
@@ -274,6 +304,19 @@ impl UkonfRunner {
                 let obj = self.run_scope(files, file_id, &new_scope, items)?;
                 UkonfValue::Object(obj)
             }
+            AstVal::FunctionCall(call) => {
+                let name = &call.name.0 .0;
+
+                let f = self.functions.functions.get(name).unwrap();
+
+                let args = call
+                    .args
+                    .iter()
+                    .map(|it| self.run_value(files, file_id, scope, it))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                f(&args)?
+            }
         };
 
         Ok(v)
@@ -291,10 +334,12 @@ impl UkonfRunner {
         for item in scope_items {
             match item {
                 AstItem::Decl(decl) => {
-                    scope.borrow_mut().vars.insert(
-                        decl.name.0 .0.clone(),
-                        self.run_value(files, file_id, scope, &decl.value)?,
-                    );
+                    let value = self.run_value(files, file_id, scope, &decl.value)?;
+
+                    scope
+                        .borrow_mut()
+                        .vars
+                        .insert(decl.name.0 .0.clone(), value);
                 }
                 AstItem::DocPatch(patch) => {
                     let mut t = &mut result;

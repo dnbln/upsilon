@@ -21,6 +21,8 @@ use anyhow::format_err;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
+use ukonf::value::UkonfValue;
+use ukonf::UkonfFunctions;
 use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
@@ -646,8 +648,8 @@ fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
     Ok(())
 }
 
-fn ukonf_to_yaml(from: PathBuf, to: &Path) -> XtaskResult<()> {
-    let result = ukonf::UkonfRunner::new(ukonf::UkonfConfig::new(vec![]))
+fn ukonf_to_yaml(from: PathBuf, to: &Path, fns: fn() -> UkonfFunctions) -> XtaskResult<()> {
+    let result = ukonf::UkonfRunner::new(ukonf::UkonfConfig::new(vec![]), fns())
         .run(from)
         .map_err(|err| format_err!("Failed to run ukonf: {err}"))?;
     let yaml = result.into_value().to_yaml();
@@ -657,8 +659,42 @@ fn ukonf_to_yaml(from: PathBuf, to: &Path) -> XtaskResult<()> {
     Ok(())
 }
 
+pub fn add_concat(fns: &mut UkonfFunctions) {
+    fns.add_fn("concat", |args| {
+        let mut result = String::new();
+        for arg in args {
+            result.push_str(arg.as_string().unwrap());
+        }
+        Ok(UkonfValue::Str(result))
+    });
+}
+
+const NORMAL_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[add_concat];
+
+pub fn ukonf_normal_functions() -> UkonfFunctions {
+    let mut fns = UkonfFunctions::new();
+    for f in NORMAL_UKONF_FUNCTIONS {
+        f(&mut fns);
+    }
+    fns
+}
+
+
+const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[];
+
+pub fn ukonf_ci_functions() -> UkonfFunctions {
+    let mut fns = UkonfFunctions::new();
+    for f in NORMAL_UKONF_FUNCTIONS {
+        f(&mut fns);
+    }
+    for f in CI_UKONF_FUNCTIONS {
+        f(&mut fns);
+    }
+    fns
+}
+
 fn gen_ci_file(from: &str, to: &str) -> XtaskResult<()> {
-    ukonf_to_yaml(PathBuf::from(from), Path::new(to))
+    ukonf_to_yaml(PathBuf::from(from), Path::new(to), ukonf_ci_functions)
 }
 
 const CI_FILES: &[(&str, &str)] = &[
@@ -1005,7 +1041,7 @@ fn main_impl() -> XtaskResult<()> {
             )?;
         }
         App::UkonfToYaml { from, to } => {
-            ukonf_to_yaml(from, &to)?;
+            ukonf_to_yaml(from, &to, ukonf_normal_functions)?;
         }
         App::GenCiFiles => {
             for (from, to) in CI_FILES {

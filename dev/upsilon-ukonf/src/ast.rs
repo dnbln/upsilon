@@ -235,6 +235,8 @@ macro_rules! punct {
 
 punct!(Comma, ",");
 punct!(Newline, "\n");
+punct!(OpenParen, "(");
+punct!(CloseParen, ")");
 punct!(OpenBracket, "[");
 punct!(CloseBracket, "]");
 punct!(OpenBrace, "{");
@@ -294,15 +296,15 @@ impl AstImport {
 
 pub struct Punctuated<T, S> {
     pub values: Vec<(T, S)>,
-    pub trailing_value: Option<T>,
+    pub trailing_value: Option<Box<T>>,
 }
 
 impl<T, S> Punctuated<T, S> {
-    fn iter(&self) -> impl Iterator<Item = &T> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &T> {
         self.values
             .iter()
             .map(|(v, _)| v)
-            .chain(self.trailing_value.iter())
+            .chain(self.trailing_value.iter().map(|it| &**it))
     }
 }
 
@@ -324,6 +326,7 @@ pub enum AstVal {
     Bool(BoolLit),
     Arr(OpenBracket, Vec<AstVal>, CloseBracket),
     Obj(OpenBrace, Vec<AstItem>, CloseBrace),
+    FunctionCall(AstFunctionCall),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -448,6 +451,13 @@ impl K {
 
 pub struct KV {
     pub key: Vec<K>,
-    pub colon: Colon,
+    pub colon: Option<Colon>,
     pub value: AstVal,
+}
+
+pub struct AstFunctionCall {
+    pub name: Ident,
+    pub open_paren: OpenParen,
+    pub args: Punctuated<AstVal, Comma>,
+    pub close_paren: CloseParen,
 }
