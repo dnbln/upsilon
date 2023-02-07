@@ -70,6 +70,6 @@ fn kill_child_with_sigterm(id: u32) {
     }
 
     if !success {
-        panic!("Failed to kill child process with id {}", child);
+        panic!("Failed to kill child process with id {id}");
     }
 }
