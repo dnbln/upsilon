@@ -52,7 +52,7 @@ async fn main_impl() -> TestResult {
         ),
         crate_name: env!("CARGO_CRATE_NAME"),
         pkg_name: env!("CARGO_PKG_NAME"),
-        bin_name: "clone_to_local_ssh_example",
+        bin_name: Some("clone_to_local_ssh_example"),
         bin_path: std::env::current_exe()?,
         test_name: "clone_to_local_ssh_example",
         source_file_path_hash: 0,

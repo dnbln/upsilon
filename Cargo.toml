@@ -64,7 +64,8 @@ upsilon-procx = { path = "crates/upsilon-procx" }
 upsilon-ssh = { path = "crates/upsilon-ssh" }
 upsilon-ssh-russh = { path = "crates/upsilon-ssh-russh" }
 upsilon-stdx = { path = "crates/upsilon-stdx" }
-upsilon-difftests-testclient = {path = "dev/upsilon-difftests-testclient"}
+upsilon-difftests-core = { path = "dev/upsilon-difftests-core" }
+upsilon-difftests-testclient = { path = "dev/upsilon-difftests-testclient" }
 upsilon-test-support = { path = "dev/upsilon-test-support" }
 upsilon-test-support-macros = { path = "dev/upsilon-test-support-macros" }
 upsilon-vcs = { path = "crates/upsilon-vcs" }

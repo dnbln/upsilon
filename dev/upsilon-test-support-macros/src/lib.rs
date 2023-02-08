@@ -223,8 +223,7 @@ impl InnerFnCall {
                 ),
                 crate_name: env!("CARGO_CRATE_NAME"),
                 pkg_name: env!("CARGO_PKG_NAME"),
-                bin_name: option_env!("CARGO_BIN_NAME")
-                        .unwrap_or(env!("CARGO_PKG_NAME")),
+                bin_name: option_env!("CARGO_BIN_NAME"),
                 bin_path: std::env::current_exe()?,
                 test_name: #test_name,
                 source_file_path_hash: #file_path_hash,

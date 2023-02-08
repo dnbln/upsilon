@@ -18,43 +18,70 @@ use std::path::PathBuf;
 
 use anyhow::bail;
 use ra_ap_project_model::{ProjectWorkspace, TargetKind};
-use upsilon_difftests::DifftestsResult;
+use upsilon_difftests::{
+    analysis_context_analyze, context_export_procdata, context_head_worktree_diff, context_merge_procraws, standard_analysis_callbacks, standard_diff_analysis_callbacks, DifftestsResult
+};
 
 fn main_impl() -> DifftestsResult {
-    let cargo_config = upsilon_difftests::cargo_config();
+    // let cargo_config = upsilon_difftests::cargo_config();
+    //
+    // let ws = upsilon_difftests::load_project_workspace(
+    //     PathBuf::from("C:/Users/Dinu/proj/upsilon"),
+    //     &cargo_config,
+    //     &|progress| {
+    //         eprintln!("Progress: {progress}");
+    //     },
+    // )?;
+    //
+    // let ws = match ws {
+    //     ProjectWorkspace::Cargo { cargo, .. } => cargo,
+    //     ProjectWorkspace::Json { .. } => {
+    //         bail!("Json workspace not supported")
+    //     }
+    //     ProjectWorkspace::DetachedFiles { .. } => {
+    //         bail!("Detached files workspace not supported")
+    //     }
+    // };
+    //
+    // let packages = ["upsilon-testsuite", "upsilon-shell"];
+    //
+    // for p in ws
+    //     .packages()
+    //     .map(|it| &ws[it])
+    //     .filter(|it| packages.iter().any(|p| p == &it.name))
+    // {
+    //     println!("P: {}", p.name);
+    //     dbg!(&p);
+    //     for target in &p.targets {
+    //         let t = &ws[*target];
+    //         dbg!(&t);
+    //     }
+    // }
 
-    let ws = upsilon_difftests::load_project_workspace(
-        PathBuf::from("C:/Users/Dinu/proj/upsilon"),
-        &cargo_config,
-        &|progress| {
-            eprintln!("Progress: {progress}");
-        },
+    let cx = upsilon_difftests::load(PathBuf::from(
+        "C:/Users/Dinu/proj/upsilon/target/tmp/upsilon-difftests/can_clone_to_local_git",
+    ))?;
+
+    context_merge_procraws(&cx, "coverage.procdata".to_string())?;
+
+    let analysis_context = context_export_procdata(
+        cx,
+        |d| d.bin_path.clone(),
+        &[],
+        "coverage.json".to_string(),
+        true,
     )?;
 
-    let ws = match ws {
-        ProjectWorkspace::Cargo { cargo, .. } => cargo,
-        ProjectWorkspace::Json { .. } => {
-            bail!("Json workspace not supported")
-        }
-        ProjectWorkspace::DetachedFiles { .. } => {
-            bail!("Detached files workspace not supported")
-        }
-    };
+    let diff = context_head_worktree_diff(&analysis_context)?;
 
-    let packages = ["upsilon-testsuite", "upsilon-shell"];
+    let r = analysis_context_analyze(
+        &analysis_context,
+        diff,
+        standard_analysis_callbacks(),
+        standard_diff_analysis_callbacks(),
+    )?;
 
-    for p in ws
-        .packages()
-        .map(|it| &ws[it])
-        .filter(|it| packages.iter().any(|p| p == &it.name))
-    {
-        println!("P: {}", p.name);
-        dbg!(&p);
-        for target in &p.targets {
-            let t = &ws[*target];
-            dbg!(&t);
-        }
-    }
+    dbg!(&r);
 
     Ok(())
 }

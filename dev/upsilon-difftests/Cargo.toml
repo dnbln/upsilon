@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 
+git2.workspace = true
+
 ra_ap_hir = "0.0.149"
 ra_ap_hir_def = "0.0.149"
 ra_ap_hir_expand = "0.0.149"
@@ -19,3 +21,10 @@ ra_ap_project_model = "0.0.149"
 ra_ap_rust-analyzer = "0.0.149"
 ra_ap_syntax = "0.0.149"
 ra_ap_vfs = "0.0.149"
+
+rustc-demangle = "0.1.21"
+
+serde.workspace = true
+serde_json.workspace = true
+
+upsilon-difftests-core.workspace = true

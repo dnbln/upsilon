@@ -1,11 +1,9 @@
 [package]
-name = "upsilon-difftests-testclient"
+name = "upsilon-difftests-core"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde_json.workspace = true
-
-upsilon-difftests-core.workspace = true
+serde.workspace = true

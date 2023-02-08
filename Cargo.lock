@@ -4386,6 +4386,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-demangle"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5570,6 +5576,7 @@ name = "upsilon-difftests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "git2",
  "ra_ap_hir",
  "ra_ap_hir_def",
  "ra_ap_hir_expand",
@@ -5583,14 +5590,25 @@ dependencies = [
  "ra_ap_rust-analyzer",
  "ra_ap_syntax",
  "ra_ap_vfs",
+ "rustc-demangle",
+ "serde",
+ "serde_json",
+ "upsilon-difftests-core",
+]
+
+[[package]]
+name = "upsilon-difftests-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
 name = "upsilon-difftests-testclient"
 version = "0.1.0"
 dependencies = [
- "serde",
  "serde_json",
+ "upsilon-difftests-core",
 ]
 
 [[package]]

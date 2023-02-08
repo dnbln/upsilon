@@ -25,10 +25,9 @@ use toml_edit::{Item, Key, TableLike};
 use ukonf::value::UkonfValue;
 use ukonf::UkonfFunctions;
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
-use upsilon_xtask::{
-    cargo_cmd, cmd_call, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
-};
+use upsilon_xtask::{cargo_cmd, cmd_call, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
+use upsilon_xtask::difftests::DiffTestsCommand;
 
 macro_rules! expand_known_test_group {
     ({@testsuitebin $name:literal: $bin:literal}) => {
@@ -241,6 +240,15 @@ enum App {
     GenCiFiles,
     #[clap(name = "clean-instrumentation-files")]
     CleanInstrumentationFiles,
+
+    #[clap(name = "install-binutils")]
+    InstallBinutils,
+
+    #[clap(name = "difftests")]
+    Difftests {
+        #[clap(subcommand)]
+        command: DiffTestsCommand,
+    }
 }
 
 fn build_dev(dgql: bool, verbose: bool, profile: Option<&str>) -> XtaskResult<()> {
@@ -1162,6 +1170,15 @@ fn main_impl() -> XtaskResult<()> {
         }
         App::CleanInstrumentationFiles => {
             clean_unneeded_instrumentation_files()?;
+        }
+        App::InstallBinutils => {
+            cargo_cmd!(
+                "install",
+                "cargo-binutils",
+            )?;
+        }
+        App::Difftests{command} => {
+            difftests::run(command)?;
         }
     }
 

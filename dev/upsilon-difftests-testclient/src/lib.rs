@@ -18,12 +18,12 @@
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use upsilon_difftests_core::CoreTestDesc;
 
-#[derive(serde::Serialize)]
 pub struct TestDesc {
     pub pkg_name: String,
     pub crate_name: String,
-    pub bin_name: String,
+    pub bin_name: Option<String>,
     pub bin_path: PathBuf,
     pub test_name: String,
 }
@@ -51,7 +51,16 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<(OsString, OsStrin
     }
 
     let self_info_path = tmpdir_for_desc_name.join("self.json");
-    let self_info = serde_json::to_string(&desc).unwrap();
+
+    let core_test_desc = CoreTestDesc {
+        pkg_name: desc.pkg_name,
+        crate_name: desc.crate_name,
+        bin_name: desc.bin_name,
+        bin_path: desc.bin_path,
+        test_name: desc.test_name,
+    };
+
+    let self_info = serde_json::to_string(&core_test_desc).unwrap();
 
     std::fs::write(self_info_path, self_info)?;
 

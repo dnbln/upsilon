@@ -17,6 +17,7 @@
 use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::{fmt, io};
+use std::string::FromUtf8Error;
 
 #[macro_export]
 macro_rules! cmd_process {
@@ -177,11 +178,58 @@ macro_rules! cmd_process {
 }
 
 #[macro_export]
-macro_rules! cmd {
+macro_rules! cmd_output {
     ($($args:tt)+) => {
-        $crate::cmd_process!($($args)+)
-            .output()
-            .expect("failed to execute process")
+        {
+            (|| -> $crate::cmd::CmdResult<Vec<u8>> {
+                let mut child = $crate::cmd_process!($($args)*)
+                    .stdout(::std::process::Stdio::piped())
+                    .spawn()?;
+
+                let exit_status = child.wait()?;
+                if !exit_status.success() {
+                    return Err($crate::cmd::CmdError::NotSuccess(exit_status))
+                }
+
+                let mut result = Vec::new();
+
+                std::io::Read::read_to_end(child.stdout.as_mut().unwrap(), &mut result)?;
+
+                Ok(result)
+            })()
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! cmd_output_string {
+    ($($args:tt)*) => {
+        (|| -> $crate::cmd::CmdResult<String> {
+            let output = $crate::cmd_output!($($args)*)?;
+            let s = String::from_utf8(output)?;
+
+            Ok(s)
+        })()
+    };
+}
+
+#[macro_export]
+macro_rules! cmd_output_pipe_to_file {
+    (@ $path:expr, $($args:tt)*) => {
+        {
+            (|| -> $crate::cmd::CmdResult<()> {
+                let mut child = $crate::cmd_process!($($args)*)
+                    .stdout(::std::process::Stdio::from(std::fs::File::create($path)?))
+                    .spawn()?;
+
+                let exit_status = child.wait()?;
+                if !exit_status.success() {
+                    return Err($crate::cmd::CmdError::NotSuccess(exit_status))
+                }
+
+                Ok(())
+            })()
+        }
     };
 }
 
@@ -253,6 +301,8 @@ pub enum CmdError {
     IoError(io::Error),
 
     NotSuccess(ExitStatus),
+
+    Utf8Error(FromUtf8Error),
 }
 
 impl fmt::Display for CmdError {
@@ -260,6 +310,7 @@ impl fmt::Display for CmdError {
         match self {
             Self::IoError(err) => write!(f, "io error: {err}"),
             Self::NotSuccess(status) => write!(f, "not success: {status}"),
+            Self::Utf8Error(err) => write!(f, "utf8 error: {err}"),
         }
     }
 }
@@ -270,11 +321,18 @@ impl From<io::Error> for CmdError {
     }
 }
 
+impl From<FromUtf8Error> for CmdError {
+    fn from(err: FromUtf8Error) -> Self {
+        Self::Utf8Error(err)
+    }
+}
+
 impl std::error::Error for CmdError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::IoError(err) => Some(err),
             Self::NotSuccess(_) => None,
+            Self::Utf8Error(err) => Some(err),
         }
     }
 }
