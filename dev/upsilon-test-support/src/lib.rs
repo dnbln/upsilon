@@ -203,7 +203,7 @@ impl TestCx {
                     upsilon_difftests_testclient::TestDesc {
                         pkg_name: pkg_name.to_string(),
                         crate_name: crate_name.to_string(),
-                        bin_name: bin_name.to_string(),
+                        bin_name: bin_name.map(ToString::to_string),
                         bin_path,
                         test_name: test_name.to_string(),
                     },
