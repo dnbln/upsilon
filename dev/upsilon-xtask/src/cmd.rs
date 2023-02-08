@@ -182,14 +182,23 @@ macro_rules! cargo_cmd {
     ($($args:tt)*) => {
         {
             let __cargo_path = $crate::cmd::cargo_path();
+            let __cargo_build_profile_file_name = $crate::cmd::cargo_build_profile_file_name();
             $crate::cmd_call!(
                 __cargo_path,
-                @env "LLVM_PROFILE_FILE" =>
-                    $crate::ws_path!("target" / "difftests" / "profiles" / "prof_%m_%p.profraw"),
+                @env "LLVM_PROFILE_FILE" => __cargo_build_profile_file_name,
                 $($args)*
             )
         }
     };
+}
+
+pub fn cargo_build_profiles_dir() -> PathBuf {
+    crate::ws_path!("target" / "profiles")
+}
+
+pub fn cargo_build_profile_file_name() -> PathBuf {
+    let p = cargo_build_profiles_dir();
+    crate::ws_path_join!(p / "prof_%m_%p.profraw")
 }
 
 #[macro_export]

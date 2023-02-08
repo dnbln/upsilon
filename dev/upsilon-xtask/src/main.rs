@@ -19,11 +19,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::format_err;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
+use log::info;
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
 use ukonf::value::UkonfValue;
 use ukonf::UkonfFunctions;
-use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_path, ws_root, XtaskResult};
+use upsilon_xtask::cmd::cargo_build_profiles_dir;
+use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_glob, ws_path, ws_root, XtaskResult};
 use zip::write::{FileOptions, ZipWriter};
 
 macro_rules! expand_known_test_group {
@@ -181,6 +183,8 @@ enum App {
         doc: bool,
         #[clap(long)]
         no_capture: bool,
+        #[clap(long)]
+        clean_profiles_between_steps: bool,
 
         #[clap(flatten)]
         test_groups: TestGroups,
@@ -292,6 +296,7 @@ fn run_tests(
     no_fail_fast: bool,
     no_run: bool,
     no_capture: bool,
+    clean_profiles_between_steps: bool,
     test_filters: &[String],
     test_groups: &TestGroups,
     doc: bool,
@@ -329,6 +334,10 @@ fn run_tests(
         @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
         @workdir = ws_root!(),
     )?;
+
+    if clean_profiles_between_steps {
+        clean_unneeded_instrumentation_files()?;
+    }
 
     let mut upsilon_web_binary = ws_path!("target" / "debug" / "upsilon-web");
     upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
@@ -724,10 +733,38 @@ const CI_FILES: &[(&str, &str)] = &[
     ),
 ];
 
+fn rm(p: &Path) -> XtaskResult<()> {
+    if !p.exists() {
+        return Ok(());
+    }
+
+    info!("Removing {p:?}");
+
+    if p.is_file() {
+        std::fs::remove_file(p)?;
+    } else {
+        std::fs::remove_dir_all(p)?;
+    }
+
+    Ok(())
+}
+
 const ALIASES: &[&str] = &["uxrd"];
 
+fn clean_unneeded_instrumentation_files() -> XtaskResult<()> {
+    let paths = ws_glob!("**" / "default_*.profraw")?;
+    for path in paths {
+        rm(&path)?;
+    }
+
+    let p = cargo_build_profiles_dir();
+    rm(&p)?;
+
+    Ok(())
+}
+
 fn main_impl() -> XtaskResult<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_custom_env("UXTASK_LOG");
 
     let app: App = App::parse();
 
@@ -782,10 +819,15 @@ fn main_impl() -> XtaskResult<()> {
             no_run,
             no_capture,
             doc,
+            clean_profiles_between_steps,
             tests_filters,
             test_groups,
         } => {
             build_dev(dgql, verbose)?;
+
+            if clean_profiles_between_steps {
+                clean_unneeded_instrumentation_files()?;
+            }
 
             let testenv_tests = ws_path!("testenv_tests");
 
@@ -804,6 +846,7 @@ fn main_impl() -> XtaskResult<()> {
                 no_fail_fast,
                 no_run,
                 no_capture,
+                clean_profiles_between_steps,
                 &tests_filters,
                 &test_groups,
                 doc,
@@ -1067,14 +1110,7 @@ fn main_impl() -> XtaskResult<()> {
             }
         }
         App::CleanInstrumentationFiles => {
-            let paths = glob::glob(ws_path!("**" / "default_*.profraw").to_str().unwrap())?;
-            for path in paths {
-                let path = path?;
-
-                dbg!(&path);
-
-                std::fs::remove_file(path)?;
-            }
+            clean_unneeded_instrumentation_files()?;
         }
     }
 

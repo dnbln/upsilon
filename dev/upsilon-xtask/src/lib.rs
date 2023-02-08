@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+pub extern crate glob;
+
 pub mod cmd;
 pub mod git_checks;
 pub mod result;

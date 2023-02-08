@@ -67,6 +67,19 @@ macro_rules! ws_path_join {
     };
 }
 
+#[macro_export]
+macro_rules! ws_glob {
+    ($($p:literal)/ *) => {
+        (|| -> $crate::result::XtaskResult<Vec<_>> {
+            let ws_path = $crate::ws_path!($($p)/ *);
+            let ws_path_str = ws_path.to_str().ok_or_else(|| format_err!("invalid path: {:?}", ws_path))?;
+            let paths = $crate::glob::glob(ws_path_str)?;
+            let paths = paths.collect::<Result<Vec<_>, _>>()?;
+            Ok(paths)
+        })()
+    };
+}
+
 pub fn workspace_root() -> &'static Path {
     let xtask_dir: &Path = env!("CARGO_MANIFEST_DIR").as_ref();
     // parent of upsilon-xtask = dev,

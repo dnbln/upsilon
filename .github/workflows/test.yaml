@@ -69,9 +69,9 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run
+      run: cargo xtask test --verbose --no-run --clean-profiles-between-steps
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast
+      run: cargo xtask test --verbose --no-fail-fast --clean-profiles-between-steps
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc
   test-win:
@@ -99,10 +99,16 @@ jobs:
       run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Clean profile data
+      run: cargo xtask clean-instrumentation-files
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run
+      run: cargo xtask test --verbose --no-run --clean-profiles-between-steps
+    - name: Clean profile data
+      run: cargo xtask clean-instrumentation-files
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast
+      run: cargo xtask test --verbose --no-fail-fast --clean-profiles-between-steps
+    - name: Clean profile data
+      run: cargo xtask clean-instrumentation-files
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc
 name: Test

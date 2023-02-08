@@ -68,12 +68,17 @@ let install_nextest: {
 
 let compile_binaries_and_tests: {
   name: 'Compile binaries and tests'
-  run: 'cargo xtask test --verbose --no-run'
+  run: 'cargo xtask test --verbose --no-run --clean-profiles-between-steps'
+}
+
+let clean_instrumentation_files: {
+  name: 'Clean profile data'
+  run: 'cargo xtask clean-instrumentation-files'
 }
 
 let run_tests: {
   name: 'Run tests'
-  run: 'cargo xtask test --verbose --no-fail-fast'
+  run: 'cargo xtask test --verbose --no-fail-fast --clean-profiles-between-steps'
 }
 
 let run_doctests: {
@@ -161,8 +166,11 @@ jobs {
         """
       }
       compile_xtask
+      clean_instrumentation_files
       compile_binaries_and_tests
+      clean_instrumentation_files
       run_tests
+      clean_instrumentation_files
       run_doctests
     ]
   }
