@@ -68,12 +68,22 @@ let install_nextest: {
 
 let compile_binaries_and_tests: {
   name: 'Compile binaries and tests'
-  run: 'cargo xtask test --verbose --no-run'
+  run: 'cargo xtask test --verbose --no-run --profile ci'
 }
 
 let run_tests: {
   name: 'Run tests'
-  run: 'cargo xtask test --verbose --no-fail-fast'
+  run: 'cargo xtask test --verbose --no-fail-fast --profile ci'
+}
+
+let compile_binaries_and_tests_with_difftests: {
+  name: 'Compile binaries and tests (with difftests)'
+  run: 'cargo xtask test --verbose --no-run --profile difftests'
+}
+
+let run_tests_with_difftests: {
+  name: 'Run tests (with difftests)'
+  run: 'cargo xtask test --verbose --no-fail-fast --profile difftests'
 }
 
 let run_doctests: {
@@ -193,6 +203,34 @@ jobs {
       compile_binaries_and_tests
       run_tests
       run_doctests
+    ]
+  }
+
+  test-linux-with-difftests {
+    name: 'Test (Linux with difftests)'
+    runs-on: 'ubuntu-latest'
+
+    steps [
+      checkout
+      install_lld
+      install_openssl
+      install_rust
+      install_nextest
+      {
+        name: 'Print environment'
+        run: """
+          env
+        """
+      }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      compile_xtask
+      compile_binaries_and_tests_with_difftests
+      run_tests_with_difftests
     ]
   }
 }

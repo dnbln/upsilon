@@ -69,11 +69,37 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --clean-profiles-between-steps
+      run: cargo xtask test --verbose --no-run --profile ci
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --clean-profiles-between-steps
+      run: cargo xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc
+  test-linux-with-difftests:
+    name: Test (Linux with difftests)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install lld
+      run: sudo apt-get install -y lld
+    - name: Install openssl
+      run: sudo apt-get install -y libssl-dev
+    - name: Install rust
+      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+    - name: Install nextest
+      uses: taiki-e/install-action@nextest
+    - name: Print environment
+      run: "\n          env\n        "
+    - name: Collect other system information
+      run: "\n          git --version\n        "
+    - name: Compile xtask
+      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Compile binaries and tests (with difftests)
+      run: cargo xtask test --verbose --no-run --profile difftests
+    - name: Run tests (with difftests)
+      run: cargo xtask test --verbose --no-fail-fast --profile difftests
   test-win:
     name: Test (Windows)
     runs-on: windows-latest
@@ -99,16 +125,10 @@ jobs:
       run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
-    - name: Clean profile data
-      run: cargo xtask clean-instrumentation-files
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --clean-profiles-between-steps
-    - name: Clean profile data
-      run: cargo xtask clean-instrumentation-files
+      run: cargo xtask test --verbose --no-run --profile ci
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --clean-profiles-between-steps
-    - name: Clean profile data
-      run: cargo xtask clean-instrumentation-files
+      run: cargo xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc
 name: Test
