@@ -86,10 +86,6 @@ fn kill_child_with_prep_result(child: &Child, prep_result: PrepResult) {
 }
 
 fn main() -> ExitCode {
-    println!(
-        "gracefully shutdown host LLVM_PROFILE_FILE: {:?}",
-        std::env::var("LLVM_PROFILE_FILE")
-    );
     let child_mutex = Arc::new(Mutex::new(None));
 
     {

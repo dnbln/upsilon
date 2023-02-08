@@ -26,6 +26,7 @@ pub extern crate upsilon_test_support_macros;
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt::{Debug, Display};
 use std::future::Future;
 use std::panic::{Location, PanicInfo};
@@ -185,17 +186,38 @@ impl TestCx {
 
     pub async fn init(config: TestCxConfig) -> TestResult<Self> {
         pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
-        let test_name = config.test_name;
-        let difftests_tempdir = config.tempdir.join("upsilon-difftests");
-        if !difftests_tempdir.exists() {
-            tokio::fs::create_dir_all(&difftests_tempdir).await?;
-        }
-        let (difftests_env_name, difftests_env_value) = upsilon_difftests_testclient::init(
-            upsilon_difftests_testclient::TestDesc {
-                name: test_name.to_string(),
-            },
-            &difftests_tempdir,
-        )?;
+
+        let difftests_env: Option<(OsString, OsString)> = {
+            #[cfg(testcoverage)]
+            {
+                let pkg_name = config.pkg_name;
+                let crate_name = config.crate_name;
+                let bin_name = config.bin_name;
+                let bin_path = config.bin_path.clone();
+                let test_name = config.test_name;
+                let difftests_tempdir = config.tempdir.join("upsilon-difftests");
+                if !difftests_tempdir.exists() {
+                    tokio::fs::create_dir_all(&difftests_tempdir).await?;
+                }
+                let env = upsilon_difftests_testclient::init(
+                    upsilon_difftests_testclient::TestDesc {
+                        pkg_name: pkg_name.to_string(),
+                        crate_name: crate_name.to_string(),
+                        bin_name: bin_name.to_string(),
+                        bin_path,
+                        test_name: test_name.to_string(),
+                    },
+                    &difftests_tempdir,
+                )?;
+
+                Some(env)
+            }
+
+            #[cfg(not(testcoverage))]
+            {
+                None
+            }
+        };
 
         let workdir = config.workdir();
 
@@ -217,7 +239,7 @@ impl TestCx {
             .await
             .context("Failed to write config file")?;
 
-        let path = env_var_path("UPSILON_WEB_BIN");
+        let path = &config.upsilon_web_bin;
 
         let portfile_path = workdir.join(".port");
 
@@ -235,6 +257,7 @@ impl TestCx {
 
         upsilon_gracefully_shutdown::setup_for_graceful_shutdown(
             &mut cmd,
+            &config.gracefully_shutdown_host_bin,
             &kfile,
             Duration::from_secs(60),
         );
@@ -249,7 +272,6 @@ impl TestCx {
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .env("UPSILON_DEBUG_SHUTDOWN-ENDPOINT", "true")
             .env("UPSILON_WORKERS", "3")
-            .env(difftests_env_name, difftests_env_value)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
@@ -257,6 +279,10 @@ impl TestCx {
 
         if config.has_ssh_protocol {
             cmd.env("UPSILON_GIT-SSH_PORT", config.git_ssh_port.to_string());
+        }
+
+        if let Some((difftests_env_name, difftests_env_value)) = difftests_env {
+            cmd.env(difftests_env_name, difftests_env_value);
         }
 
         let mut child = cmd.spawn().context("Failed to spawn web server")?;
@@ -498,6 +524,12 @@ impl Drop for TestCx {
 
 pub struct CxConfigVars {
     pub workdir: PathBuf,
+    pub upsilon_web_bin: PathBuf,
+    pub gracefully_shutdown_host_bin: PathBuf,
+    pub crate_name: &'static str,
+    pub pkg_name: &'static str,
+    pub bin_name: &'static str,
+    pub bin_path: PathBuf,
     pub test_name: &'static str,
     pub source_file_path_hash: u64,
     pub works_offline: bool,
@@ -510,7 +542,13 @@ pub struct TestCxConfig {
     git_ssh_port: u16,
     config: String,
     tempdir: PathBuf,
+    upsilon_web_bin: PathBuf,
+    gracefully_shutdown_host_bin: PathBuf,
     source_file_path_hash: u64,
+    crate_name: &'static str,
+    pkg_name: &'static str,
+    bin_name: &'static str,
+    bin_path: PathBuf,
     test_name: &'static str,
     works_offline: bool,
     has_git_protocol: bool,
@@ -525,7 +563,13 @@ impl TestCxConfig {
             git_ssh_port: 0,
             config: "".to_string(),
             tempdir: vars.workdir.clone(),
+            upsilon_web_bin: vars.upsilon_web_bin.clone(),
+            gracefully_shutdown_host_bin: vars.gracefully_shutdown_host_bin.clone(),
             source_file_path_hash: vars.source_file_path_hash,
+            crate_name: vars.crate_name,
+            pkg_name: vars.pkg_name,
+            bin_name: vars.bin_name,
+            bin_path: vars.bin_path.clone(),
             test_name: vars.test_name,
             works_offline: vars.works_offline,
             has_git_protocol: false,

@@ -18,7 +18,7 @@ use std::path::Path;
 
 #[macro_export]
 macro_rules! ws_path {
-    ($($s:literal)/ * ) => {
+    ($($s:tt)/ * ) => {
         {
             use std::borrow::ToOwned;
             let mut p = $crate::ws::workspace_root().to_owned();
@@ -40,14 +40,14 @@ macro_rules! ws_root {
 
 #[macro_export]
 macro_rules! ws_path_str {
-    ($($s:literal)/ * ) => {
+    ($($s:tt)*) => {
         $crate::ws::ws_path!($($s)/ *).to_str().unwrap().to_string()
     }
 }
 
 #[macro_export]
 macro_rules! ws_path_join {
-    (#[clone] $root:ident / $($s:literal)/ *) => {
+    (#[clone] $root:ident / $($s:tt)/ *) => {
         {
             let mut p = $root.clone();
             $(
@@ -56,7 +56,7 @@ macro_rules! ws_path_join {
             p
         }
     };
-    ($root:ident / $($s:literal)/ *) => {
+    ($root:ident / $($s:tt)/ *) => {
         {
             let mut p = $root;
             $(
@@ -68,8 +68,17 @@ macro_rules! ws_path_join {
 }
 
 #[macro_export]
+macro_rules! ws_bin_path {
+    (profile = $profile:tt, name = $name:tt) => {{
+        let mut p = $crate::ws_path!("target" / $profile / $name);
+        p.set_extension(std::env::consts::EXE_EXTENSION);
+        p
+    }};
+}
+
+#[macro_export]
 macro_rules! ws_glob {
-    ($($p:literal)/ *) => {
+    ($($p:tt)/ *) => {
         (|| -> $crate::result::XtaskResult<Vec<_>> {
             let ws_path = $crate::ws_path!($($p)/ *);
             let ws_path_str = ws_path.to_str().ok_or_else(|| format_err!("invalid path: {:?}", ws_path))?;

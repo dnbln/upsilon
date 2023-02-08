@@ -213,6 +213,19 @@ impl InnerFnCall {
         let vars_setup = quote! {
             let #vars_name = ::upsilon_test_support::CxConfigVars {
                 workdir: ::std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")),
+                upsilon_web_bin: ::std::path::PathBuf::from(
+                    option_env!("CARGO_BIN_EXE_upsilon-web")
+                        .unwrap_or(env!("UPSILON_WEB_BIN"))
+                ),
+                gracefully_shutdown_host_bin: ::std::path::PathBuf::from(
+                    option_env!("CARGO_BIN_EXE_upsilon-gracefully-shutdown-host")
+                        .unwrap_or(env!("UPSILON_GRACEFULLY_SHUTDOWN_HOST_BIN"))
+                ),
+                crate_name: env!("CARGO_CRATE_NAME"),
+                pkg_name: env!("CARGO_PKG_NAME"),
+                bin_name: option_env!("CARGO_BIN_NAME")
+                        .unwrap_or(env!("CARGO_PKG_NAME")),
+                bin_path: std::env::current_exe()?,
                 test_name: #test_name,
                 source_file_path_hash: #file_path_hash,
                 works_offline: #works_offline,

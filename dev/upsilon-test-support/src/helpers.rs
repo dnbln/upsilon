@@ -598,7 +598,12 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
             .await?
             .join("shutdown");
 
-        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(&mut tokio_cmd, &kfile, timeout);
+        upsilon_gracefully_shutdown::setup_for_graceful_shutdown(
+            &mut tokio_cmd,
+            &self.config.gracefully_shutdown_host_bin,
+            &kfile,
+            timeout,
+        );
 
         tokio_cmd.stdout(Stdio::piped());
         tokio_cmd.stderr(Stdio::piped());

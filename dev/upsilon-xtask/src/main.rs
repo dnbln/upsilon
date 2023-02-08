@@ -25,7 +25,9 @@ use toml_edit::{Item, Key, TableLike};
 use ukonf::value::UkonfValue;
 use ukonf::UkonfFunctions;
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
-use upsilon_xtask::{cargo_cmd, cmd_call, npm_cmd, ws_glob, ws_path, ws_root, XtaskResult};
+use upsilon_xtask::{
+    cargo_cmd, cmd_call, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
+};
 use zip::write::{FileOptions, ZipWriter};
 
 macro_rules! expand_known_test_group {
@@ -148,19 +150,23 @@ enum App {
     #[clap(alias = "run")]
     #[clap(alias = "r")]
     RunDev {
-        #[clap(short, long)]
+        #[clap(long)]
         dgql: bool,
         #[clap(short, long)]
         verbose: bool,
+        #[clap(long)]
+        profile: Option<String>,
     },
     #[clap(name = "build-dev")]
     #[clap(alias = "build")]
     #[clap(alias = "b")]
     BuildDev {
-        #[clap(short, long)]
+        #[clap(long)]
         dgql: bool,
         #[clap(short, long)]
         verbose: bool,
+        #[clap(long)]
+        profile: Option<String>,
     },
     #[clap(name = "frontend-run-dev")]
     #[clap(alias = "frun")]
@@ -185,6 +191,8 @@ enum App {
         no_capture: bool,
         #[clap(long)]
         clean_profiles_between_steps: bool,
+        #[clap(long)]
+        profile: Option<String>,
 
         #[clap(flatten)]
         test_groups: TestGroups,
@@ -193,7 +201,10 @@ enum App {
     },
     #[clap(name = "test-support-examples")]
     #[clap(alias = "tse")]
-    TestSupportExamples { examples: Vec<String> },
+    TestSupportExamples {
+        examples: Vec<String>,
+        profile: Option<String>,
+    },
     #[clap(name = "pack-release")]
     PackRelease,
     #[clap(name = "install-aliases")]
@@ -232,13 +243,14 @@ enum App {
     CleanInstrumentationFiles,
 }
 
-fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
+fn build_dev(dgql: bool, verbose: bool, profile: Option<&str>) -> XtaskResult<()> {
     cargo_cmd!(
         "build",
         "-p", "upsilon-debug-data-driver",
         "--bin", "upsilon-debug-data-driver",
         "--features=dump_gql_response" => @if dgql,
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
     cargo_cmd!(
@@ -247,6 +259,7 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
         "--bin", "upsilon-git-hooks",
         "--features=build-bin",
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
     cargo_cmd!(
@@ -254,12 +267,14 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
         "-p", "upsilon-git-protocol-accesshook",
         "--bin", "upsilon-git-protocol-accesshook",
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
     cargo_cmd!(
         "build",
         "-p", "upsilon-web",
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
 
@@ -268,21 +283,29 @@ fn build_dev(dgql: bool, verbose: bool) -> XtaskResult<()> {
         "-p", "upsilon-gracefully-shutdown-host",
         "--bin", "upsilon-gracefully-shutdown-host",
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
 
-    cargo_cmd!("build", "-p", "upsilon", "--bin", "upsilon", "--verbose" => @if verbose)?;
+    cargo_cmd!(
+        "build",
+        "-p", "upsilon",
+        "--bin", "upsilon",
+        "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
+    )?;
 
     Ok(())
 }
 
-fn run_doctests(verbose: bool, no_fail_fast: bool) -> XtaskResult<()> {
+fn run_doctests(verbose: bool, no_fail_fast: bool, profile: Option<&str>) -> XtaskResult<()> {
     cargo_cmd!(
         "test",
         "--doc",
         "--workspace",
         "--verbose" => @if verbose,
         "--no-fail-fast" => @if no_fail_fast,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @workdir = ws_root!(),
     )?;
 
@@ -300,6 +323,7 @@ fn run_tests(
     test_filters: &[String],
     test_groups: &TestGroups,
     doc: bool,
+    profile: Option<&str>,
 ) -> XtaskResult<()> {
     if doc {
         macro_rules! redundant_arg {
@@ -317,8 +341,10 @@ fn run_tests(
         redundant_arg!("no-run", no_run, "doc");
         redundant_arg!("offline", offline, "doc");
 
-        return run_doctests(verbose, no_fail_fast);
+        return run_doctests(verbose, no_fail_fast, profile);
     }
+
+    let prof = profile.unwrap_or("debug");
 
     cargo_cmd!(
         "build" => @if no_run,
@@ -328,10 +354,11 @@ fn run_tests(
         "--bin",
         "upsilon-setup-testenv",
         "--verbose" => @if verbose,
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
         @env "RUST_LOG" => "info",
-        @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+        @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
         @workdir = ws_root!(),
     )?;
 
@@ -339,8 +366,10 @@ fn run_tests(
         clean_unneeded_instrumentation_files()?;
     }
 
-    let mut upsilon_web_binary = ws_path!("target" / "debug" / "upsilon-web");
-    upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
+    let upsilon_web_binary = ws_bin_path!(profile = prof, name = "upsilon-web");
+
+    let upsilon_gracefully_shutdown_host_binary =
+        ws_bin_path!(profile = prof, name = "upsilon-gracefully-shutdown-host");
 
     cargo_cmd!(
         "nextest",
@@ -351,6 +380,7 @@ fn run_tests(
         "--no-fail-fast" => @if no_fail_fast,
         "--no-run" => @if no_run,
         "--no-capture" => @if no_capture,
+        ...["--cargo-profile", profile] => @if let Some(profile) = profile,
         ...test_groups.to_args(),
         ...test_filters,
         @env "CLICOLOR_FORCE" => "1",
@@ -359,7 +389,8 @@ fn run_tests(
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
         @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
         @env "UPSILON_WEB_BIN" => upsilon_web_binary,
-        @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+        @env "UPSILON_GRACEFULLY_SHUTDOWN_HOST_BIN" => upsilon_gracefully_shutdown_host_binary,
+        @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
         @env "UPSILON_TESTSUITE_LOG" => "info",
         @workdir = ws_root!(),
     )?;
@@ -371,6 +402,7 @@ fn run_test_support_examples(
     setup_testenv: &Path,
     tmpdir: &Path,
     examples: &[String],
+    profile: Option<&str>,
 ) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
@@ -379,14 +411,18 @@ fn run_test_support_examples(
         "--bin",
         "upsilon-setup-testenv",
         "--verbose",
+        ...["--profile", profile] => @if let Some(profile) = profile,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "RUST_LOG" => "info",
         @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
         @workdir = ws_root!(),
     )?;
 
-    let mut upsilon_web_binary = ws_path!("target" / "debug" / "upsilon-web");
-    upsilon_web_binary.set_extension(std::env::consts::EXE_EXTENSION);
+    let prof = profile.unwrap_or("debug");
+
+    let upsilon_web_binary = ws_bin_path!(profile = prof, name = "upsilon-web");
+    let upsilon_gracefully_shutdown_host_binary =
+        ws_bin_path!(profile = prof, name = "upsilon-gracefully-shutdown-host");
 
     for example in examples {
         cargo_cmd!(
@@ -400,7 +436,8 @@ fn run_test_support_examples(
             @env "UPSILON_SETUP_TESTENV" => setup_testenv,
             @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
             @env "UPSILON_WEB_BIN" => &upsilon_web_binary,
-            @env "UPSILON_BIN_DIR" => ws_path!("target/debug"),
+            @env "UPSILON_GRACEFULLY_SHUTDOWN_HOST_BIN" => &upsilon_gracefully_shutdown_host_binary,
+            @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
             @env "UPSILON_TESTSUITE_LOG" => "info",
             @env "UPSILON_TMPDIR" => tmpdir,
             @workdir = ws_root!(),
@@ -782,11 +819,21 @@ fn main_impl() -> XtaskResult<()> {
                 upsilon_xtask::git_checks::linear_history(&repo)?;
             }
         }
-        App::BuildDev { dgql, verbose } => {
-            build_dev(dgql, verbose)?;
+        App::BuildDev {
+            dgql,
+            verbose,
+            profile,
+        } => {
+            let profile = profile.as_deref();
+            build_dev(dgql, verbose, profile)?;
         }
-        App::RunDev { dgql, verbose } => {
-            build_dev(dgql, verbose)?;
+        App::RunDev {
+            dgql,
+            verbose,
+            profile,
+        } => {
+            let profile = profile.as_deref();
+            build_dev(dgql, verbose, profile)?;
 
             cargo_cmd!(
                 "run",
@@ -820,10 +867,12 @@ fn main_impl() -> XtaskResult<()> {
             no_capture,
             doc,
             clean_profiles_between_steps,
+            profile,
             tests_filters,
             test_groups,
         } => {
-            build_dev(dgql, verbose)?;
+            let profile = profile.as_deref();
+            build_dev(dgql, verbose, profile)?;
 
             if clean_profiles_between_steps {
                 clean_unneeded_instrumentation_files()?;
@@ -850,14 +899,16 @@ fn main_impl() -> XtaskResult<()> {
                 &tests_filters,
                 &test_groups,
                 doc,
+                profile,
             );
 
             std::fs::remove_dir_all(&testenv_tests)?;
 
             result?;
         }
-        App::TestSupportExamples { examples } => {
-            build_dev(false, false)?;
+        App::TestSupportExamples { examples, profile } => {
+            let profile = profile.as_deref();
+            build_dev(false, false, profile)?;
 
             let testenv_tests = ws_path!("testenv_tests");
 
@@ -877,7 +928,7 @@ fn main_impl() -> XtaskResult<()> {
 
             std::fs::create_dir_all(&tmpdir)?;
 
-            let result = run_test_support_examples(&setup_testenv, &tmpdir, &examples);
+            let result = run_test_support_examples(&setup_testenv, &tmpdir, &examples, profile);
 
             std::fs::remove_dir_all(&testenv_tests)?;
 

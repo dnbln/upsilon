@@ -43,6 +43,17 @@ async fn example_impl(cx: &mut TestCx) -> TestResult {
 async fn main_impl() -> TestResult {
     let cfg = TestCxConfig::new(&CxConfigVars {
         workdir: PathBuf::from(std::env::var("UPSILON_TMPDIR").expect("UPSILON_TMPDIR not set")),
+        upsilon_web_bin: PathBuf::from(
+            std::env::var("UPSILON_WEB_BIN").expect("UPSILON_WEB_BIN not set"),
+        ),
+        gracefully_shutdown_host_bin: PathBuf::from(
+            std::env::var("UPSILON_GRACEFULLY_SHUTDOWN_BIN")
+                .expect("UPSILON_GRACEFULLY_SHUTDOWN_BIN not set"),
+        ),
+        crate_name: env!("CARGO_CRATE_NAME"),
+        pkg_name: env!("CARGO_PKG_NAME"),
+        bin_name: "clone_to_local_ssh_example",
+        bin_path: std::env::current_exe()?,
         test_name: "clone_to_local_ssh_example",
         source_file_path_hash: 0,
         works_offline: true,

@@ -5588,6 +5588,10 @@ dependencies = [
 [[package]]
 name = "upsilon-difftests-testclient"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "upsilon-dump-gql-schema"
@@ -5621,7 +5625,6 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "tokio",
- "upsilon-core",
  "winapi",
 ]
 

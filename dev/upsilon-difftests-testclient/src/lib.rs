@@ -14,11 +14,18 @@
  *    limitations under the License.
  */
 
-use std::ffi::OsString;
-use std::path::Path;
+#![cfg(testcoverage)]
 
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+
+#[derive(serde::Serialize)]
 pub struct TestDesc {
-    pub name: String,
+    pub pkg_name: String,
+    pub crate_name: String,
+    pub bin_name: String,
+    pub bin_path: PathBuf,
+    pub test_name: String,
 }
 
 extern "C" {
@@ -26,7 +33,7 @@ extern "C" {
 }
 
 pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<(OsString, OsString)> {
-    let tmpdir_for_desc_name = tmpdir.join(desc.name);
+    let tmpdir_for_desc_name = tmpdir.join(&desc.test_name);
 
     if tmpdir_for_desc_name.exists() {
         std::fs::remove_dir_all(&tmpdir_for_desc_name)?;
@@ -42,6 +49,11 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<(OsString, OsStrin
     unsafe {
         __llvm_profile_set_filename(self_profile_file_str_c.as_ptr());
     }
+
+    let self_info_path = tmpdir_for_desc_name.join("self.json");
+    let self_info = serde_json::to_string(&desc).unwrap();
+
+    std::fs::write(self_info_path, self_info)?;
 
     // and for children
     let profraw_path = tmpdir_for_desc_name.join("%m_%p.profraw");

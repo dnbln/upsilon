@@ -25,20 +25,29 @@ linker = "rust-lld.exe"
 rustflags = [
     "-Csplit-debuginfo=unpacked",
 ]
+
 [profile.dev]
 opt-level = 0
 debug = 2
 incremental = true
 codegen-units = 512
-rustflags = [
-    "-C", "instrument-coverage"
-]
 
 [profile.release]
 opt-level = 3
 debug = 0
 incremental = false
 codegen-units = 256
+
+[profile.difftests]
+inherits = "dev"
+rustflags = [
+    "-C", "instrument-coverage",
+    "--cfg", "testcoverage",
+    "--cfg", "difftests",
+]
+
+[profile.ci]
+inherits = "dev"
 
 [unstable]
 profile-rustflags = true

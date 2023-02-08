@@ -20,6 +20,7 @@ thiserror.workspace = true
 tokio.workspace = true
 
 upsilon-diff-util.workspace = true
+# FIXME: Add this dependency only when the profile is difftests
 upsilon-difftests-testclient.workspace = true
 upsilon-gracefully-shutdown.workspace = true
 upsilon-json-diff.workspace = true

@@ -30,6 +30,13 @@ macro_rules! cmd_process {
 
         $crate::cmd_process!(@@process_one $cmd, $($remaining)*);
     };
+    (@@process_one $cmd:expr, ...$arg:expr => @if let $pat:pat = $pat_expr:expr, $($remaining:tt)*) => {
+        if let $pat = $pat_expr {
+            $cmd.args($arg);
+        }
+
+        $crate::cmd_process!(@@process_one $cmd, $($remaining)*);
+    };
     (@@process_one $cmd:expr, ...$arg:expr, $($remaining:tt)*) => {
         $cmd.args($arg);
 
@@ -38,6 +45,11 @@ macro_rules! cmd_process {
 
     (@@process_one $cmd:expr, ...$arg:expr => @if $arg_condition:expr $(,)?) => {
         if $arg_condition {
+            $cmd.args($arg);
+        }
+    };
+    (@@process_one $cmd:expr, ...$arg:expr => @if let $pat:pat = $pat_expr:expr $(,)?) => {
+        if let $pat = $pat_expr {
             $cmd.args($arg);
         }
     };
@@ -52,6 +64,13 @@ macro_rules! cmd_process {
 
         $crate::cmd_process!(@@process_one $cmd, $($remaining)*);
     };
+    (@@process_one $cmd:expr, $arg:expr => @if let $pat:pat = $pat_expr:expr, $($remaining:tt)*) => {
+        if let $pat = $pat_expr {
+            $cmd.arg($arg);
+        }
+
+        $crate::cmd_process!(@@process_one $cmd, $($remaining)*);
+    };
     (@@process_one $cmd:expr, $arg:expr, $($remaining:tt)*) => {
         $cmd.arg($arg);
 
@@ -60,6 +79,11 @@ macro_rules! cmd_process {
 
     (@@process_one $cmd:expr, $arg:expr => @if $arg_condition:expr $(,)?) => {
         if $arg_condition {
+            $cmd.arg($arg);
+        }
+    };
+    (@@process_one $cmd:expr, $arg:expr => @if let $pat:pat = $pat_expr:expr $(,)?) => {
+        if let $pat = $pat_expr {
             $cmd.arg($arg);
         }
     };
