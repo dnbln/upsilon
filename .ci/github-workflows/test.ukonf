@@ -48,7 +48,7 @@ let install_openssl: {
 
 let install_rust: {
   name: 'Install rust'
-  run: concat('rustup toolchain install ', nightly, ' && rustup default ', nightly)
+  run: concat('rustup toolchain install ', nightly, ' --no-self-update && rustup default ', nightly)
 }
 
 let install_rustfmt: {

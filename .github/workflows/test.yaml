@@ -12,7 +12,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install rustfmt
       run: rustup component add rustfmt
     - name: Compile xtask
@@ -30,7 +30,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install rustfmt
       run: rustup component add rustfmt
     - name: Compile xtask
@@ -59,7 +59,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -87,7 +87,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -115,7 +115,7 @@ jobs:
     - name: Cleanup vcpkg build trees
       run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
