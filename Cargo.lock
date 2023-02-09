@@ -485,6 +485,7 @@ dependencies = [
  "git2",
  "log",
  "path-absolutize",
+ "path-slash",
  "pretty_env_logger",
  "rustc-demangle",
  "serde",

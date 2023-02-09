@@ -96,10 +96,7 @@ pub fn file_is_from_cargo_registry(f: &Path) -> bool {
     f.starts_with(concat!(env!("CARGO_HOME"), "/registry"))
 }
 
-pub fn test_touched_files(
-    cx: &AnalysisContext,
-    include_registry_files: bool,
-) -> BTreeSet<PathBuf> {
+pub fn test_touched_files(cx: &AnalysisContext, include_registry_files: bool) -> BTreeSet<PathBuf> {
     let pd = cx.get_profdata();
 
     fn any_branch_executed(b: &[CoverageBranch]) -> bool {
@@ -127,7 +124,10 @@ pub fn test_touched_files(
 
         for file in &mapping.files {
             let file_touched_branches = any_branch_executed(&file.branches);
-            let file_touched_expansions = file.expansions.iter().any(|it| any_branch_executed(&it.branches));
+            let file_touched_expansions = file
+                .expansions
+                .iter()
+                .any(|it| any_branch_executed(&it.branches));
             let file_touched_segments = file.segments.iter().any(|it| it.count > 0);
 
             if !file_touched_branches && !file_touched_expansions && !file_touched_segments {

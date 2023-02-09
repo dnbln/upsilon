@@ -23,6 +23,7 @@ use cargo_difftests_core::CoreTestDesc;
 use log::{debug, info, warn};
 
 use crate::analysis::AnalysisContext;
+use crate::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
 
 pub mod analysis_data;
 
@@ -88,9 +89,27 @@ impl<'r> HasExportedProfdata<'r> {
 
         Ok(AnalysisContext::new(self.difftest, profdata))
     }
+
+    pub fn compile_test_index_data(
+        &self,
+        index_data_compiler_config: IndexDataCompilerConfig,
+    ) -> DifftestsResult<DifftestsSingleTestIndexData> {
+        info!("Compiling test index data...");
+
+        let profdata = self.read_exported_profdata()?;
+        let test_index_data = DifftestsSingleTestIndexData::index(
+            self.difftest,
+            profdata,
+            index_data_compiler_config,
+        )?;
+
+        info!("Done compiling test index data.");
+        Ok(test_index_data)
+    }
 }
 
 pub mod analysis;
+pub mod index_data;
 
 const EXPORTED_PROFDATA_FILE_NAME: &str = "exported.json";
 
@@ -177,7 +196,8 @@ impl<'r> HasProfdata<'r> {
     pub fn assert_has_exported_profdata(self) -> HasExportedProfdata<'r> {
         assert!(
             self.difftest.exported_profdata_file.is_some(),
-            "exported profdata file missing"
+            "exported profdata file missing (from {})",
+            self.difftest.dir.display(),
         );
 
         HasExportedProfdata {
@@ -250,7 +270,11 @@ impl DiscoveredDifftest {
     }
 
     pub fn assert_has_profdata(&mut self) -> HasProfdata<'_> {
-        assert!(self.profdata_file.is_some(), "profdata file missing");
+        assert!(
+            self.profdata_file.is_some(),
+            "profdata file missing (from {})",
+            self.dir.display(),
+        );
 
         HasProfdata { difftest: self }
     }

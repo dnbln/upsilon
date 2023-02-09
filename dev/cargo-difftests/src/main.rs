@@ -17,9 +17,12 @@
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-use cargo_difftests::analysis::{AnalysisConfig, AnalysisResult};
+use anyhow::Context;
+use cargo_difftests::analysis::{file_is_from_cargo_registry, AnalysisConfig, AnalysisResult};
+use cargo_difftests::index_data::IndexDataCompilerConfig;
 use cargo_difftests::{DiscoveredDifftest, ExportProfdataConfig};
 use clap::{Args, Parser, ValueEnum};
+use path_slash::PathExt;
 
 #[derive(Args, Debug)]
 pub struct ExportProfdataCommand {
@@ -33,6 +36,35 @@ pub struct ExportProfdataCommand {
     other_binaries: Vec<PathBuf>,
     #[clap(long)]
     force: bool,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone)]
+pub enum FlattenFilesTarget {
+    #[clap(name = "repo-root")]
+    RepoRoot,
+}
+
+impl Display for FlattenFilesTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FlattenFilesTarget::RepoRoot => write!(f, "repo-root"),
+        }
+    }
+}
+
+#[derive(Args, Debug, Copy, Clone)]
+pub struct CompileTestIndexFlags {
+    #[clap(long)]
+    ignore_cargo_registry: bool,
+    #[clap(long)]
+    flatten_files_to: Option<FlattenFilesTarget>,
+    #[cfg(windows)]
+    #[clap(
+        long = "no-path-slash-replace",
+        default_value_t = true,
+        action(clap::ArgAction::SetFalse)
+    )]
+    path_slash_replace: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -54,6 +86,14 @@ pub enum LowLevelCommand {
         dir: PathBuf,
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
+    },
+    CompileTestIndex {
+        #[clap(long)]
+        dir: PathBuf,
+        #[clap(short, long)]
+        output: PathBuf,
+        #[clap(flatten)]
+        compile_test_index_flags: CompileTestIndexFlags,
     },
 }
 
@@ -167,6 +207,58 @@ fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
     Ok(())
 }
 
+fn run_compile_test_index(
+    dir: PathBuf,
+    output: PathBuf,
+    compile_test_index_flags: CompileTestIndexFlags,
+) -> CargoDifftestsResult {
+    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
+    let exported_profdata = discovered.assert_has_exported_profdata();
+
+    let flatten_root = match compile_test_index_flags.flatten_files_to {
+        Some(FlattenFilesTarget::RepoRoot) => {
+            let repo = git2::Repository::open_from_env()?;
+            let root = repo.workdir().context("repo has no workdir")?;
+            Some(root.to_path_buf())
+        }
+        None => None,
+    };
+
+    let config = IndexDataCompilerConfig {
+        index_filename_converter: Box::new(move |path| {
+            let p = match &flatten_root {
+                Some(root) => path.strip_prefix(root).unwrap_or(path),
+                None => path,
+            };
+
+            #[cfg(windows)]
+            let p = if compile_test_index_flags.path_slash_replace {
+                PathBuf::from(p.to_slash().unwrap().into_owned())
+            } else {
+                p.to_path_buf()
+            };
+
+            #[cfg(not(windows))]
+            let p = p.to_path_buf();
+
+            p
+        }),
+        accept_file: Box::new(move |path| {
+            if compile_test_index_flags.ignore_cargo_registry && file_is_from_cargo_registry(path) {
+                return false;
+            }
+
+            true
+        }),
+    };
+
+    let result = exported_profdata.compile_test_index_data(config)?;
+
+    result.write_to_file(&output)?;
+
+    Ok(())
+}
+
 fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
     match cmd {
         LowLevelCommand::MergeProfdata { dir, force } => {
@@ -177,6 +269,13 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
         }
         LowLevelCommand::RunAnalysis { dir, algo } => {
             run_analysis(dir, algo)?;
+        }
+        LowLevelCommand::CompileTestIndex {
+            dir,
+            output,
+            compile_test_index_flags,
+        } => {
+            run_compile_test_index(dir, output, compile_test_index_flags)?;
         }
     }
 
