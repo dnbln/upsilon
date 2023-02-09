@@ -1,5 +1,5 @@
 /*
- *        Copyright (c) 2022-2023 Dinu Blanovschi
+ *        Copyright (c) 2023 Dinu Blanovschi
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,12 +14,6 @@
  *    limitations under the License.
  */
 
-pub extern crate glob;
-
-pub mod cmd;
-pub mod difftests;
-pub mod git_checks;
-pub mod result;
-pub mod ws;
-
-pub use result::XtaskResult;
+fn main() {
+    println!("Hello, world!");
+}

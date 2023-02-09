@@ -16,8 +16,8 @@
 
 use std::path::PathBuf;
 use std::process::ExitStatus;
-use std::{fmt, io};
 use std::string::FromUtf8Error;
+use std::{fmt, io};
 
 #[macro_export]
 macro_rules! cmd_process {
