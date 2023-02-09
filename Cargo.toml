@@ -17,6 +17,9 @@ anyhow = "1.0.66"
 async-trait = "0.1.59"
 bitflags = "2.0.0-rc.1"
 cargo-cranky = { path = "dev/cargo-cranky" }
+cargo-difftests = { path = "dev/cargo-difftests" }
+cargo-difftests-core = { path = "dev/cargo-difftests-core" }
+cargo-difftests-testclient = { path = "dev/cargo-difftests-testclient" }
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.26", features = ["derive"] }
 ctrlc = "3.2.0"
@@ -31,6 +34,7 @@ linkme = "0.3"
 log = "0.4.17"
 logos = "0.12.1"
 openssl = "0.10.43"
+path-absolutize = "3.0.14"
 path-slash = "0.2.1"
 pretty_env_logger = "0.4.0"
 regex = "1.7.0"
@@ -64,8 +68,6 @@ upsilon-procx = { path = "crates/upsilon-procx" }
 upsilon-ssh = { path = "crates/upsilon-ssh" }
 upsilon-ssh-russh = { path = "crates/upsilon-ssh-russh" }
 upsilon-stdx = { path = "crates/upsilon-stdx" }
-upsilon-difftests-core = { path = "dev/upsilon-difftests-core" }
-upsilon-difftests-testclient = { path = "dev/upsilon-difftests-testclient" }
 upsilon-test-support = { path = "dev/upsilon-test-support" }
 upsilon-test-support-macros = { path = "dev/upsilon-test-support-macros" }
 upsilon-vcs = { path = "crates/upsilon-vcs" }

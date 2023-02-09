@@ -14,12 +14,13 @@
  *    limitations under the License.
  */
 
-#![cfg(testcoverage)]
+#![cfg(cargo_difftests)]
 
-use std::ffi::OsString;
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
-use upsilon_difftests_core::CoreTestDesc;
+use cargo_difftests_core::CoreTestDesc;
 
 pub struct TestDesc {
     pub pkg_name: String,
@@ -27,21 +28,35 @@ pub struct TestDesc {
     pub bin_name: Option<String>,
     pub bin_path: PathBuf,
     pub test_name: String,
+
+    pub other_fields: HashMap<String, String>,
+}
+
+pub struct DifftestsEnv {
+    llvm_profile_file_name: OsString,
+    llvm_profile_file_value: OsString,
+}
+
+impl DifftestsEnv {
+    pub fn env_for_children(&self) -> impl Iterator<Item = (&OsStr, &OsStr)> {
+        std::iter::once((
+            self.llvm_profile_file_name.as_os_str(),
+            self.llvm_profile_file_value.as_os_str(),
+        ))
+    }
 }
 
 extern "C" {
     fn __llvm_profile_set_filename(filename: *const std::ffi::c_char);
 }
 
-pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<(OsString, OsString)> {
-    let tmpdir_for_desc_name = tmpdir.join(&desc.test_name);
-
-    if tmpdir_for_desc_name.exists() {
-        std::fs::remove_dir_all(&tmpdir_for_desc_name)?;
+pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
+    if tmpdir.exists() {
+        std::fs::remove_dir_all(tmpdir)?;
     }
-    std::fs::create_dir_all(&tmpdir_for_desc_name)?;
+    std::fs::create_dir_all(tmpdir)?;
 
-    let self_profile_file = tmpdir_for_desc_name.join("self.profraw");
+    let self_profile_file = tmpdir.join("self.profraw");
 
     let self_profile_file_str = self_profile_file.to_str().unwrap();
 
@@ -51,21 +66,30 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<(OsString, OsStrin
         __llvm_profile_set_filename(self_profile_file_str_c.as_ptr());
     }
 
-    let self_info_path = tmpdir_for_desc_name.join("self.json");
+    let self_info_path = tmpdir.join("self.json");
 
-    let core_test_desc = CoreTestDesc {
+    let mut core_test_desc = CoreTestDesc {
         pkg_name: desc.pkg_name,
         crate_name: desc.crate_name,
         bin_name: desc.bin_name,
         bin_path: desc.bin_path,
         test_name: desc.test_name,
+        other_fields: desc.other_fields,
     };
+
+    core_test_desc.other_fields.insert(
+        "CARGO_DIFFTESTS_VERSION".into(),
+        env!("CARGO_PKG_VERSION").into(),
+    );
 
     let self_info = serde_json::to_string(&core_test_desc).unwrap();
 
     std::fs::write(self_info_path, self_info)?;
 
     // and for children
-    let profraw_path = tmpdir_for_desc_name.join("%m_%p.profraw");
-    Ok(("LLVM_PROFILE_FILE".into(), profraw_path.into()))
+    let profraw_path = tmpdir.join("%m_%p.profraw");
+    Ok(DifftestsEnv {
+        llvm_profile_file_name: "LLVM_PROFILE_FILE".into(),
+        llvm_profile_file_value: profraw_path.into(),
+    })
 }

@@ -91,12 +91,12 @@ struct CoverageFileSegmentDe(usize, usize, usize, bool, bool, bool);
 #[derive(serde::Deserialize, Debug)]
 #[serde(from = "CoverageFileSegmentDe")]
 pub struct CoverageFileSegment {
-    line: usize,
-    col: usize,
-    count: usize,
-    has_count: bool,
-    is_region_entry: bool,
-    is_gap_region: bool,
+    pub line: usize,
+    pub col: usize,
+    pub count: usize,
+    pub has_count: bool,
+    pub is_region_entry: bool,
+    pub is_gap_region: bool,
 }
 
 impl From<CoverageFileSegmentDe> for CoverageFileSegment {
@@ -166,7 +166,7 @@ pub struct GenericSummary {
 #[derive(serde::Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CoverageFunction {
-    pub branches: Vec<serde_json::Value>,
+    pub branches: Vec<CoverageBranch>,
     pub filenames: Vec<PathBuf>,
     #[serde(deserialize_with = "deserialize_function_name")]
     pub name: String,

@@ -187,36 +187,33 @@ impl TestCx {
     pub async fn init(config: TestCxConfig) -> TestResult<Self> {
         pretty_env_logger::init_custom_env("UPSILON_TESTSUITE_LOG");
 
-        let difftests_env: Option<(OsString, OsString)> = {
-            #[cfg(testcoverage)]
-            {
-                let pkg_name = config.pkg_name;
-                let crate_name = config.crate_name;
-                let bin_name = config.bin_name;
-                let bin_path = config.bin_path.clone();
-                let test_name = config.test_name;
-                let difftests_tempdir = config.tempdir.join("upsilon-difftests");
-                if !difftests_tempdir.exists() {
-                    tokio::fs::create_dir_all(&difftests_tempdir).await?;
-                }
-                let env = upsilon_difftests_testclient::init(
-                    upsilon_difftests_testclient::TestDesc {
-                        pkg_name: pkg_name.to_string(),
-                        crate_name: crate_name.to_string(),
-                        bin_name: bin_name.map(ToString::to_string),
-                        bin_path,
-                        test_name: test_name.to_string(),
-                    },
-                    &difftests_tempdir,
-                )?;
-
-                Some(env)
+        #[cfg(difftests)]
+        let difftests_env = {
+            let pkg_name = config.pkg_name;
+            let crate_name = config.crate_name;
+            let bin_name = config.bin_name;
+            let bin_path = config.bin_path.clone();
+            let test_name = config.test_name;
+            let mut difftests_tempdir = config.tempdir.join("upsilon-difftests");
+            difftests_tempdir.push(pkg_name);
+            difftests_tempdir.push(crate_name);
+            if let Some(bin_name) = bin_name {
+                difftests_tempdir.push(bin_name);
             }
+            difftests_tempdir.push(test_name);
+            let env = cargo_difftests_testclient::init(
+                cargo_difftests_testclient::TestDesc {
+                    pkg_name: pkg_name.to_string(),
+                    crate_name: crate_name.to_string(),
+                    bin_name: bin_name.map(ToString::to_string),
+                    bin_path,
+                    test_name: test_name.to_string(),
+                    other_fields: std::collections::HashMap::new(),
+                },
+                &difftests_tempdir,
+            )?;
 
-            #[cfg(not(testcoverage))]
-            {
-                None
-            }
+            env
         };
 
         let workdir = config.workdir();
@@ -281,9 +278,8 @@ impl TestCx {
             cmd.env("UPSILON_GIT-SSH_PORT", config.git_ssh_port.to_string());
         }
 
-        if let Some((difftests_env_name, difftests_env_value)) = difftests_env {
-            cmd.env(difftests_env_name, difftests_env_value);
-        }
+        #[cfg(difftests)]
+        cmd.envs(difftests_env.env_for_children());
 
         let mut child = cmd.spawn().context("Failed to spawn web server")?;
 

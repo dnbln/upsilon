@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -23,4 +24,6 @@ pub struct CoreTestDesc {
     pub bin_name: Option<String>,
     pub bin_path: PathBuf,
     pub test_name: String,
+
+    pub other_fields: HashMap<String, String>,
 }
