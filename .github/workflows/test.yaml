@@ -73,7 +73,7 @@ jobs:
     - name: Run tests
       run: cargo xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
-      run: cargo xtask test --verbose --no-fail-fast --doc
+      run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux-with-difftests:
     name: Test (Linux with difftests)
     runs-on: ubuntu-latest
@@ -130,7 +130,7 @@ jobs:
     - name: Run tests
       run: cargo xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
-      run: cargo xtask test --verbose --no-fail-fast --doc
+      run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
 name: Test
 on:
   pull_request:
