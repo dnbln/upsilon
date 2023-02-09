@@ -17,7 +17,7 @@
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::format_err;
+use anyhow::{bail, format_err};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
 use path_slash::PathExt;
@@ -240,6 +240,8 @@ enum App {
     UkonfToYaml { from: PathBuf, to: PathBuf },
     #[clap(name = "gen-ci-files")]
     GenCiFiles,
+    #[clap(name = "check-ci-files-up-to-date")]
+    CheckCiFilesUpToDate,
     #[clap(name = "clean-instrumentation-files")]
     CleanInstrumentationFiles,
 
@@ -721,13 +723,19 @@ fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
     Ok(())
 }
 
-fn ukonf_to_yaml(from: PathBuf, to: &Path, fns: fn() -> UkonfFunctions) -> XtaskResult<()> {
+fn ukonf_to_yaml_string(from: PathBuf, fns: fn() -> UkonfFunctions) -> XtaskResult<String> {
     let result = ukonf::UkonfRunner::new(ukonf::UkonfConfig::new(vec![]), fns())
         .run(from)
         .map_err(|err| format_err!("Failed to run ukonf: {err}"))?;
     let yaml = result.into_value().to_yaml();
     let yaml_string = serde_yaml::to_string(&yaml)?;
-    std::fs::write(to, yaml_string)?;
+
+    Ok(yaml_string)
+}
+
+fn ukonf_to_yaml(from: PathBuf, to: &Path, fns: fn() -> UkonfFunctions) -> XtaskResult<()> {
+    let s = ukonf_to_yaml_string(from, fns)?;
+    std::fs::write(to, s)?;
 
     Ok(())
 }
@@ -767,6 +775,31 @@ pub fn ukonf_ci_functions() -> UkonfFunctions {
 
 fn gen_ci_file(from: &str, to: &str) -> XtaskResult<()> {
     ukonf_to_yaml(PathBuf::from(from), Path::new(to), ukonf_ci_functions)
+}
+
+pub struct OutdatedReport {
+    from: String,
+    to: String,
+    diff: upsilon_diff_util::DiffResult,
+}
+
+fn check_ci_file(from: &str, to: &str, reports: &mut Vec<OutdatedReport>) -> XtaskResult<()> {
+    let new = ukonf_to_yaml_string(PathBuf::from(from), ukonf_ci_functions)?;
+
+    let old = std::fs::read_to_string(to)?;
+
+    if old == new {
+        return Ok(());
+    }
+
+    let diff = upsilon_diff_util::build_diff(&old, &new);
+    reports.push(OutdatedReport {
+        from: from.to_string(),
+        to: to.to_string(),
+        diff,
+    });
+
+    Ok(())
 }
 
 const CI_FILES: &[(&str, &str)] = &[
@@ -1088,7 +1121,7 @@ fn main_impl() -> XtaskResult<()> {
             std::fs::remove_file(&temp_p)?;
 
             if !up_to_date {
-                std::process::exit(1);
+                bail!("GraphQL schema is out of date");
             }
         }
         App::CheckCargoTomlDepOrder => {
@@ -1113,7 +1146,7 @@ fn main_impl() -> XtaskResult<()> {
                         eprintln!("    {dep}: {reason}");
                     }
                 }
-                std::process::exit(1);
+                bail!("Dependencies out of order");
             }
         }
         App::CheckCargoDepFromWorkspace => {
@@ -1147,7 +1180,7 @@ fn main_impl() -> XtaskResult<()> {
                         eprintln!("    {dep}");
                     }
                 }
-                std::process::exit(1);
+                bail!("Dependencies are redeclared from the workspace dependencies");
             }
         }
         App::Lint => {
@@ -1168,6 +1201,29 @@ fn main_impl() -> XtaskResult<()> {
         App::GenCiFiles => {
             for (from, to) in CI_FILES {
                 gen_ci_file(from, to)?;
+            }
+        }
+        App::CheckCiFilesUpToDate => {
+            let mut reports = vec![];
+
+            for (from, to) in CI_FILES {
+                check_ci_file(from, to, &mut reports)?;
+            }
+
+            if !reports.is_empty() {
+                eprintln!("The following CI files are out of date:");
+
+                for report in reports {
+                    let OutdatedReport { from, to, diff } = report;
+                    eprintln!("  {from} -> {to}");
+                    eprintln!("====");
+                    eprintln!("{diff}");
+                    eprintln!("====");
+                }
+
+                eprintln!("Run `cargo xtask gen-ci-files` to update them.");
+
+                bail!("CI files are out of date");
             }
         }
         App::CleanInstrumentationFiles => {

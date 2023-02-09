@@ -13,6 +13,7 @@ on {
       'rustfmt.toml'
       'clippy.toml'
       '.cargo/**'
+      '.ci/github-workflows/**'
       '.config/nextest.toml'
       '.github/workflows/test.yaml'
       'schemas/graphql/schema.graphql'
@@ -130,11 +131,25 @@ jobs {
       checkout
       install_lld
       install_rust
-      install_rustfmt
       compile_xtask
       {
         name: 'Run gql schema check'
         run: 'cargo xtask graphql-schema-check'
+      }
+    ]
+  }
+
+  ci-files-up-to-date {
+    name: 'Check whether the CI files are up-to-date'
+    runs-on: 'ubuntu-latest'
+    steps [
+      checkout
+      install_lld
+      install_rust
+      compile_xtask
+      {
+        name: 'Run ci files up to date check'
+        run: 'cargo xtask check-ci-files-up-to-date'
       }
     ]
   }
