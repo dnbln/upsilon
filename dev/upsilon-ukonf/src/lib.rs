@@ -25,7 +25,10 @@ use lalrpop_util::{lalrpop_mod, ParseError};
 use crate::ast::{AstItem, AstVal, FileId, NumLit, Spanned};
 use crate::value::{UkonfObject, UkonfValue};
 
-lalrpop_mod!(ukonf_parser);
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    ukonf_parser
+);
 
 pub mod ast;
 

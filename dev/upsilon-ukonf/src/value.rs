@@ -51,7 +51,7 @@ impl UkonfValue {
     pub(crate) fn unwrap_object(self) -> UkonfObject {
         match self {
             UkonfValue::Object(obj) => obj,
-            _ => panic!("Expected object, got {:?}", self),
+            _ => panic!("Expected object, got {self:?}"),
         }
     }
 }

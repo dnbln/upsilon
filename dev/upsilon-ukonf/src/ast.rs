@@ -177,8 +177,8 @@ impl Span {
 impl fmt::Debug for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
-            SpanInner::Physical(span) => write!(f, "{:?}", span),
-            SpanInner::Virtual(span) => write!(f, "{:?}", span),
+            SpanInner::Physical(span) => write!(f, "{span:?}"),
+            SpanInner::Virtual(span) => write!(f, "{span:?}"),
         }
     }
 }
@@ -186,8 +186,8 @@ impl fmt::Debug for Span {
 impl fmt::Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
-            SpanInner::Physical(span) => write!(f, "{}", span),
-            SpanInner::Virtual(span) => write!(f, "{:?}", span),
+            SpanInner::Physical(span) => write!(f, "{span}"),
+            SpanInner::Virtual(span) => write!(f, "{span:?}"),
         }
     }
 }
@@ -394,7 +394,7 @@ fn unquote(s: &str) -> String {
                     let code = u32::from_str_radix(&code, 16).unwrap();
                     out.push(std::char::from_u32(code).unwrap());
                 }
-                Some(c) => panic!("unknown escape sequence: \\{}", c),
+                Some(c) => panic!("unknown escape sequence: \\{c}"),
                 None => panic!("unexpected end of string"),
             }
         } else {

@@ -81,7 +81,7 @@ macro_rules! ws_glob {
     ($($p:tt)/ *) => {
         (|| -> $crate::result::XtaskResult<Vec<_>> {
             let ws_path = $crate::ws_path!($($p)/ *);
-            let ws_path_str = ws_path.to_str().ok_or_else(|| format_err!("invalid path: {:?}", ws_path))?;
+            let ws_path_str = ws_path.to_str().ok_or_else(|| format_err!("invalid path: {ws_path:?}"))?;
             let paths = $crate::glob::glob(ws_path_str)?;
             let paths = paths.collect::<Result<Vec<_>, _>>()?;
             Ok(paths)

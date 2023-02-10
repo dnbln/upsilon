@@ -93,7 +93,7 @@ impl FromArgMatches for TestGroups {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
         let mut groups = vec![];
         for (group, _, _) in KNOWN_TEST_GROUPS {
-            if matches.get_flag(*group) {
+            if matches.get_flag(group) {
                 groups.push(group.to_string());
             }
         }
@@ -236,6 +236,8 @@ enum App {
     #[clap(alias = "check")]
     #[clap(alias = "clippy")]
     Lint,
+    #[clap(name = "lint-args")]
+    LintArgs,
     #[clap(name = "ukonf-to-yaml")]
     UkonfToYaml { from: PathBuf, to: PathBuf },
     #[clap(name = "gen-ci-files")]
@@ -1194,6 +1196,12 @@ fn main_impl() -> XtaskResult<()> {
                 ...clippy_flags,
                 @workdir = ws_root!(),
             )?;
+        }
+        App::LintArgs => {
+            let cranky_config = cargo_cranky::config::CrankyConfig::get_config()?;
+            let clippy_flags = cranky_config.extra_right_args();
+
+            println!("{}", clippy_flags.join(" "));
         }
         App::UkonfToYaml { from, to } => {
             ukonf_to_yaml(from, &to, ukonf_normal_functions)?;

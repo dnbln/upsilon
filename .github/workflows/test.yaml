@@ -33,6 +33,24 @@ jobs:
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Run gql schema check
       run: cargo xtask graphql-schema-check
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install lld
+      run: sudo apt-get install -y lld
+    - name: Install openssl
+      run: sudo apt-get install -y libssl-dev
+    - name: Install rust
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+    - name: Compile xtask
+      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Lint
+      run: cargo xtask lint
   style-checks:
     name: Style checks
     runs-on: ubuntu-latest

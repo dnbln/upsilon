@@ -92,6 +92,11 @@ let run_doctests: {
   run: 'cargo xtask test --verbose --no-fail-fast --doc --profile ci'
 }
 
+let lint: {
+  name: 'Lint'
+  run: 'cargo xtask lint'
+}
+
 jobs {
   style-checks {
     name: 'Style checks'
@@ -246,6 +251,19 @@ jobs {
       compile_xtask
       compile_binaries_and_tests_with_difftests
       run_tests_with_difftests
+    ]
+  }
+
+  lint {
+    name: 'Lint'
+    runs-on: 'ubuntu-latest'
+    steps [
+        checkout
+        install_lld
+        install_openssl
+        install_rust
+        compile_xtask
+        lint
     ]
   }
 }

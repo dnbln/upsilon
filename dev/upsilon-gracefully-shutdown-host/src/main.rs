@@ -57,7 +57,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
     }
     s.parse::<u64>()
         .map(Duration::from_secs)
-        .map_err(|e| format!("Cannot parse duration: {}", e))
+        .map_err(|e| format!("Cannot parse duration: {e}"))
 }
 
 fn kill_child(child: &Child) {

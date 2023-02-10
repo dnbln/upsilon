@@ -11,6 +11,7 @@ unsafe_code = "deny"
 clippy.uninlined_format_args = "deny"
 clippy.empty_structs_with_brackets = "warn"
 clippy.cast_possible_truncation = "warn"
+clippy.explicit_auto_deref = "deny"
 
 [workspace.dependencies]
 anyhow = "1.0.66"

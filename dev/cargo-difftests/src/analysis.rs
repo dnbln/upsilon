@@ -16,7 +16,6 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
 use std::fmt;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -26,7 +25,7 @@ use std::time::SystemTime;
 use git2::{DiffDelta, DiffHunk};
 use log::{debug, info};
 
-use crate::analysis_data::{CoverageBranch, CoverageData};
+use crate::analysis_data::CoverageData;
 use crate::index_data::DifftestsSingleTestIndexData;
 use crate::{Difftest, DifftestsError, DifftestsResult};
 
