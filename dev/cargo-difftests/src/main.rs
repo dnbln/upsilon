@@ -177,18 +177,16 @@ impl IndexesTouchSameFilesReportAction {
                     Ok(())
                 }
             },
-            IndexesTouchSameFilesReportAction::Assert => {
-                match report {
-                    Ok(()) => Ok(()),
-                    Err(e) => {
-                        let s = serde_json::to_string(e.differences())?;
+            IndexesTouchSameFilesReportAction::Assert => match report {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    let s = serde_json::to_string(e.differences())?;
 
-                        eprintln!("{s}");
+                    eprintln!("{s}");
 
-                        bail!("indexes do not touch the same files")
-                    }
+                    bail!("indexes do not touch the same files")
                 }
-            }
+            },
         }
     }
 }
