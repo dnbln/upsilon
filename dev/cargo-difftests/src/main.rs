@@ -22,6 +22,7 @@ use cargo_difftests::analysis::{file_is_from_cargo_registry, AnalysisConfig, Ana
 use cargo_difftests::index_data::IndexDataCompilerConfig;
 use cargo_difftests::{DiscoveredDifftest, ExportProfdataConfig};
 use clap::{Args, Parser, ValueEnum};
+use log::warn;
 use path_slash::PathExt;
 
 #[derive(Args, Debug)]
@@ -95,6 +96,12 @@ pub enum LowLevelCommand {
         #[clap(flatten)]
         compile_test_index_flags: CompileTestIndexFlags,
     },
+    RunAnalysisWithTestIndex {
+        #[clap(long)]
+        index: PathBuf,
+        #[clap(long, default_value_t = Default::default())]
+        algo: DirtyAlgorithm,
+    },
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
@@ -140,6 +147,16 @@ pub enum App {
         #[clap(long = "bin")]
         other_binaries: Vec<PathBuf>,
     },
+    AnalyzeAll {
+        #[clap(long, default_value = "target/tmp/cargo-difftests")]
+        dir: PathBuf,
+        #[clap(long)]
+        force: bool,
+        #[clap(long, default_value_t = Default::default())]
+        algo: DirtyAlgorithm,
+        #[clap(long = "bin")]
+        other_binaries: Vec<PathBuf>,
+    },
     LowLevel {
         #[clap(subcommand)]
         cmd: LowLevelCommand,
@@ -148,13 +165,19 @@ pub enum App {
 
 pub type CargoDifftestsResult<T = ()> = anyhow::Result<T>;
 
-fn run_discover_difftests(dir: PathBuf) -> CargoDifftestsResult {
+fn discover_difftests(dir: PathBuf) -> CargoDifftestsResult<Vec<DiscoveredDifftest>> {
     if !dir.exists() || !dir.is_dir() {
-        println!("[]");
-        return Ok(());
+        warn!("Directory {} does not exist", dir.display());
+        return Ok(vec![]);
     }
 
     let discovered = cargo_difftests::discover_difftests(&dir)?;
+
+    Ok(discovered)
+}
+
+fn run_discover_difftests(dir: PathBuf) -> CargoDifftestsResult {
+    let discovered = discover_difftests(dir)?;
     let s = serde_json::to_string(&discovered)?;
     println!("{s}");
 
@@ -198,6 +221,23 @@ fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
 
     analysis_cx.run(&AnalysisConfig {
         dirty_algorithm: algo.into(),
+    })?;
+
+    let r = analysis_cx.finish_analysis();
+
+    display_analysis_result(r);
+
+    Ok(())
+}
+
+fn run_analysis_with_test_index(
+    index: PathBuf,
+    dirty_algorithm: DirtyAlgorithm,
+) -> CargoDifftestsResult {
+    let mut analysis_cx = cargo_difftests::analysis::AnalysisContext::with_index_from(&index)?;
+
+    analysis_cx.run(&AnalysisConfig {
+        dirty_algorithm: dirty_algorithm.into(),
     })?;
 
     let r = analysis_cx.finish_analysis();
@@ -277,6 +317,9 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
         } => {
             run_compile_test_index(dir, output, compile_test_index_flags)?;
         }
+        LowLevelCommand::RunAnalysisWithTestIndex { index, algo } => {
+            run_analysis_with_test_index(index, algo)?;
+        }
     }
 
     Ok(())
@@ -311,6 +354,71 @@ fn run_analyze(
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+pub struct AnalyzeAllSingleTest {
+    #[serde(flatten)]
+    discovered: DiscoveredDifftest,
+    verdict: AnalysisVerdict,
+}
+
+#[derive(serde::Serialize, Copy, Clone)]
+pub enum AnalysisVerdict {
+    #[serde(rename = "clean")]
+    Clean,
+    #[serde(rename = "dirty")]
+    Dirty,
+}
+
+impl From<AnalysisResult> for AnalysisVerdict {
+    fn from(r: AnalysisResult) -> Self {
+        match r {
+            AnalysisResult::Clean => AnalysisVerdict::Clean,
+            AnalysisResult::Dirty => AnalysisVerdict::Dirty,
+        }
+    }
+}
+
+pub fn run_analyze_all(
+    dir: PathBuf,
+    force: bool,
+    algo: DirtyAlgorithm,
+    bins: Vec<PathBuf>,
+) -> CargoDifftestsResult {
+    let discovered = discover_difftests(dir)?;
+
+    let mut results = vec![];
+
+    for mut discovered in discovered {
+        let mut has_profdata = discovered.merge_profraw_files_into_profdata(force)?;
+        let has_exported_profdata = has_profdata.export_profdata_file(ExportProfdataConfig {
+            force,
+            ignore_registry_files: true,
+            other_binaries: bins.clone(),
+            test_desc: None, // will read from `self.json`
+        })?;
+
+        let mut analysis_cx = has_exported_profdata.start_analysis()?;
+
+        analysis_cx.run(&AnalysisConfig {
+            dirty_algorithm: algo.into(),
+        })?;
+
+        let r = analysis_cx.finish_analysis();
+
+        let result = AnalyzeAllSingleTest {
+            discovered,
+            verdict: r.into(),
+        };
+
+        results.push(result);
+    }
+
+    let out_json = serde_json::to_string(&results)?;
+    println!("{out_json}");
+
+    Ok(())
+}
+
 fn main_impl() -> CargoDifftestsResult {
     pretty_env_logger::init_custom_env("CARGO_DIFFTESTS_LOG");
     let app = App::parse();
@@ -326,6 +434,14 @@ fn main_impl() -> CargoDifftestsResult {
             other_binaries,
         } => {
             run_analyze(dir, force, algo, other_binaries)?;
+        }
+        App::AnalyzeAll {
+            dir,
+            force,
+            algo,
+            other_binaries,
+        } => {
+            run_analyze_all(dir, force, algo, other_binaries)?;
         }
         App::LowLevel { cmd } => {
             run_low_level_cmd(cmd)?;

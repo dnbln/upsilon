@@ -15,9 +15,11 @@
  */
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::analysis_data::CoverageData;
 use crate::{DifftestsResult, DiscoveredDifftest};
@@ -69,6 +71,7 @@ impl From<IndexRegion> for IndexRegionSerDe {
 pub struct DifftestsSingleTestIndexData {
     pub regions: Vec<IndexRegion>,
     pub files: Vec<PathBuf>,
+    pub test_run: chrono::DateTime<chrono::Utc>,
 }
 
 impl DifftestsSingleTestIndexData {
@@ -77,10 +80,10 @@ impl DifftestsSingleTestIndexData {
         profdata: CoverageData,
         mut index_data_compiler_config: IndexDataCompilerConfig,
     ) -> DifftestsResult<Self> {
-        let _ = difftest;
         let mut index_data = Self {
             regions: vec![],
             files: vec![],
+            test_run: difftest.self_json.metadata()?.modified()?.into(),
         };
 
         let mut mapping_files = BTreeMap::<PathBuf, usize>::new();
@@ -128,6 +131,10 @@ impl DifftestsSingleTestIndexData {
         let mut writer = BufWriter::new(&mut file);
         serde_json::to_writer(&mut writer, self)?;
         Ok(())
+    }
+
+    pub fn read_from_file(path: &Path) -> DifftestsResult<Self> {
+        Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
     }
 }
 

@@ -21,34 +21,65 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::time::SystemTime;
 
 use git2::{DiffDelta, DiffHunk};
 use log::{debug, info};
 
 use crate::analysis_data::{CoverageBranch, CoverageData};
+use crate::index_data::DifftestsSingleTestIndexData;
 use crate::{DifftestsError, DifftestsResult, DiscoveredDifftest};
 
+enum AnalysisContextInternal<'r> {
+    DifftestWithCoverageData {
+        difftest: &'r mut DiscoveredDifftest,
+        profdata: CoverageData,
+    },
+    IndexData {
+        index: DifftestsSingleTestIndexData,
+    },
+}
+
 pub struct AnalysisContext<'r> {
-    difftest: &'r mut DiscoveredDifftest,
-    profdata: CoverageData,
+    internal: AnalysisContextInternal<'r>,
     result: AnalysisResult,
+}
+
+impl AnalysisContext<'static> {
+    pub fn from_index(index: DifftestsSingleTestIndexData) -> Self {
+        Self {
+            internal: AnalysisContextInternal::IndexData { index },
+            result: AnalysisResult::Clean,
+        }
+    }
+
+    pub fn with_index_from(p: &Path) -> DifftestsResult<Self> {
+        let index = DifftestsSingleTestIndexData::read_from_file(p)?;
+
+        Ok(Self::from_index(index))
+    }
 }
 
 impl<'r> AnalysisContext<'r> {
     pub(crate) fn new(difftest: &'r mut DiscoveredDifftest, profdata: CoverageData) -> Self {
         Self {
-            difftest,
-            profdata,
+            internal: AnalysisContextInternal::DifftestWithCoverageData { difftest, profdata },
             result: AnalysisResult::Clean,
         }
     }
 
-    pub fn get_profdata(&self) -> &CoverageData {
-        &self.profdata
+    pub fn get_profdata(&self) -> Option<&CoverageData> {
+        match &self.internal {
+            AnalysisContextInternal::DifftestWithCoverageData { profdata, .. } => Some(profdata),
+            AnalysisContextInternal::IndexData { .. } => None,
+        }
     }
 
-    pub fn get_difftest(&self) -> &DiscoveredDifftest {
-        self.difftest
+    pub fn get_difftest(&self) -> Option<&DiscoveredDifftest> {
+        match &self.internal {
+            AnalysisContextInternal::DifftestWithCoverageData { difftest, .. } => Some(difftest),
+            AnalysisContextInternal::IndexData { .. } => None,
+        }
     }
 
     pub fn finish_analysis(self) -> AnalysisResult {
@@ -58,6 +89,130 @@ impl<'r> AnalysisContext<'r> {
 
         r
     }
+
+    fn test_run_at(&self) -> DifftestsResult<SystemTime> {
+        match &self.internal {
+            AnalysisContextInternal::DifftestWithCoverageData { difftest, .. } => {
+                Ok(difftest.self_json.metadata()?.modified()?)
+            }
+            AnalysisContextInternal::IndexData { index } => Ok(index.test_run.into()),
+        }
+    }
+
+    pub fn regions(&self) -> AnalysisRegions<'_> {
+        AnalysisRegions {
+            cx: self,
+            regions_iter_state: match self.internal {
+                AnalysisContextInternal::DifftestWithCoverageData { .. } => {
+                    RegionsIterState::CoverageData {
+                        mapping_idx: 0,
+                        function_idx: 0,
+                        region_idx: 0,
+                    }
+                }
+                AnalysisContextInternal::IndexData { .. } => {
+                    RegionsIterState::IndexData { region_idx: 0 }
+                }
+            },
+        }
+    }
+}
+
+pub struct AnalysisRegions<'r> {
+    cx: &'r AnalysisContext<'r>,
+    regions_iter_state: RegionsIterState,
+}
+
+enum RegionsIterState {
+    CoverageData {
+        mapping_idx: usize,
+        function_idx: usize,
+        region_idx: usize,
+    },
+    IndexData {
+        region_idx: usize,
+    },
+}
+
+impl<'r> Iterator for AnalysisRegions<'r> {
+    type Item = AnalysisRegion<'r>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &self.cx.internal {
+            AnalysisContextInternal::DifftestWithCoverageData { profdata, .. } => {
+                let RegionsIterState::CoverageData { region_idx, mapping_idx, function_idx} = &mut self.regions_iter_state else {
+                    panic!("Invalid state");
+                };
+
+                if *mapping_idx >= profdata.data.len() {
+                    return None;
+                }
+
+                let mapping = &profdata.data[*mapping_idx];
+
+                if *function_idx >= mapping.functions.len() {
+                    *mapping_idx += 1;
+                    *function_idx = 0;
+                    *region_idx = 0;
+                    return self.next();
+                }
+
+                let function = &mapping.functions[*function_idx];
+
+                if *region_idx >= function.regions.len() {
+                    *function_idx += 1;
+                    *region_idx = 0;
+                    return self.next();
+                }
+
+                let region = &function.regions[*region_idx];
+
+                let r = AnalysisRegion {
+                    l1: region.l1,
+                    c1: region.c1,
+                    l2: region.l2,
+                    c2: region.c2,
+                    execution_count: region.execution_count,
+                    file_ref: &function.filenames[region.file_id],
+                };
+
+                *region_idx += 1;
+                Some(r)
+            }
+            AnalysisContextInternal::IndexData { index } => {
+                let RegionsIterState::IndexData { region_idx } = &mut self.regions_iter_state else {
+                    panic!("Invalid state");
+                };
+
+                if *region_idx >= index.regions.len() {
+                    return None;
+                }
+
+                let region = &index.regions[*region_idx];
+
+                let r = AnalysisRegion {
+                    l1: region.l1,
+                    c1: region.c1,
+                    l2: region.l2,
+                    c2: region.c2,
+                    execution_count: region.count,
+                    file_ref: &index.files[region.file_id],
+                };
+
+                *region_idx += 1;
+                Some(r)
+            }
+        }
+    }
+}
+
+pub struct AnalysisRegion<'r> {
+    pub l1: usize,
+    pub c1: usize,
+    pub l2: usize,
+    pub c2: usize,
+    pub execution_count: usize,
+    pub file_ref: &'r Path,
 }
 
 #[derive(Debug, Clone)]
@@ -97,57 +252,15 @@ pub fn file_is_from_cargo_registry(f: &Path) -> bool {
 }
 
 pub fn test_touched_files(cx: &AnalysisContext, include_registry_files: bool) -> BTreeSet<PathBuf> {
-    let pd = cx.get_profdata();
-
-    fn any_branch_executed(b: &[CoverageBranch]) -> bool {
-        b.iter().any(|it| it.execution_count > 0)
-    }
-
-    let mut test_touched_files = BTreeSet::new();
-
-    for mapping in &pd.data {
-        for function in &mapping.functions {
-            let function_executed = function.count > 0;
-
-            if !function_executed {
-                continue;
-            }
-
-            for f in &function.filenames {
-                if file_is_from_cargo_registry(f) && !include_registry_files {
-                    continue;
-                }
-
-                test_touched_files.insert(f.clone());
-            }
-        }
-
-        for file in &mapping.files {
-            let file_touched_branches = any_branch_executed(&file.branches);
-            let file_touched_expansions = file
-                .expansions
-                .iter()
-                .any(|it| any_branch_executed(&it.branches));
-            let file_touched_segments = file.segments.iter().any(|it| it.count > 0);
-
-            if !file_touched_branches && !file_touched_expansions && !file_touched_segments {
-                continue;
-            }
-
-            if file_is_from_cargo_registry(&file.filename) && !include_registry_files {
-                continue;
-            }
-
-            test_touched_files.insert(file.filename.clone());
-        }
-    }
-
-    test_touched_files
+    cx.regions()
+        .filter(|it| it.execution_count > 0)
+        .map(|it| it.file_ref.to_path_buf())
+        .filter(|it| include_registry_files || !file_is_from_cargo_registry(it))
+        .collect::<BTreeSet<PathBuf>>()
 }
 
 pub fn file_system_mtime_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult> {
-    let pd = &cx.profdata;
-    let test_run_time = cx.difftest.self_json.metadata()?.modified()?;
+    let test_run_time = cx.test_run_at()?;
 
     let test_touched_files = test_touched_files(cx, false);
 
@@ -290,43 +403,19 @@ impl Diff {
 }
 
 pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult> {
-    let pd = &cx.profdata;
-
     let repo = git2::Repository::open_from_env()?;
     let head = repo.head()?.peel_to_tree()?;
 
     let mut diff_options = git2::DiffOptions::new();
-    diff_options.include_untracked(true);
-    diff_options.include_ignored(true);
-    diff_options.include_unmodified(false);
-    diff_options.include_typechange_trees(false);
-    diff_options.include_typechange(true);
-    diff_options.recurse_untracked_dirs(true);
-    diff_options.recurse_ignored_dirs(true);
 
     let diff = repo.diff_tree_to_workdir(Some(&head), Some(&mut diff_options))?;
 
     let analysis_result = Rc::new(RefCell::new(AnalysisResult::Clean));
 
     let mut file_cb = {
-        let analysis_result = Rc::clone(&analysis_result);
+        // let analysis_result = Rc::clone(&analysis_result);
 
-        move |delta: DiffDelta, _progress: f32| {
-            let Some(path) = delta.old_file().path().or_else(|| delta.new_file().path()) else {
-                return true;
-            };
-
-            for mapping in &pd.data {
-                for file in &mapping.files {
-                    if file.filename.ends_with(path) {
-                        *analysis_result.borrow_mut() = AnalysisResult::Dirty;
-                        return false;
-                    }
-                }
-            }
-
-            true
-        }
+        |_delta: DiffDelta, _progress: f32| true
     };
 
     let mut hunk_cb = {
@@ -347,20 +436,12 @@ pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult
                 return true;
             };
 
-            for mapping in &pd.data {
-                for file in &mapping.files {
-                    if !file.filename.ends_with(path) {
-                        continue;
-                    }
-
-                    for branch in &file.branches {
-                        if LineRange::<LineRangeValidConstraint>::new(branch.l1, branch.l2)
-                            .intersects(&intersection_target)
-                        {
-                            *analysis_result.borrow_mut() = AnalysisResult::Dirty;
-                            return false;
-                        }
-                    }
+            for region in cx.regions().filter(|region| path.ends_with(region.file_ref) || region.file_ref.ends_with(path)) {
+                if LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2)
+                    .intersects(&intersection_target)
+                {
+                    *analysis_result.borrow_mut() = AnalysisResult::Dirty;
+                    return false;
                 }
             }
 
@@ -373,6 +454,8 @@ pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult
     if let Err(e) = git_r {
         if e.code() != git2::ErrorCode::User {
             return Err(DifftestsError::Git(e));
+        } else {
+            debug_assert_eq!(*analysis_result.borrow(), AnalysisResult::Dirty);
         }
     }
 

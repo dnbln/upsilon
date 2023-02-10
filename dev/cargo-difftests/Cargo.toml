@@ -10,6 +10,7 @@ license = "Apache-2.0"
 [dependencies]
 anyhow.workspace = true
 cargo-difftests-core.workspace = true
+chrono.workspace = true
 clap.workspace = true
 git2.workspace = true
 log.workspace = true

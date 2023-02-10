@@ -481,6 +481,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "cargo-difftests-core",
+ "chrono",
  "clap 4.1.4",
  "git2",
  "log",
