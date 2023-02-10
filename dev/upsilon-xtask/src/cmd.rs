@@ -264,6 +264,21 @@ macro_rules! cargo_cmd {
     };
 }
 
+#[macro_export]
+macro_rules! cargo_cmd_output {
+    ($($args:tt)*) => {
+        {
+            let __cargo_path = $crate::cmd::cargo_path();
+            let __cargo_build_profile_file_name = $crate::cmd::cargo_build_profile_file_name();
+            $crate::cmd_output_string!(
+                __cargo_path,
+                @env "LLVM_PROFILE_FILE" => __cargo_build_profile_file_name,
+                $($args)*
+            )
+        }
+    };
+}
+
 pub fn cargo_build_profiles_dir() -> PathBuf {
     crate::ws_path!("target" / "profiles")
 }

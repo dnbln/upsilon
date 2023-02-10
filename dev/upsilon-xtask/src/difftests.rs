@@ -14,92 +14,91 @@
  *    limitations under the License.
  */
 
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-
+use cargo_difftests::{AnalysisVerdict, AnalyzeAllSingleTest};
 use clap::Parser;
-use log::info;
 
-use crate::{cmd_call, cmd_output_pipe_to_file, cmd_output_string, cmd_process, XtaskResult};
+use crate::{
+    cmd_call, cmd_output_pipe_to_file, cmd_output_string, cmd_process, ws_bin_path, ws_path, XtaskResult
+};
 
 #[derive(Parser, Debug)]
 pub enum DiffTestsCommand {
-    #[clap(name = "compile-profdata")]
-    CompileProfdata {
-        /// The directory containing the .profraw files,
-        /// passed as tempdir to `upsilon_difftests_testclient::init`.
-        tempdir: PathBuf,
-    },
-    #[clap(name = "export-coverage")]
-    ExportCoverage {
-        /// The directory containing the .profraw files,
-        /// passed as tempdir to `upsilon_difftests_testclient::init`.
-        tempdir: PathBuf,
-        /// The binary to export coverage for.
-        binary: PathBuf,
-        /// The name of the coverage file to generate.
-        #[clap(default_value = "coverage.json")]
-        coverage_file_name: String,
-    },
+    #[clap(name = "print-tests-to-rerun")]
+    PrintTestsToRerun,
 }
 
-pub fn compile_profdata(tempdir: &Path) -> XtaskResult<()> {
-    let mut profraw_files = vec![];
-
-    for p in tempdir.read_dir()? {
-        let p = p?;
-        if p.path().extension() == Some(OsStr::new("profraw")) {
-            profraw_files.push(p.path());
-        }
-    }
-
-    info!(
-        "Merging {} .profraw files into coverage.profdata",
-        profraw_files.len(),
-    );
-
-    let target_file = tempdir.join("coverage.profdata");
-
-    cmd_call!("rust-profdata", "merge", "-sparse", ...profraw_files, "-o", target_file)?;
-
-    Ok(())
+macro_rules! difftests_cmd {
+    ($($args:tt)*) => {
+        $crate::cargo_cmd!(
+            "run",
+            "-p", "cargo-difftests",
+            "--bin", "cargo-difftests",
+            "--",
+            $($args)*
+        )
+    };
 }
 
-pub fn export_coverage(
-    tempdir: &Path,
-    binary: &Path,
-    coverage_file_name: String,
-) -> XtaskResult<()> {
-    let target_file = tempdir.join("coverage.profdata");
+macro_rules! difftests_cmd_output {
+    ($($args:tt)*) => {
+        $crate::cargo_cmd_output!(
+            "run",
+            "-p", "cargo-difftests",
+            "--bin", "cargo-difftests",
+            "--",
+            $($args)*
+        )
+    };
+}
 
-    #[cfg(not(windows))]
-    const REGISTRY_FILES_REGEX: &str = r"/.cargo/registry";
-
-    #[cfg(windows)]
-    const REGISTRY_FILES_REGEX: &str = r#"\\.cargo\\registry"#;
-
-    let coverage_file = tempdir.join(coverage_file_name);
-    cmd_output_pipe_to_file!(
-        @coverage_file,
-        "rust-cov",
-        "export",
-        "-instr-profile",
-        target_file,
-        binary,
-        "--ignore-filename-regex",
-        REGISTRY_FILES_REGEX,
+fn analyze_all() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    let output = difftests_cmd_output!(
+        "analyze-all",
+        "--dir",
+        ws_path!("target" / "tmp" / "upsilon-difftests"),
+        "--bin",
+        ws_bin_path!(profile = "difftests", name = "upsilon-web"),
+        "--bin",
+        ws_bin_path!(
+            profile = "difftests",
+            name = "upsilon-gracefully-shutdown-host"
+        ),
+        "--index-root",
+        ws_path!("tests" / "difftests-index-root"),
+        "--index-strategy",
+        "always",
     )?;
+
+    let tests = serde_json::from_str::<Vec<AnalyzeAllSingleTest>>(&output)?;
+
+    Ok(tests)
+}
+
+fn tests_to_rerun() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    Ok(analyze_all()?
+        .into_iter()
+        .filter(|it| it.verdict == AnalysisVerdict::Dirty)
+        .collect())
+}
+
+fn print_tests_to_rerun() -> XtaskResult<()> {
+    let to_rerun = tests_to_rerun()?
+        .into_iter()
+        .map(|it| it.test_desc)
+        .collect::<Vec<_>>();
+
+    let s = serde_json::to_string(&to_rerun)?;
+    println!("{s}");
 
     Ok(())
 }
 
 pub fn run(command: DiffTestsCommand) -> XtaskResult<()> {
     match command {
-        DiffTestsCommand::CompileProfdata { tempdir } => compile_profdata(&tempdir),
-        DiffTestsCommand::ExportCoverage {
-            tempdir,
-            binary,
-            coverage_file_name,
-        } => export_coverage(&tempdir, &binary, coverage_file_name),
+        DiffTestsCommand::PrintTestsToRerun => {
+            print_tests_to_rerun()?;
+        }
     }
+
+    Ok(())
 }

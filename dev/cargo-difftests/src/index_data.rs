@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::analysis_data::CoverageData;
-use crate::{DifftestsResult, DiscoveredDifftest};
+use crate::{Difftest, DifftestsResult};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -76,7 +76,7 @@ pub struct DifftestsSingleTestIndexData {
 
 impl DifftestsSingleTestIndexData {
     pub fn index(
-        difftest: &DiscoveredDifftest,
+        difftest: &Difftest,
         profdata: CoverageData,
         mut index_data_compiler_config: IndexDataCompilerConfig,
     ) -> DifftestsResult<Self> {

@@ -24,7 +24,7 @@ use cargo_difftests::analysis::{
 };
 use cargo_difftests::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
 use cargo_difftests::{
-    DiscoverIndexPathResolver, DiscoveredDifftest, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
+    AnalyzeAllSingleTest, Difftest, DiscoverIndexPathResolver, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
 };
 use cargo_difftests_core::CoreTestDesc;
 use clap::{Args, Parser, ValueEnum};
@@ -61,7 +61,11 @@ impl Display for FlattenFilesTarget {
 
 #[derive(Args, Debug, Copy, Clone)]
 pub struct CompileTestIndexFlags {
-    #[clap(long = "no-ignore-cargo-registry", default_value_t = true, action(clap::ArgAction::SetFalse))]
+    #[clap(
+        long = "no-ignore-cargo-registry",
+        default_value_t = true,
+        action(clap::ArgAction::SetFalse)
+    )]
     ignore_cargo_registry: bool,
     #[clap(long)]
     flatten_files_to: Option<FlattenFilesTarget>,
@@ -334,7 +338,7 @@ fn discover_difftests(
     dir: PathBuf,
     index_root: Option<PathBuf>,
     ignore_incompatible: bool,
-) -> CargoDifftestsResult<Vec<DiscoveredDifftest>> {
+) -> CargoDifftestsResult<Vec<Difftest>> {
     if !dir.exists() || !dir.is_dir() {
         warn!("Directory {} does not exist", dir.display());
         return Ok(vec![]);
@@ -362,7 +366,7 @@ fn run_discover_difftests(
 
 fn run_merge_profdata(dir: PathBuf, force: bool) -> CargoDifftestsResult {
     // we do not need the index resolver here, because we are not going to use the index
-    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
+    let mut discovered = Difftest::discover_from(dir, None)?;
 
     discovered.merge_profraw_files_into_profdata(force)?;
 
@@ -371,7 +375,7 @@ fn run_merge_profdata(dir: PathBuf, force: bool) -> CargoDifftestsResult {
 
 fn run_export_profdata(dir: PathBuf, cmd: ExportProfdataCommand) -> CargoDifftestsResult {
     // we do not need the index resolver here, because we are not going to use the index
-    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
+    let mut discovered = Difftest::discover_from(dir, None)?;
 
     let has_profdata = discovered.assert_has_profdata();
     has_profdata.export_profdata_file(ExportProfdataConfig {
@@ -394,7 +398,7 @@ fn display_analysis_result(r: AnalysisResult) {
 }
 
 fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
+    let mut discovered = Difftest::discover_from(dir, None)?;
     let mut analysis_cx = discovered.assert_has_exported_profdata().start_analysis()?;
 
     analysis_cx.run(&AnalysisConfig {
@@ -473,7 +477,7 @@ fn run_compile_test_index(
     output: PathBuf,
     compile_test_index_flags: CompileTestIndexFlags,
 ) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
+    let mut discovered = Difftest::discover_from(dir, None)?;
     let exported_profdata = discovered.assert_has_exported_profdata();
 
     let config = compile_test_index_config(compile_test_index_flags)?;
@@ -534,7 +538,7 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
 }
 
 fn analyze_single_test(
-    difftest: &mut DiscoveredDifftest,
+    difftest: &mut Difftest,
     force: bool,
     algo: DirtyAlgorithm,
     bins: Vec<PathBuf>,
@@ -625,10 +629,10 @@ fn run_analyze(
 ) -> CargoDifftestsResult {
     let resolver = analysis_index.index_resolver(root)?;
 
-    let mut discovered = DiscoveredDifftest::discover_from(dir, resolver.as_ref())?;
+    let mut difftest = Difftest::discover_from(dir, resolver.as_ref())?;
 
     let r = analyze_single_test(
-        &mut discovered,
+        &mut difftest,
         force,
         algo,
         bins,
@@ -639,30 +643,6 @@ fn run_analyze(
     display_analysis_result(r);
 
     Ok(())
-}
-
-#[derive(serde::Serialize)]
-pub struct AnalyzeAllSingleTest {
-    difftest: DiscoveredDifftest,
-    test_desc: CoreTestDesc,
-    verdict: AnalysisVerdict,
-}
-
-#[derive(serde::Serialize, Copy, Clone)]
-pub enum AnalysisVerdict {
-    #[serde(rename = "clean")]
-    Clean,
-    #[serde(rename = "dirty")]
-    Dirty,
-}
-
-impl From<AnalysisResult> for AnalysisVerdict {
-    fn from(r: AnalysisResult) -> Self {
-        match r {
-            AnalysisResult::Clean => AnalysisVerdict::Clean,
-            AnalysisResult::Dirty => AnalysisVerdict::Dirty,
-        }
-    }
 }
 
 pub fn run_analyze_all(
@@ -679,9 +659,9 @@ pub fn run_analyze_all(
 
     let mut results = vec![];
 
-    for mut discovered in discovered {
+    for mut difftest in discovered {
         let r = analyze_single_test(
-            &mut discovered,
+            &mut difftest,
             force,
             algo,
             bins.clone(),
@@ -690,8 +670,8 @@ pub fn run_analyze_all(
         )?;
 
         let result = AnalyzeAllSingleTest {
-            test_desc: discovered.load_test_desc()?,
-            difftest: discovered,
+            test_desc: difftest.load_test_desc()?,
+            difftest,
             verdict: r.into(),
         };
 

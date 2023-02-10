@@ -23,13 +23,13 @@ use std::process::Command;
 use cargo_difftests_core::CoreTestDesc;
 use log::{debug, info, warn};
 
-use crate::analysis::AnalysisContext;
+use crate::analysis::{AnalysisContext, AnalysisResult};
 use crate::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
 
 pub mod analysis_data;
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct DiscoveredDifftest {
+pub struct Difftest {
     dir: PathBuf,
     self_profraw: PathBuf,
     other_profraws: Vec<PathBuf>,
@@ -39,7 +39,7 @@ pub struct DiscoveredDifftest {
     index_data: Option<PathBuf>,
 }
 
-impl DiscoveredDifftest {
+impl Difftest {
     pub fn dir(&self) -> &Path {
         &self.dir
     }
@@ -57,11 +57,11 @@ pub struct ExportProfdataConfig {
 }
 
 pub struct HasProfdata<'r> {
-    difftest: &'r mut DiscoveredDifftest,
+    difftest: &'r mut Difftest,
 }
 
 pub struct HasExportedProfdata<'r> {
-    difftest: &'r mut DiscoveredDifftest,
+    difftest: &'r mut Difftest,
 }
 
 impl<'r> HasExportedProfdata<'r> {
@@ -216,7 +216,7 @@ impl<'r> HasProfdata<'r> {
     }
 }
 
-impl DiscoveredDifftest {
+impl Difftest {
     pub fn load_test_desc(&self) -> DifftestsResult<CoreTestDesc> {
         let s = fs::read_to_string(&self.self_json)?;
         let desc = serde_json::from_str(&s)
@@ -369,7 +369,7 @@ fn discover_difftest_from_tempdir(
     dir: PathBuf,
     self_json: PathBuf,
     index_resolver: Option<&DiscoverIndexPathResolver>,
-) -> DifftestsResult<DiscoveredDifftest> {
+) -> DifftestsResult<Difftest> {
     let self_profraw = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
 
     if !self_profraw.exists() {
@@ -469,7 +469,7 @@ fn discover_difftest_from_tempdir(
         }
     };
 
-    Ok(DiscoveredDifftest {
+    Ok(Difftest {
         dir,
         self_profraw,
         other_profraws,
@@ -482,7 +482,7 @@ fn discover_difftest_from_tempdir(
 
 fn discover_difftests_to_vec(
     dir: &Path,
-    discovered: &mut Vec<DiscoveredDifftest>,
+    discovered: &mut Vec<Difftest>,
     ignore_incompatible: bool,
     index_resolver: Option<&DiscoverIndexPathResolver>,
 ) -> DifftestsResult {
@@ -515,7 +515,7 @@ pub fn discover_difftests(
     dir: &Path,
     ignore_incompatible: bool,
     index_resolver: Option<&DiscoverIndexPathResolver>,
-) -> DifftestsResult<Vec<DiscoveredDifftest>> {
+) -> DifftestsResult<Vec<Difftest>> {
     let mut discovered = Vec::new();
 
     discover_difftests_to_vec(dir, &mut discovered, ignore_incompatible, index_resolver)?;
@@ -570,4 +570,28 @@ pub enum TouchSameFilesDifference {
     TouchedByFirstOnly(PathBuf),
     #[serde(rename = "second_only")]
     TouchedBySecondOnly(PathBuf),
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct AnalyzeAllSingleTest {
+    pub difftest: Difftest,
+    pub test_desc: CoreTestDesc,
+    pub verdict: AnalysisVerdict,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum AnalysisVerdict {
+    #[serde(rename = "clean")]
+    Clean,
+    #[serde(rename = "dirty")]
+    Dirty,
+}
+
+impl From<AnalysisResult> for AnalysisVerdict {
+    fn from(r: AnalysisResult) -> Self {
+        match r {
+            AnalysisResult::Clean => AnalysisVerdict::Clean,
+            AnalysisResult::Dirty => AnalysisVerdict::Dirty,
+        }
+    }
 }

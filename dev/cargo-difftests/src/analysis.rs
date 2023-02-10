@@ -28,11 +28,11 @@ use log::{debug, info};
 
 use crate::analysis_data::{CoverageBranch, CoverageData};
 use crate::index_data::DifftestsSingleTestIndexData;
-use crate::{DifftestsError, DifftestsResult, DiscoveredDifftest};
+use crate::{Difftest, DifftestsError, DifftestsResult};
 
 enum AnalysisContextInternal<'r> {
     DifftestWithCoverageData {
-        difftest: &'r mut DiscoveredDifftest,
+        difftest: &'r mut Difftest,
         profdata: CoverageData,
     },
     IndexData {
@@ -59,7 +59,7 @@ impl AnalysisContext<'static> {
         Ok(Self::from_index(index))
     }
 
-    pub fn with_index_from_difftest(difftest: &DiscoveredDifftest) -> DifftestsResult<Self> {
+    pub fn with_index_from_difftest(difftest: &Difftest) -> DifftestsResult<Self> {
         let Some(index_data) = difftest.index_data.as_ref() else {
             panic!("Difftest does not have index data")
         };
@@ -71,7 +71,7 @@ impl AnalysisContext<'static> {
 }
 
 impl<'r> AnalysisContext<'r> {
-    pub(crate) fn new(difftest: &'r mut DiscoveredDifftest, profdata: CoverageData) -> Self {
+    pub(crate) fn new(difftest: &'r mut Difftest, profdata: CoverageData) -> Self {
         Self {
             internal: AnalysisContextInternal::DifftestWithCoverageData { difftest, profdata },
             result: AnalysisResult::Clean,
@@ -85,7 +85,7 @@ impl<'r> AnalysisContext<'r> {
         }
     }
 
-    pub fn get_difftest(&self) -> Option<&DiscoveredDifftest> {
+    pub fn get_difftest(&self) -> Option<&Difftest> {
         match &self.internal {
             AnalysisContextInternal::DifftestWithCoverageData { difftest, .. } => Some(difftest),
             AnalysisContextInternal::IndexData { .. } => None,
@@ -319,7 +319,11 @@ where
 
     pub fn try_new(start: usize, end: usize) -> Option<Self> {
         if C::validate(start, end) {
-            Some(Self::new(start, end))
+            Some(Self {
+                start,
+                end,
+                _constraint: PhantomData,
+            })
         } else {
             None
         }

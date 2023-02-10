@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 cargo-cranky.workspace = true
+cargo-difftests.workspace = true
 clap = { workspace = true, features = ["string"] }
 fs_extra.workspace = true
 git2.workspace = true

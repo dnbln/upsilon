@@ -588,7 +588,7 @@ impl MutationRoot {
     ) -> FieldResult<OrganizationRef> {
         let auth = context.auth.as_ref().ok_or(Error::Unauthorized)?;
 
-        let org = upsilon_models::organization::Organization {
+        let org = Organization {
             id: OrganizationId::new(),
             owner: auth.claims.sub,
             name,
@@ -1007,7 +1007,7 @@ impl RepoRef {
     }
 }
 
-struct OrganizationRef(upsilon_models::organization::Organization);
+struct OrganizationRef(Organization);
 
 #[graphql_object(name = "Organization", context = GraphQLContext)]
 impl OrganizationRef {
