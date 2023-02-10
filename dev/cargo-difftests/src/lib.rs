@@ -296,7 +296,7 @@ impl DiscoveredDifftest {
         dir: PathBuf,
         index_resolver: Option<&DiscoverIndexPathResolver>,
     ) -> DifftestsResult<Self> {
-        let self_json = dir.join("self.json");
+        let self_json = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME);
 
         if !self_json.exists() || !self_json.is_file() {
             return Err(DifftestsError::SelfJsonDoesNotExist(self_json));
@@ -369,7 +369,7 @@ fn discover_difftest_from_tempdir(
     self_json: PathBuf,
     index_resolver: Option<&DiscoverIndexPathResolver>,
 ) -> DifftestsResult<DiscoveredDifftest> {
-    let self_profraw = dir.join("self.profraw");
+    let self_profraw = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
 
     if !self_profraw.exists() {
         return Err(DifftestsError::SelfProfrawDoesNotExist(self_profraw));
@@ -407,7 +407,12 @@ fn discover_difftest_from_tempdir(
         let file_name = p.file_name();
         let ext = p.extension();
 
-        if ext == Some(OsStr::new("profraw")) && file_name != Some(OsStr::new("self.profraw")) {
+        if ext == Some(OsStr::new("profraw"))
+            && file_name
+                != Some(OsStr::new(
+                    cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME,
+                ))
+        {
             other_profraws.push(p);
             continue;
         }
@@ -417,10 +422,10 @@ fn discover_difftest_from_tempdir(
                 profdata_file = Some(p);
             } else {
                 warn!(
-                    "multiple profdata files found in difftest directory: {:?}",
-                    dir
+                    "multiple profdata files found in difftest directory: {}",
+                    dir.display()
                 );
-                warn!("ignoring: {:?}", p);
+                warn!("ignoring: {}", p.display());
             }
             continue;
         }
@@ -448,7 +453,8 @@ fn discover_difftest_from_tempdir(
 
                 if ind.metadata()?.modified()? < self_json.metadata()?.modified()? {
                     warn!(
-                        "index data file is older than self.json: {} older than {}",
+                        "index data file is older than {}: {} older than {}",
+                        cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME,
                         ind.display(),
                         self_json.display()
                     );
@@ -479,7 +485,7 @@ fn discover_difftests_to_vec(
     ignore_incompatible: bool,
     index_resolver: Option<&DiscoverIndexPathResolver>,
 ) -> DifftestsResult {
-    let self_json = dir.join("self.json");
+    let self_json = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME);
     if self_json.exists() && self_json.is_file() {
         let r = discover_difftest_from_tempdir(dir.to_path_buf(), self_json, index_resolver);
 
