@@ -61,7 +61,7 @@ impl Display for FlattenFilesTarget {
 
 #[derive(Args, Debug, Copy, Clone)]
 pub struct CompileTestIndexFlags {
-    #[clap(long)]
+    #[clap(long = "no-ignore-cargo-registry", default_value_t = true, action(clap::ArgAction::SetFalse))]
     ignore_cargo_registry: bool,
     #[clap(long)]
     flatten_files_to: Option<FlattenFilesTarget>,
