@@ -27,3 +27,8 @@ pub struct CoreTestDesc {
 
     pub other_fields: HashMap<String, String>,
 }
+
+pub const CARGO_DIFFTESTS_VERSION_FILENAME: &str = "cargo_difftests_version";
+pub const CARGO_DIFFTESTS_SELF_JSON_FILENAME: &str = "self.json";
+pub const CARGO_DIFFTESTS_SELF_PROFILE_FILENAME: &str = "self.profraw";
+pub const CARGO_DIFFTESTS_OTHER_PROFILE_FILENAME_TEMPLATE: &str = "%m_%p.profraw";

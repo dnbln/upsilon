@@ -56,7 +56,7 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
     }
     std::fs::create_dir_all(tmpdir)?;
 
-    let self_profile_file = tmpdir.join("self.profraw");
+    let self_profile_file = tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
 
     let self_profile_file_str = self_profile_file.to_str().unwrap();
 
@@ -66,9 +66,9 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
         __llvm_profile_set_filename(self_profile_file_str_c.as_ptr());
     }
 
-    let self_info_path = tmpdir.join("self.json");
+    let self_info_path = tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME);
 
-    let mut core_test_desc = CoreTestDesc {
+    let core_test_desc = CoreTestDesc {
         pkg_name: desc.pkg_name,
         crate_name: desc.crate_name,
         bin_name: desc.bin_name,
@@ -77,17 +77,14 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
         other_fields: desc.other_fields,
     };
 
-    core_test_desc.other_fields.insert(
-        "CARGO_DIFFTESTS_VERSION".into(),
-        env!("CARGO_PKG_VERSION").into(),
-    );
-
     let self_info = serde_json::to_string(&core_test_desc).unwrap();
 
     std::fs::write(self_info_path, self_info)?;
 
+    std::fs::write(tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_VERSION_FILENAME), env!("CARGO_PKG_VERSION"))?;
+
     // and for children
-    let profraw_path = tmpdir.join("%m_%p.profraw");
+    let profraw_path = tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_OTHER_PROFILE_FILENAME_TEMPLATE);
     Ok(DifftestsEnv {
         llvm_profile_file_name: "LLVM_PROFILE_FILE".into(),
         llvm_profile_file_value: profraw_path.into(),

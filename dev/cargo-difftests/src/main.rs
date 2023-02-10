@@ -15,12 +15,16 @@
  */
 
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use cargo_difftests::analysis::{file_is_from_cargo_registry, AnalysisConfig, AnalysisResult};
+use cargo_difftests::analysis::{
+    file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult
+};
 use cargo_difftests::index_data::IndexDataCompilerConfig;
-use cargo_difftests::{DiscoveredDifftest, ExportProfdataConfig};
+use cargo_difftests::{DiscoverIndexPathResolver, DiscoveredDifftest, ExportProfdataConfig};
+use cargo_difftests_core::CoreTestDesc;
 use clap::{Args, Parser, ValueEnum};
 use log::warn;
 use path_slash::PathExt;
@@ -66,6 +70,27 @@ pub struct CompileTestIndexFlags {
         action(clap::ArgAction::SetFalse)
     )]
     path_slash_replace: bool,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Default)]
+pub enum AnalysisIndexStrategy {
+    #[clap(name = "always")]
+    Always,
+    #[clap(name = "if-available")]
+    IfAvailable,
+    #[default]
+    #[clap(name = "never")]
+    Never,
+}
+
+impl Display for AnalysisIndexStrategy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnalysisIndexStrategy::Always => write!(f, "always"),
+            AnalysisIndexStrategy::IfAvailable => write!(f, "if-available"),
+            AnalysisIndexStrategy::Never => write!(f, "never"),
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -131,11 +156,62 @@ impl Display for DirtyAlgorithm {
     }
 }
 
+#[derive(Args, Debug)]
+pub struct AnalysisIndex {
+    #[clap(
+        long,
+        required_if_eq_any = [
+            ("index_strategy", "always"),
+            ("index_strategy", "if-available"),
+        ]
+    )]
+    index_root: Option<PathBuf>,
+    #[clap(long, default_value_t = Default::default())]
+    index_strategy: AnalysisIndexStrategy,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum IndexResolverError {
+    #[error("--root was not provided, but was required by the --index-strategy")]
+    RootIsNone,
+}
+
+impl AnalysisIndex {
+    fn index_resolver(
+        &self,
+        root: Option<PathBuf>,
+    ) -> Result<Option<DiscoverIndexPathResolver>, IndexResolverError> {
+        match self.index_strategy {
+            AnalysisIndexStrategy::Always => {
+                let index_root = self.index_root.as_ref().unwrap(); // should be set by clap
+
+                Ok(Some(DiscoverIndexPathResolver::Remap {
+                    from: root.ok_or(IndexResolverError::RootIsNone)?,
+                    to: index_root.clone(),
+                }))
+            }
+            AnalysisIndexStrategy::IfAvailable => {
+                let index_root = self.index_root.as_ref().unwrap(); // should be set by clap
+
+                Ok(Some(DiscoverIndexPathResolver::Remap {
+                    from: root.ok_or(IndexResolverError::RootIsNone)?,
+                    to: index_root.clone(),
+                }))
+            }
+            AnalysisIndexStrategy::Never => Ok(None),
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
 pub enum App {
     DiscoverDifftests {
         #[clap(long, default_value = "target/tmp/cargo-difftests")]
         dir: PathBuf,
+        #[clap(long)]
+        index_root: Option<PathBuf>,
+        #[clap(long)]
+        ignore_incompatible: bool,
     },
     Analyze {
         #[clap(long)]
@@ -146,6 +222,10 @@ pub enum App {
         algo: DirtyAlgorithm,
         #[clap(long = "bin")]
         other_binaries: Vec<PathBuf>,
+        #[clap(flatten)]
+        analysis_index: AnalysisIndex,
+        #[clap(long)]
+        root: Option<PathBuf>,
     },
     AnalyzeAll {
         #[clap(long, default_value = "target/tmp/cargo-difftests")]
@@ -156,6 +236,10 @@ pub enum App {
         algo: DirtyAlgorithm,
         #[clap(long = "bin")]
         other_binaries: Vec<PathBuf>,
+        #[clap(flatten)]
+        analysis_index: AnalysisIndex,
+        #[clap(long)]
+        ignore_incompatible: bool,
     },
     LowLevel {
         #[clap(subcommand)]
@@ -165,19 +249,40 @@ pub enum App {
 
 pub type CargoDifftestsResult<T = ()> = anyhow::Result<T>;
 
-fn discover_difftests(dir: PathBuf) -> CargoDifftestsResult<Vec<DiscoveredDifftest>> {
+fn resolver_for_index_root(
+    tmpdir_root: &Path,
+    index_root: Option<PathBuf>,
+) -> Option<DiscoverIndexPathResolver> {
+    index_root.map(|index_root| DiscoverIndexPathResolver::Remap {
+        from: tmpdir_root.to_path_buf(),
+        to: index_root,
+    })
+}
+
+fn discover_difftests(
+    dir: PathBuf,
+    index_root: Option<PathBuf>,
+    ignore_incompatible: bool,
+) -> CargoDifftestsResult<Vec<DiscoveredDifftest>> {
     if !dir.exists() || !dir.is_dir() {
         warn!("Directory {} does not exist", dir.display());
         return Ok(vec![]);
     }
 
-    let discovered = cargo_difftests::discover_difftests(&dir)?;
+    let resolver = resolver_for_index_root(&dir, index_root);
+
+    let discovered =
+        cargo_difftests::discover_difftests(&dir, ignore_incompatible, resolver.as_ref())?;
 
     Ok(discovered)
 }
 
-fn run_discover_difftests(dir: PathBuf) -> CargoDifftestsResult {
-    let discovered = discover_difftests(dir)?;
+fn run_discover_difftests(
+    dir: PathBuf,
+    index_root: Option<PathBuf>,
+    ignore_incompatible: bool,
+) -> CargoDifftestsResult {
+    let discovered = discover_difftests(dir, index_root, ignore_incompatible)?;
     let s = serde_json::to_string(&discovered)?;
     println!("{s}");
 
@@ -185,7 +290,8 @@ fn run_discover_difftests(dir: PathBuf) -> CargoDifftestsResult {
 }
 
 fn run_merge_profdata(dir: PathBuf, force: bool) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
+    // we do not need the index resolver here, because we are not going to use the index
+    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
 
     discovered.merge_profraw_files_into_profdata(force)?;
 
@@ -193,9 +299,10 @@ fn run_merge_profdata(dir: PathBuf, force: bool) -> CargoDifftestsResult {
 }
 
 fn run_export_profdata(dir: PathBuf, cmd: ExportProfdataCommand) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
+    // we do not need the index resolver here, because we are not going to use the index
+    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
 
-    let mut has_profdata = discovered.assert_has_profdata();
+    let has_profdata = discovered.assert_has_profdata();
     has_profdata.export_profdata_file(ExportProfdataConfig {
         force: cmd.force,
         ignore_registry_files: cmd.ignore_registry_files,
@@ -216,7 +323,7 @@ fn display_analysis_result(r: AnalysisResult) {
 }
 
 fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
+    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
     let mut analysis_cx = discovered.assert_has_exported_profdata().start_analysis()?;
 
     analysis_cx.run(&AnalysisConfig {
@@ -234,7 +341,7 @@ fn run_analysis_with_test_index(
     index: PathBuf,
     dirty_algorithm: DirtyAlgorithm,
 ) -> CargoDifftestsResult {
-    let mut analysis_cx = cargo_difftests::analysis::AnalysisContext::with_index_from(&index)?;
+    let mut analysis_cx = AnalysisContext::with_index_from(&index)?;
 
     analysis_cx.run(&AnalysisConfig {
         dirty_algorithm: dirty_algorithm.into(),
@@ -247,14 +354,9 @@ fn run_analysis_with_test_index(
     Ok(())
 }
 
-fn run_compile_test_index(
-    dir: PathBuf,
-    output: PathBuf,
+fn compile_test_index_config(
     compile_test_index_flags: CompileTestIndexFlags,
-) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
-    let exported_profdata = discovered.assert_has_exported_profdata();
-
+) -> CargoDifftestsResult<IndexDataCompilerConfig> {
     let flatten_root = match compile_test_index_flags.flatten_files_to {
         Some(FlattenFilesTarget::RepoRoot) => {
             let repo = git2::Repository::open_from_env()?;
@@ -292,6 +394,19 @@ fn run_compile_test_index(
         }),
     };
 
+    Ok(config)
+}
+
+fn run_compile_test_index(
+    dir: PathBuf,
+    output: PathBuf,
+    compile_test_index_flags: CompileTestIndexFlags,
+) -> CargoDifftestsResult {
+    let mut discovered = DiscoveredDifftest::discover_from(dir, None)?;
+    let exported_profdata = discovered.assert_has_exported_profdata();
+
+    let config = compile_test_index_config(compile_test_index_flags)?;
+
     let result = exported_profdata.compile_test_index_data(config)?;
 
     result.write_to_file(&output)?;
@@ -325,29 +440,112 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
     Ok(())
 }
 
-fn run_analyze(
-    dir: PathBuf,
+fn analyze_single_test(
+    difftest: &mut DiscoveredDifftest,
     force: bool,
     algo: DirtyAlgorithm,
     bins: Vec<PathBuf>,
-) -> CargoDifftestsResult {
-    let mut discovered = DiscoveredDifftest::discover_from(dir)?;
+    analysis_index: &AnalysisIndex,
+    resolver: Option<&DiscoverIndexPathResolver>,
+) -> CargoDifftestsResult<AnalysisResult> {
+    let mut analysis_cx = match analysis_index.index_strategy {
+        AnalysisIndexStrategy::Never => {
+            let has_profdata = difftest.merge_profraw_files_into_profdata(force)?;
+            let has_exported_profdata =
+                has_profdata.export_profdata_file(ExportProfdataConfig {
+                    force,
+                    ignore_registry_files: true,
+                    other_binaries: bins,
+                    test_desc: None, // will read from `self.json`
+                })?;
 
-    let mut has_profdata = discovered.merge_profraw_files_into_profdata(force)?;
-    let has_exported_profdata = has_profdata.export_profdata_file(ExportProfdataConfig {
-        force,
-        ignore_registry_files: true,
-        other_binaries: bins,
-        test_desc: None, // will read from `self.json`
-    })?;
+            has_exported_profdata.start_analysis()?
+        }
+        AnalysisIndexStrategy::Always => {
+            'l: {
+                if difftest.has_index() {
+                    // if we already have the index built, use it
+                    break 'l AnalysisContext::with_index_from_difftest(difftest)?;
+                }
 
-    let mut analysis_cx = has_exported_profdata.start_analysis()?;
+                let has_profdata = difftest.merge_profraw_files_into_profdata(force)?;
+                let has_exported_profdata =
+                    has_profdata.export_profdata_file(ExportProfdataConfig {
+                        force,
+                        ignore_registry_files: true,
+                        other_binaries: bins,
+                        test_desc: None, // will read from `self.json`
+                    })?;
+
+                let config = compile_test_index_config(CompileTestIndexFlags {
+                    path_slash_replace: true,
+                    flatten_files_to: Some(FlattenFilesTarget::RepoRoot),
+                    ignore_cargo_registry: true,
+                })?;
+
+                let test_index_data = has_exported_profdata.compile_test_index_data(config)?;
+
+                if let Some(p) = resolver.and_then(|r| r.resolve(difftest.dir())) {
+                    let parent = p.parent().unwrap();
+                    if !parent.exists() {
+                        fs::create_dir_all(parent)?;
+                    }
+                    test_index_data.write_to_file(&p)?;
+                }
+
+                AnalysisContext::from_index(test_index_data)
+            }
+        }
+        AnalysisIndexStrategy::IfAvailable => {
+            'l: {
+                if difftest.has_index() {
+                    // if we already have the index built, use it
+                    break 'l AnalysisContext::with_index_from_difftest(difftest)?;
+                }
+
+                let has_profdata = difftest.merge_profraw_files_into_profdata(force)?;
+                let has_exported_profdata =
+                    has_profdata.export_profdata_file(ExportProfdataConfig {
+                        force,
+                        ignore_registry_files: true,
+                        other_binaries: bins,
+                        test_desc: None, // will read from `self.json`
+                    })?;
+
+                has_exported_profdata.start_analysis()?
+            }
+        }
+    };
 
     analysis_cx.run(&AnalysisConfig {
         dirty_algorithm: algo.into(),
     })?;
 
     let r = analysis_cx.finish_analysis();
+
+    Ok(r)
+}
+
+fn run_analyze(
+    dir: PathBuf,
+    force: bool,
+    algo: DirtyAlgorithm,
+    bins: Vec<PathBuf>,
+    root: Option<PathBuf>,
+    analysis_index: AnalysisIndex,
+) -> CargoDifftestsResult {
+    let resolver = analysis_index.index_resolver(root)?;
+
+    let mut discovered = DiscoveredDifftest::discover_from(dir, resolver.as_ref())?;
+
+    let r = analyze_single_test(
+        &mut discovered,
+        force,
+        algo,
+        bins,
+        &analysis_index,
+        resolver.as_ref(),
+    )?;
 
     display_analysis_result(r);
 
@@ -356,8 +554,8 @@ fn run_analyze(
 
 #[derive(serde::Serialize)]
 pub struct AnalyzeAllSingleTest {
-    #[serde(flatten)]
-    discovered: DiscoveredDifftest,
+    difftest: DiscoveredDifftest,
+    test_desc: CoreTestDesc,
     verdict: AnalysisVerdict,
 }
 
@@ -383,30 +581,28 @@ pub fn run_analyze_all(
     force: bool,
     algo: DirtyAlgorithm,
     bins: Vec<PathBuf>,
+    analysis_index: AnalysisIndex,
+    ignore_incompatible: bool,
 ) -> CargoDifftestsResult {
-    let discovered = discover_difftests(dir)?;
+    let resolver = analysis_index.index_resolver(Some(dir.clone()))?;
+    let discovered =
+        discover_difftests(dir, analysis_index.index_root.clone(), ignore_incompatible)?;
 
     let mut results = vec![];
 
     for mut discovered in discovered {
-        let mut has_profdata = discovered.merge_profraw_files_into_profdata(force)?;
-        let has_exported_profdata = has_profdata.export_profdata_file(ExportProfdataConfig {
+        let r = analyze_single_test(
+            &mut discovered,
             force,
-            ignore_registry_files: true,
-            other_binaries: bins.clone(),
-            test_desc: None, // will read from `self.json`
-        })?;
-
-        let mut analysis_cx = has_exported_profdata.start_analysis()?;
-
-        analysis_cx.run(&AnalysisConfig {
-            dirty_algorithm: algo.into(),
-        })?;
-
-        let r = analysis_cx.finish_analysis();
+            algo,
+            bins.clone(),
+            &analysis_index,
+            resolver.as_ref(),
+        )?;
 
         let result = AnalyzeAllSingleTest {
-            discovered,
+            test_desc: discovered.load_test_desc()?,
+            difftest: discovered,
             verdict: r.into(),
         };
 
@@ -424,24 +620,32 @@ fn main_impl() -> CargoDifftestsResult {
     let app = App::parse();
 
     match app {
-        App::DiscoverDifftests { dir } => {
-            run_discover_difftests(dir)?;
+        App::DiscoverDifftests {
+            dir,
+            index_root,
+            ignore_incompatible,
+        } => {
+            run_discover_difftests(dir, index_root, ignore_incompatible)?;
         }
         App::Analyze {
             dir,
+            root,
             force,
             algo,
             other_binaries,
+            analysis_index,
         } => {
-            run_analyze(dir, force, algo, other_binaries)?;
+            run_analyze(dir, force, algo, other_binaries, root, analysis_index)?;
         }
         App::AnalyzeAll {
             dir,
             force,
             algo,
             other_binaries,
+            analysis_index,
+            ignore_incompatible,
         } => {
-            run_analyze_all(dir, force, algo, other_binaries)?;
+            run_analyze_all(dir, force, algo, other_binaries, analysis_index, ignore_incompatible)?;
         }
         App::LowLevel { cmd } => {
             run_low_level_cmd(cmd)?;

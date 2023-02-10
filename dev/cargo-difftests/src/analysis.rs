@@ -58,6 +58,16 @@ impl AnalysisContext<'static> {
 
         Ok(Self::from_index(index))
     }
+
+    pub fn with_index_from_difftest(difftest: &DiscoveredDifftest) -> DifftestsResult<Self> {
+        let Some(index_data) = difftest.index_data.as_ref() else {
+            panic!("Difftest does not have index data")
+        };
+
+        let index = DifftestsSingleTestIndexData::read_from_file(index_data)?;
+
+        Ok(Self::from_index(index))
+    }
 }
 
 impl<'r> AnalysisContext<'r> {

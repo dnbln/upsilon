@@ -35,6 +35,17 @@ pub struct DiscoveredDifftest {
     self_json: PathBuf,
     profdata_file: Option<PathBuf>,
     exported_profdata_file: Option<PathBuf>,
+    index_data: Option<PathBuf>,
+}
+
+impl DiscoveredDifftest {
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    pub fn has_index(&self) -> bool {
+        self.index_data.is_some()
+    }
 }
 
 pub struct ExportProfdataConfig {
@@ -122,9 +133,9 @@ impl<'r> HasProfdata<'r> {
     }
 
     pub fn export_profdata_file(
-        &mut self,
+        mut self,
         config: ExportProfdataConfig,
-    ) -> DifftestsResult<HasExportedProfdata<'_>> {
+    ) -> DifftestsResult<HasExportedProfdata<'r>> {
         if self.difftest.exported_profdata_file.as_ref().is_some() && !config.force {
             return Ok(HasExportedProfdata {
                 difftest: self.difftest,
@@ -181,9 +192,7 @@ impl<'r> HasProfdata<'r> {
         let status = cmd.status()?;
 
         if !status.success() {
-            return Err(DifftestsError::ProcessFailed {
-                name: "rust-profdata",
-            });
+            return Err(DifftestsError::ProcessFailed { name: "rust-cov" });
         }
 
         self.difftest.exported_profdata_file = Some(p);
@@ -283,14 +292,17 @@ impl DiscoveredDifftest {
         self.assert_has_profdata().assert_has_exported_profdata()
     }
 
-    pub fn discover_from(dir: PathBuf) -> DifftestsResult<Self> {
+    pub fn discover_from(
+        dir: PathBuf,
+        index_resolver: Option<&DiscoverIndexPathResolver>,
+    ) -> DifftestsResult<Self> {
         let self_json = dir.join("self.json");
 
         if !self_json.exists() || !self_json.is_file() {
             return Err(DifftestsError::SelfJsonDoesNotExist(self_json));
         }
 
-        discover_difftest_from_tempdir(dir, self_json)
+        discover_difftest_from_tempdir(dir, self_json, index_resolver)
     }
 }
 
@@ -310,6 +322,10 @@ pub enum DifftestsError {
     SelfJsonDoesNotExist(PathBuf),
     #[error("Self profraw does not exist: {0:?}")]
     SelfProfrawDoesNotExist(PathBuf),
+    #[error("cargo_difftests_version file does not exist: {0:?}")]
+    CargoDifftestsVersionDoesNotExist(PathBuf),
+    #[error("cargo difftests version mismatch: {0} (file) != {1} (cargo difftests)")]
+    CargoDifftestsVersionMismatch(String, String),
     #[error("process failed: {name}")]
     ProcessFailed { name: &'static str },
     #[error("profdata file missing")]
@@ -326,14 +342,54 @@ impl From<serde_json::Error> for DifftestsError {
 
 pub type DifftestsResult<T = ()> = Result<T, DifftestsError>;
 
+pub enum DiscoverIndexPathResolver {
+    Remap {
+        from: PathBuf,
+        to: PathBuf,
+    },
+    Custom {
+        f: Box<dyn Fn(&Path) -> Option<PathBuf>>,
+    },
+}
+
+impl DiscoverIndexPathResolver {
+    pub fn resolve(&self, p: &Path) -> Option<PathBuf> {
+        match self {
+            DiscoverIndexPathResolver::Remap { from, to } => {
+                let p = p.strip_prefix(from).ok()?;
+                Some(to.join(p))
+            }
+            DiscoverIndexPathResolver::Custom { f } => f(p),
+        }
+    }
+}
+
 fn discover_difftest_from_tempdir(
     dir: PathBuf,
     self_json: PathBuf,
+    index_resolver: Option<&DiscoverIndexPathResolver>,
 ) -> DifftestsResult<DiscoveredDifftest> {
     let self_profraw = dir.join("self.profraw");
 
     if !self_profraw.exists() {
         return Err(DifftestsError::SelfProfrawDoesNotExist(self_profraw));
+    }
+
+    let cargo_difftests_version = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_VERSION_FILENAME);
+
+    if !cargo_difftests_version.exists() {
+        return Err(DifftestsError::CargoDifftestsVersionDoesNotExist(
+            cargo_difftests_version,
+        ));
+    }
+
+    let version = fs::read_to_string(&cargo_difftests_version)?;
+
+    if version != env!("CARGO_PKG_VERSION") {
+        return Err(DifftestsError::CargoDifftestsVersionMismatch(
+            version,
+            env!("CARGO_PKG_VERSION").to_string(),
+        ));
     }
 
     let mut other_profraws = Vec::new();
@@ -377,6 +433,35 @@ fn discover_difftest_from_tempdir(
         exported_profdata_file = Some(exported_profdata_path);
     }
 
+    let index_data = 'index_data: {
+        if exported_profdata_file.is_some() {
+            let index_data = index_resolver.and_then(|resolver| resolver.resolve(&dir));
+
+            if let Some(ind) = &index_data {
+                if !ind.exists() {
+                    debug!("index data file does not exist: {}", ind.display());
+                    break 'index_data None;
+                } else if !ind.is_file() {
+                    debug!("index data file is not a file: {}", ind.display());
+                    break 'index_data None;
+                }
+
+                if ind.metadata()?.modified()? < self_json.metadata()?.modified()? {
+                    warn!(
+                        "index data file is older than self.json: {} older than {}",
+                        ind.display(),
+                        self_json.display()
+                    );
+                    break 'index_data None;
+                }
+            }
+
+            index_data
+        } else {
+            None
+        }
+    };
+
     Ok(DiscoveredDifftest {
         dir,
         self_profraw,
@@ -384,19 +469,31 @@ fn discover_difftest_from_tempdir(
         self_json,
         profdata_file,
         exported_profdata_file,
+        index_data,
     })
 }
 
 fn discover_difftests_to_vec(
     dir: &Path,
     discovered: &mut Vec<DiscoveredDifftest>,
+    ignore_incompatible: bool,
+    index_resolver: Option<&DiscoverIndexPathResolver>,
 ) -> DifftestsResult {
     let self_json = dir.join("self.json");
     if self_json.exists() && self_json.is_file() {
-        discovered.push(discover_difftest_from_tempdir(
+        let r = discover_difftest_from_tempdir(
             dir.to_path_buf(),
             self_json,
-        )?);
+            index_resolver,
+        );
+
+        if let Err(DifftestsError::CargoDifftestsVersionMismatch(_, _)) = r {
+            if ignore_incompatible {
+                return Ok(());
+            }
+        }
+
+        discovered.push(r?);
         return Ok(());
     }
 
@@ -404,17 +501,21 @@ fn discover_difftests_to_vec(
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            discover_difftests_to_vec(&path, discovered)?;
+            discover_difftests_to_vec(&path, discovered, ignore_incompatible, index_resolver)?;
         }
     }
 
     Ok(())
 }
 
-pub fn discover_difftests(dir: &Path) -> DifftestsResult<Vec<DiscoveredDifftest>> {
+pub fn discover_difftests(
+    dir: &Path,
+    ignore_incompatible: bool,
+    index_resolver: Option<&DiscoverIndexPathResolver>,
+) -> DifftestsResult<Vec<DiscoveredDifftest>> {
     let mut discovered = Vec::new();
 
-    discover_difftests_to_vec(dir, &mut discovered)?;
+    discover_difftests_to_vec(dir, &mut discovered, ignore_incompatible, index_resolver)?;
 
     Ok(discovered)
 }
