@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -520,4 +521,53 @@ pub fn discover_difftests(
     discover_difftests_to_vec(dir, &mut discovered, ignore_incompatible, index_resolver)?;
 
     Ok(discovered)
+}
+
+pub fn compare_indexes_touch_same_files(
+    index_a: &DifftestsSingleTestIndexData,
+    index_b: &DifftestsSingleTestIndexData,
+) -> Result<(), IndexCompareDifferences<TouchSameFilesDifference>> {
+    let mut diffs = IndexCompareDifferences {
+        differences: vec![],
+    };
+
+    let a_files = index_a.files.iter().collect::<BTreeSet<_>>();
+    let b_files = index_b.files.iter().collect::<BTreeSet<_>>();
+
+    diffs.differences.extend(
+        a_files
+            .difference(&b_files)
+            .map(|f| TouchSameFilesDifference::TouchedByFirstOnly((*f).clone())),
+    );
+
+    diffs.differences.extend(
+        b_files
+            .difference(&a_files)
+            .map(|f| TouchSameFilesDifference::TouchedBySecondOnly((*f).clone())),
+    );
+
+    if diffs.differences.is_empty() {
+        Ok(())
+    } else {
+        Err(diffs)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexCompareDifferences<D> {
+    differences: Vec<D>,
+}
+
+impl<D> IndexCompareDifferences<D> {
+    pub fn differences(&self) -> &[D] {
+        &self.differences
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum TouchSameFilesDifference {
+    #[serde(rename = "first_only")]
+    TouchedByFirstOnly(PathBuf),
+    #[serde(rename = "second_only")]
+    TouchedBySecondOnly(PathBuf),
 }

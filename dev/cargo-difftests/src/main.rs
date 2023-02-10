@@ -18,12 +18,14 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use cargo_difftests::analysis::{
     file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult
 };
-use cargo_difftests::index_data::IndexDataCompilerConfig;
-use cargo_difftests::{DiscoverIndexPathResolver, DiscoveredDifftest, ExportProfdataConfig};
+use cargo_difftests::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
+use cargo_difftests::{
+    DiscoverIndexPathResolver, DiscoveredDifftest, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
+};
 use cargo_difftests_core::CoreTestDesc;
 use clap::{Args, Parser, ValueEnum};
 use log::warn;
@@ -70,6 +72,17 @@ pub struct CompileTestIndexFlags {
         action(clap::ArgAction::SetFalse)
     )]
     path_slash_replace: bool,
+}
+
+impl Default for CompileTestIndexFlags {
+    fn default() -> Self {
+        Self {
+            ignore_cargo_registry: true,
+            flatten_files_to: Some(FlattenFilesTarget::RepoRoot),
+            #[cfg(windows)]
+            path_slash_replace: true,
+        }
+    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
@@ -127,6 +140,66 @@ pub enum LowLevelCommand {
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
     },
+    IndexesTouchSameFilesReport {
+        index1: PathBuf,
+        index2: PathBuf,
+        #[clap(long, default_value_t = Default::default())]
+        action: IndexesTouchSameFilesReportAction,
+    },
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Default)]
+pub enum IndexesTouchSameFilesReportAction {
+    #[default]
+    #[clap(name = "print")]
+    Print,
+    #[clap(name = "assert")]
+    Assert,
+}
+
+impl IndexesTouchSameFilesReportAction {
+    fn do_for_report(
+        &self,
+        report: Result<(), IndexCompareDifferences<TouchSameFilesDifference>>,
+    ) -> CargoDifftestsResult {
+        match self {
+            IndexesTouchSameFilesReportAction::Print => match report {
+                Ok(()) => {
+                    println!("[]");
+
+                    Ok(())
+                }
+                Err(diffs) => {
+                    let s = serde_json::to_string(diffs.differences())?;
+
+                    println!("{s}");
+
+                    Ok(())
+                }
+            },
+            IndexesTouchSameFilesReportAction::Assert => {
+                match report {
+                    Ok(()) => Ok(()),
+                    Err(e) => {
+                        let s = serde_json::to_string(e.differences())?;
+
+                        eprintln!("{s}");
+
+                        bail!("indexes do not touch the same files")
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Display for IndexesTouchSameFilesReportAction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexesTouchSameFilesReportAction::Print => write!(f, "print"),
+            IndexesTouchSameFilesReportAction::Assert => write!(f, "assert"),
+        }
+    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
@@ -414,6 +487,21 @@ fn run_compile_test_index(
     Ok(())
 }
 
+fn run_indexes_touch_same_files_report(
+    index1: PathBuf,
+    index2: PathBuf,
+    action: IndexesTouchSameFilesReportAction,
+) -> CargoDifftestsResult {
+    let index1 = DifftestsSingleTestIndexData::read_from_file(&index1)?;
+    let index2 = DifftestsSingleTestIndexData::read_from_file(&index2)?;
+
+    let report = cargo_difftests::compare_indexes_touch_same_files(&index1, &index2);
+
+    action.do_for_report(report)?;
+
+    Ok(())
+}
+
 fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
     match cmd {
         LowLevelCommand::MergeProfdata { dir, force } => {
@@ -434,6 +522,13 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
         }
         LowLevelCommand::RunAnalysisWithTestIndex { index, algo } => {
             run_analysis_with_test_index(index, algo)?;
+        }
+        LowLevelCommand::IndexesTouchSameFilesReport {
+            index1,
+            index2,
+            action,
+        } => {
+            run_indexes_touch_same_files_report(index1, index2, action)?;
         }
     }
 
@@ -477,11 +572,7 @@ fn analyze_single_test(
                         test_desc: None, // will read from `self.json`
                     })?;
 
-                let config = compile_test_index_config(CompileTestIndexFlags {
-                    path_slash_replace: true,
-                    flatten_files_to: Some(FlattenFilesTarget::RepoRoot),
-                    ignore_cargo_registry: true,
-                })?;
+                let config = compile_test_index_config(CompileTestIndexFlags::default())?;
 
                 let test_index_data = has_exported_profdata.compile_test_index_data(config)?;
 
