@@ -92,6 +92,11 @@ let run_doctests: {
   run: 'cargo xtask test --verbose --no-fail-fast --doc --profile ci'
 }
 
+let install_clippy: {
+  name: 'Install clippy'
+  run: 'rustup component add clippy'
+}
+
 let lint: {
   name: 'Lint'
   run: 'cargo xtask lint'
@@ -262,6 +267,7 @@ jobs {
         install_lld
         install_openssl
         install_rust
+        install_clippy
         compile_xtask
         lint
     ]

@@ -47,6 +47,8 @@ jobs:
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+    - name: Install clippy
+      run: rustup component add clippy
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Lint
