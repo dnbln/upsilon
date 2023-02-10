@@ -481,11 +481,7 @@ fn discover_difftests_to_vec(
 ) -> DifftestsResult {
     let self_json = dir.join("self.json");
     if self_json.exists() && self_json.is_file() {
-        let r = discover_difftest_from_tempdir(
-            dir.to_path_buf(),
-            self_json,
-            index_resolver,
-        );
+        let r = discover_difftest_from_tempdir(dir.to_path_buf(), self_json, index_resolver);
 
         if let Err(DifftestsError::CargoDifftestsVersionMismatch(_, _)) = r {
             if ignore_incompatible {

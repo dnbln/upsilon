@@ -56,7 +56,8 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
     }
     std::fs::create_dir_all(tmpdir)?;
 
-    let self_profile_file = tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
+    let self_profile_file =
+        tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
 
     let self_profile_file_str = self_profile_file.to_str().unwrap();
 
@@ -81,10 +82,14 @@ pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
 
     std::fs::write(self_info_path, self_info)?;
 
-    std::fs::write(tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_VERSION_FILENAME), env!("CARGO_PKG_VERSION"))?;
+    std::fs::write(
+        tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_VERSION_FILENAME),
+        env!("CARGO_PKG_VERSION"),
+    )?;
 
     // and for children
-    let profraw_path = tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_OTHER_PROFILE_FILENAME_TEMPLATE);
+    let profraw_path =
+        tmpdir.join(cargo_difftests_core::CARGO_DIFFTESTS_OTHER_PROFILE_FILENAME_TEMPLATE);
     Ok(DifftestsEnv {
         llvm_profile_file_name: "LLVM_PROFILE_FILE".into(),
         llvm_profile_file_value: profraw_path.into(),

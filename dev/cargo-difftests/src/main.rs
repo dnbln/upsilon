@@ -645,7 +645,14 @@ fn main_impl() -> CargoDifftestsResult {
             analysis_index,
             ignore_incompatible,
         } => {
-            run_analyze_all(dir, force, algo, other_binaries, analysis_index, ignore_incompatible)?;
+            run_analyze_all(
+                dir,
+                force,
+                algo,
+                other_binaries,
+                analysis_index,
+                ignore_incompatible,
+            )?;
         }
         App::LowLevel { cmd } => {
             run_low_level_cmd(cmd)?;
