@@ -2,7 +2,7 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   ci-files-up-to-date:
-    name: Check whether the CI files are up-to-date
+    name: CI files are up-to-date
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -18,7 +18,7 @@ jobs:
     - name: Run ci files up to date check
       run: cargo xtask check-ci-files-up-to-date
   gql-schema-up-to-date:
-    name: Check whether the GraphQL schema is up-to-date
+    name: GraphQL schema is up-to-date
     runs-on: ubuntu-latest
     steps:
     - name: Checkout

@@ -125,7 +125,7 @@ jobs {
   }
 
   gql-schema-up-to-date {
-    name: 'Check whether the GraphQL schema is up-to-date'
+    name: 'GraphQL schema is up-to-date'
     runs-on: 'ubuntu-latest'
     steps [
       checkout
@@ -140,7 +140,7 @@ jobs {
   }
 
   ci-files-up-to-date {
-    name: 'Check whether the CI files are up-to-date'
+    name: 'CI files are up-to-date'
     runs-on: 'ubuntu-latest'
     steps [
       checkout
