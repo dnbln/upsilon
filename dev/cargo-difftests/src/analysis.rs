@@ -436,7 +436,10 @@ pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult
                 return true;
             };
 
-            for region in cx.regions().filter(|region| path.ends_with(region.file_ref) || region.file_ref.ends_with(path)) {
+            for region in cx
+                .regions()
+                .filter(|region| path.ends_with(region.file_ref) || region.file_ref.ends_with(path))
+            {
                 if LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2)
                     .intersects(&intersection_target)
                 {
