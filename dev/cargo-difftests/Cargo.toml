@@ -1,6 +1,6 @@
 [package]
 name = "cargo-difftests"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 edition = "2021"
 description = "A tool to find which tests have changed"
 license = "Apache-2.0"

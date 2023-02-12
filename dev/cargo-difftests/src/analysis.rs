@@ -298,12 +298,27 @@ where
     _constraint: PhantomData<C>,
 }
 
+impl<C> Clone for LineRange<C>
+where
+    C: LineRangeConstraint,
+{
+    fn clone(&self) -> Self {
+        Self {
+            start: self.start,
+            end: self.end,
+            _constraint: PhantomData,
+        }
+    }
+}
+
+impl<C> Copy for LineRange<C> where C: LineRangeConstraint {}
+
 impl<C> fmt::Debug for LineRange<C>
 where
     C: LineRangeConstraint,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "L{}..=L{}", self.start, self.end)
+        write!(f, "L{}..L{}", self.start, self.end)
     }
 }
 
@@ -342,8 +357,8 @@ where
     }
 
     pub fn intersects<C2: LineRangeConstraint>(&self, other: &LineRange<C2>) -> bool {
-        self.start <= other.start && self.end >= other.start
-            || self.start <= other.end && self.end >= other.end
+        self.start <= other.start && self.end > other.start
+            || self.start < other.end && self.end >= other.end
     }
 }
 
@@ -371,6 +386,7 @@ impl LineRangeConstraint for LineRangeValidConstraint {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Diff {
     Added(
         LineRange<LineRangeEmptyConstraint>,
@@ -483,12 +499,17 @@ impl GitDiffStrategy {
                             return true;
                         };
 
-                        for region in cx.regions().filter(|region| {
-                            path.ends_with(region.file_ref) || region.file_ref.ends_with(path)
-                        }) {
-                            if LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2)
-                                .intersects(&intersection_target)
-                            {
+                        for region in
+                            cx.regions()
+                                .filter(|r| r.execution_count > 0)
+                                .filter(|region| {
+                                    path.ends_with(region.file_ref)
+                                        || region.file_ref.ends_with(path)
+                                })
+                        {
+                            let region_range =
+                                LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2);
+                            if region_range.intersects(&intersection_target) {
                                 *analysis_result.borrow_mut() = AnalysisResult::Dirty;
                                 return false;
                             }
@@ -512,6 +533,8 @@ pub fn git_diff_analysis(
     let head = repo.head()?.peel_to_tree()?;
 
     let mut diff_options = git2::DiffOptions::new();
+
+    diff_options.context_lines(0);
 
     let diff = repo.diff_tree_to_workdir(Some(&head), Some(&mut diff_options))?;
 

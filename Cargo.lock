@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-difftests"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "anyhow",
  "cargo-difftests-core",
@@ -496,14 +496,14 @@ dependencies = [
 
 [[package]]
 name = "cargo-difftests-core"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cargo-difftests-testclient"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "cargo-difftests-core",
  "serde_json",
