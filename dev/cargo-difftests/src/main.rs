@@ -330,6 +330,16 @@ pub enum App {
     },
 }
 
+#[derive(Parser, Debug)]
+#[command(name = "cargo")]
+#[command(bin_name = "cargo")]
+pub enum CargoApp {
+    Difftests {
+        #[clap(subcommand)]
+        app: App,
+    },
+}
+
 pub type CargoDifftestsResult<T = ()> = anyhow::Result<T>;
 
 fn resolver_for_index_root(
@@ -694,7 +704,7 @@ pub fn run_analyze_all(
 
 fn main_impl() -> CargoDifftestsResult {
     pretty_env_logger::init_custom_env("CARGO_DIFFTESTS_LOG");
-    let app = App::parse();
+    let CargoApp::Difftests { app } = CargoApp::parse();
 
     match app {
         App::DiscoverDifftests {

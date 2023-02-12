@@ -255,6 +255,9 @@ enum App {
         #[clap(subcommand)]
         command: DiffTestsCommand,
     },
+
+    #[clap(name = "publish-difftests-crates")]
+    PublishDifftestsCrates,
 }
 
 fn build_dev(dgql: bool, verbose: bool, profile: Option<&str>) -> XtaskResult<()> {
@@ -1242,6 +1245,22 @@ fn main_impl() -> XtaskResult<()> {
         }
         App::Difftests { command } => {
             difftests::run(command)?;
+        }
+        App::PublishDifftestsCrates => {
+            cargo_cmd!(
+                "publish",
+                "-p", "cargo-difftests-core"
+            )?;
+
+            cargo_cmd!(
+                "publish",
+                "-p", "cargo-difftests-testclient"
+            )?;
+
+            cargo_cmd!(
+                "publish",
+                "-p", "cargo-difftests"
+            )?;
         }
     }
 

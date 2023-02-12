@@ -39,6 +39,7 @@ macro_rules! difftests_cmd {
             "-p", "cargo-difftests",
             "--bin", "cargo-difftests",
             "--",
+            "difftests",
             $($args)*
         )
     };
@@ -51,6 +52,7 @@ macro_rules! difftests_cmd_output {
             "-p", "cargo-difftests",
             "--bin", "cargo-difftests",
             "--",
+            "difftests",
             $($args)*
         )
     };
