@@ -1247,20 +1247,11 @@ fn main_impl() -> XtaskResult<()> {
             difftests::run(command)?;
         }
         App::PublishDifftestsCrates => {
-            cargo_cmd!(
-                "publish",
-                "-p", "cargo-difftests-core"
-            )?;
+            cargo_cmd!("publish", "-p", "cargo-difftests-core")?;
 
-            cargo_cmd!(
-                "publish",
-                "-p", "cargo-difftests-testclient"
-            )?;
+            cargo_cmd!("publish", "-p", "cargo-difftests-testclient")?;
 
-            cargo_cmd!(
-                "publish",
-                "-p", "cargo-difftests"
-            )?;
+            cargo_cmd!("publish", "-p", "cargo-difftests")?;
         }
     }
 
