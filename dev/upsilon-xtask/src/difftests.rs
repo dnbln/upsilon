@@ -14,8 +14,10 @@
  *    limitations under the License.
  */
 
+use std::fmt::{Display, Formatter};
+
 use cargo_difftests::{AnalysisVerdict, AnalyzeAllSingleTest};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 use crate::{
     cmd_call, cmd_output_pipe_to_file, cmd_output_string, cmd_process, ws_bin_path, ws_path, XtaskResult
@@ -24,7 +26,10 @@ use crate::{
 #[derive(Parser, Debug)]
 pub enum DiffTestsCommand {
     #[clap(name = "print-tests-to-rerun")]
-    PrintTestsToRerun,
+    PrintTestsToRerun {
+        #[clap(long, default_value_t = Default::default())]
+        algo: DirtyAlgo,
+    },
 }
 
 macro_rules! difftests_cmd {
@@ -51,7 +56,28 @@ macro_rules! difftests_cmd_output {
     };
 }
 
-fn analyze_all() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+#[derive(Debug, Clone, Copy, ValueEnum, Default)]
+pub enum DirtyAlgo {
+    #[default]
+    #[clap(name = "fs-mtime")]
+    FsMtime,
+    #[clap(name = "git-diff-files")]
+    GitDiffFiles,
+    #[clap(name = "git-diff-hunks")]
+    GitDiffHunks,
+}
+
+impl Display for DirtyAlgo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DirtyAlgo::FsMtime => write!(f, "fs-mtime"),
+            DirtyAlgo::GitDiffFiles => write!(f, "git-diff-files"),
+            DirtyAlgo::GitDiffHunks => write!(f, "git-diff-hunks"),
+        }
+    }
+}
+
+fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     let output = difftests_cmd_output!(
         "analyze-all",
         "--dir",
@@ -67,6 +93,8 @@ fn analyze_all() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
         ws_path!("tests" / "difftests-index-root"),
         "--index-strategy",
         "always",
+        "--algo",
+        algo.to_string(),
     )?;
 
     let tests = serde_json::from_str::<Vec<AnalyzeAllSingleTest>>(&output)?;
@@ -74,15 +102,15 @@ fn analyze_all() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(tests)
 }
 
-fn tests_to_rerun() -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
-    Ok(analyze_all()?
+fn tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    Ok(analyze_all(algo)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)
         .collect())
 }
 
-fn print_tests_to_rerun() -> XtaskResult<()> {
-    let to_rerun = tests_to_rerun()?
+fn print_tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<()> {
+    let to_rerun = tests_to_rerun(algo)?
         .into_iter()
         .map(|it| it.test_desc)
         .collect::<Vec<_>>();
@@ -95,8 +123,8 @@ fn print_tests_to_rerun() -> XtaskResult<()> {
 
 pub fn run(command: DiffTestsCommand) -> XtaskResult<()> {
     match command {
-        DiffTestsCommand::PrintTestsToRerun => {
-            print_tests_to_rerun()?;
+        DiffTestsCommand::PrintTestsToRerun { algo } => {
+            print_tests_to_rerun(algo)?;
         }
     }
 

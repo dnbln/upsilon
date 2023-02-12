@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
 use cargo_difftests::analysis::{
-    file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult
+    file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult, GitDiffStrategy
 };
 use cargo_difftests::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
 use cargo_difftests::{
@@ -209,15 +209,22 @@ pub enum DirtyAlgorithm {
     #[default]
     #[clap(name = "fs-mtime")]
     FsMtime,
-    #[clap(name = "git-diff")]
-    GitDiff,
+    #[clap(name = "git-diff-files")]
+    GitDiffFiles,
+    #[clap(name = "git-diff-hunks")]
+    GitDiffHunks,
 }
 
 impl From<DirtyAlgorithm> for cargo_difftests::analysis::DirtyAlgorithm {
     fn from(algo: DirtyAlgorithm) -> Self {
         match algo {
             DirtyAlgorithm::FsMtime => Self::FileSystemMtimes,
-            DirtyAlgorithm::GitDiff => Self::GitDiff,
+            DirtyAlgorithm::GitDiffFiles => Self::GitDiff {
+                strategy: GitDiffStrategy::FilesOnly,
+            },
+            DirtyAlgorithm::GitDiffHunks => Self::GitDiff {
+                strategy: GitDiffStrategy::Hunks,
+            },
         }
     }
 }
@@ -226,7 +233,8 @@ impl Display for DirtyAlgorithm {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             DirtyAlgorithm::FsMtime => write!(f, "fs-mtime"),
-            DirtyAlgorithm::GitDiff => write!(f, "git-diff"),
+            DirtyAlgorithm::GitDiffFiles => write!(f, "git-diff-files"),
+            DirtyAlgorithm::GitDiffHunks => write!(f, "git-diff-hunks"),
         }
     }
 }

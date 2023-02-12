@@ -227,7 +227,7 @@ pub struct AnalysisRegion<'r> {
 #[derive(Debug, Clone)]
 pub enum DirtyAlgorithm {
     FileSystemMtimes,
-    GitDiff,
+    GitDiff { strategy: GitDiffStrategy },
 }
 
 #[derive(Debug, Clone)]
@@ -241,7 +241,7 @@ impl<'r> AnalysisContext<'r> {
 
         let r = match dirty_algorithm {
             DirtyAlgorithm::FileSystemMtimes => file_system_mtime_analysis(self)?,
-            DirtyAlgorithm::GitDiff => git_diff_analysis(self)?,
+            DirtyAlgorithm::GitDiff { strategy } => git_diff_analysis(self, *strategy)?,
         };
 
         self.result = r;
@@ -415,7 +415,99 @@ impl Diff {
     }
 }
 
-pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GitDiffStrategy {
+    #[default]
+    FilesOnly,
+    Hunks,
+}
+
+impl GitDiffStrategy {
+    fn callbacks<'a>(
+        &self,
+        cx: &'a AnalysisContext,
+        analysis_result: Rc<RefCell<AnalysisResult>>,
+    ) -> (
+        Box<dyn FnMut(DiffDelta, f32) -> bool + 'a>,
+        Box<dyn FnMut(DiffDelta, DiffHunk) -> bool + 'a>,
+    ) {
+        match self {
+            Self::FilesOnly => {
+                let file_cb = {
+                    let analysis_result = Rc::clone(&analysis_result);
+
+                    let test_touched_files = test_touched_files(cx, false);
+
+                    move |delta: DiffDelta, _progress: f32| {
+                        let Some(path) = delta.new_file().path().or_else(|| delta.old_file().path()) else {
+                            return true;
+                        };
+
+                        let test_modified = test_touched_files.iter().any(|it| it.ends_with(path));
+
+                        if test_modified {
+                            *analysis_result.borrow_mut() = AnalysisResult::Dirty;
+                            return false;
+                        }
+
+                        true
+                    }
+                };
+
+                let hunk_cb = { |_delta: DiffDelta, _hunk: DiffHunk| true };
+
+                (Box::new(file_cb), Box::new(hunk_cb))
+            }
+            Self::Hunks => {
+                let file_cb = { |_delta: DiffDelta, _progress: f32| true };
+
+                let hunk_cb = {
+                    let analysis_result = Rc::clone(&analysis_result);
+
+                    move |delta: DiffDelta, hunk: DiffHunk| {
+                        let diff = Diff::from_hunk(&hunk);
+
+                        let intersection_target = match diff {
+                            Diff::Added(old, _new) => {
+                                old.map_constraint_assert::<LineRangeValidConstraint>()
+                            }
+                            Diff::Removed(old, _new) => {
+                                old.map_constraint_assert::<LineRangeValidConstraint>()
+                            }
+                            Diff::Modified(old, _new) => {
+                                old.map_constraint_assert::<LineRangeValidConstraint>()
+                            }
+                        };
+
+                        let Some(path) = delta.old_file().path().or_else(|| delta.new_file().path()) else {
+                            return true;
+                        };
+
+                        for region in cx.regions().filter(|region| {
+                            path.ends_with(region.file_ref) || region.file_ref.ends_with(path)
+                        }) {
+                            if LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2)
+                                .intersects(&intersection_target)
+                            {
+                                *analysis_result.borrow_mut() = AnalysisResult::Dirty;
+                                return false;
+                            }
+                        }
+
+                        true
+                    }
+                };
+
+                (Box::new(file_cb), Box::new(hunk_cb))
+            }
+        }
+    }
+}
+
+pub fn git_diff_analysis(
+    cx: &AnalysisContext,
+    strategy: GitDiffStrategy,
+) -> DifftestsResult<AnalysisResult> {
     let repo = git2::Repository::open_from_env()?;
     let head = repo.head()?.peel_to_tree()?;
 
@@ -425,47 +517,9 @@ pub fn git_diff_analysis(cx: &AnalysisContext) -> DifftestsResult<AnalysisResult
 
     let analysis_result = Rc::new(RefCell::new(AnalysisResult::Clean));
 
-    let mut file_cb = {
-        // let analysis_result = Rc::clone(&analysis_result);
+    let (mut file_cb, mut hunk_cb) = strategy.callbacks(cx, Rc::clone(&analysis_result));
 
-        |_delta: DiffDelta, _progress: f32| true
-    };
-
-    let mut hunk_cb = {
-        let analysis_result = Rc::clone(&analysis_result);
-
-        move |delta: DiffDelta, hunk: DiffHunk| {
-            let diff = Diff::from_hunk(&hunk);
-
-            let intersection_target = match diff {
-                Diff::Added(old, _new) => old.map_constraint_assert::<LineRangeValidConstraint>(),
-                Diff::Removed(old, _new) => old.map_constraint_assert::<LineRangeValidConstraint>(),
-                Diff::Modified(old, _new) => {
-                    old.map_constraint_assert::<LineRangeValidConstraint>()
-                }
-            };
-
-            let Some(path) = delta.old_file().path().or_else(|| delta.new_file().path()) else {
-                return true;
-            };
-
-            for region in cx
-                .regions()
-                .filter(|region| path.ends_with(region.file_ref) || region.file_ref.ends_with(path))
-            {
-                if LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2)
-                    .intersects(&intersection_target)
-                {
-                    *analysis_result.borrow_mut() = AnalysisResult::Dirty;
-                    return false;
-                }
-            }
-
-            true
-        }
-    };
-
-    let git_r = diff.foreach(&mut file_cb, None, Some(&mut hunk_cb), None);
+    let git_r = diff.foreach(&mut *file_cb, None, Some(&mut *hunk_cb), None);
 
     if let Err(e) = git_r {
         if e.code() != git2::ErrorCode::User {
