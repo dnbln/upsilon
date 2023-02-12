@@ -507,8 +507,10 @@ impl GitDiffStrategy {
                                         || region.file_ref.ends_with(path)
                                 })
                         {
-                            let region_range =
-                                LineRange::<LineRangeValidConstraint>::new(region.l1, region.l2);
+                            let region_range = LineRange::<LineRangeValidConstraint>::new(
+                                region.l1,
+                                region.l2 + 1,
+                            );
                             if region_range.intersects(&intersection_target) {
                                 *analysis_result.borrow_mut() = AnalysisResult::Dirty;
                                 return false;
