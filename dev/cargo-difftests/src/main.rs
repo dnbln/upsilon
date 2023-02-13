@@ -129,6 +129,8 @@ pub enum LowLevelCommand {
         dir: PathBuf,
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
     },
     CompileTestIndex {
         #[clap(long)]
@@ -143,6 +145,8 @@ pub enum LowLevelCommand {
         index: PathBuf,
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
     },
     IndexesTouchSameFilesReport {
         index1: PathBuf,
@@ -215,15 +219,17 @@ pub enum DirtyAlgorithm {
     GitDiffHunks,
 }
 
-impl From<DirtyAlgorithm> for cargo_difftests::analysis::DirtyAlgorithm {
-    fn from(algo: DirtyAlgorithm) -> Self {
-        match algo {
-            DirtyAlgorithm::FsMtime => Self::FileSystemMtimes,
-            DirtyAlgorithm::GitDiffFiles => Self::GitDiff {
+impl DirtyAlgorithm {
+    fn convert(self, commit: Option<git2::Oid>) -> cargo_difftests::analysis::DirtyAlgorithm {
+        match self {
+            DirtyAlgorithm::FsMtime => cargo_difftests::analysis::DirtyAlgorithm::FileSystemMtimes,
+            DirtyAlgorithm::GitDiffFiles => cargo_difftests::analysis::DirtyAlgorithm::GitDiff {
                 strategy: GitDiffStrategy::FilesOnly,
+                commit,
             },
-            DirtyAlgorithm::GitDiffHunks => Self::GitDiff {
+            DirtyAlgorithm::GitDiffHunks => cargo_difftests::analysis::DirtyAlgorithm::GitDiff {
                 strategy: GitDiffStrategy::Hunks,
+                commit,
             },
         }
     }
@@ -303,6 +309,8 @@ pub enum App {
         force: bool,
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
         #[clap(long = "bin")]
         other_binaries: Vec<PathBuf>,
         #[clap(flatten)]
@@ -317,6 +325,8 @@ pub enum App {
         force: bool,
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgorithm,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
         #[clap(long = "bin")]
         other_binaries: Vec<PathBuf>,
         #[clap(flatten)]
@@ -415,12 +425,16 @@ fn display_analysis_result(r: AnalysisResult) {
     println!("{res}");
 }
 
-fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
+fn run_analysis(
+    dir: PathBuf,
+    algo: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
+) -> CargoDifftestsResult {
     let mut discovered = Difftest::discover_from(dir, None)?;
     let mut analysis_cx = discovered.assert_has_exported_profdata().start_analysis()?;
 
     analysis_cx.run(&AnalysisConfig {
-        dirty_algorithm: algo.into(),
+        dirty_algorithm: algo.convert(commit),
     })?;
 
     let r = analysis_cx.finish_analysis();
@@ -433,11 +447,12 @@ fn run_analysis(dir: PathBuf, algo: DirtyAlgorithm) -> CargoDifftestsResult {
 fn run_analysis_with_test_index(
     index: PathBuf,
     dirty_algorithm: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
 ) -> CargoDifftestsResult {
     let mut analysis_cx = AnalysisContext::with_index_from(&index)?;
 
     analysis_cx.run(&AnalysisConfig {
-        dirty_algorithm: dirty_algorithm.into(),
+        dirty_algorithm: dirty_algorithm.convert(commit),
     })?;
 
     let r = analysis_cx.finish_analysis();
@@ -530,8 +545,8 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
         LowLevelCommand::ExportProfdata { dir, cmd } => {
             run_export_profdata(dir, cmd)?;
         }
-        LowLevelCommand::RunAnalysis { dir, algo } => {
-            run_analysis(dir, algo)?;
+        LowLevelCommand::RunAnalysis { dir, algo, commit } => {
+            run_analysis(dir, algo, commit)?;
         }
         LowLevelCommand::CompileTestIndex {
             dir,
@@ -540,8 +555,12 @@ fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
         } => {
             run_compile_test_index(dir, output, compile_test_index_flags)?;
         }
-        LowLevelCommand::RunAnalysisWithTestIndex { index, algo } => {
-            run_analysis_with_test_index(index, algo)?;
+        LowLevelCommand::RunAnalysisWithTestIndex {
+            index,
+            algo,
+            commit,
+        } => {
+            run_analysis_with_test_index(index, algo, commit)?;
         }
         LowLevelCommand::IndexesTouchSameFilesReport {
             index1,
@@ -559,6 +578,7 @@ fn analyze_single_test(
     difftest: &mut Difftest,
     force: bool,
     algo: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
     bins: Vec<PathBuf>,
     analysis_index: &AnalysisIndex,
     resolver: Option<&DiscoverIndexPathResolver>,
@@ -629,7 +649,7 @@ fn analyze_single_test(
     };
 
     analysis_cx.run(&AnalysisConfig {
-        dirty_algorithm: algo.into(),
+        dirty_algorithm: algo.convert(commit),
     })?;
 
     let r = analysis_cx.finish_analysis();
@@ -641,6 +661,7 @@ fn run_analyze(
     dir: PathBuf,
     force: bool,
     algo: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
     bins: Vec<PathBuf>,
     root: Option<PathBuf>,
     analysis_index: AnalysisIndex,
@@ -653,6 +674,7 @@ fn run_analyze(
         &mut difftest,
         force,
         algo,
+        commit,
         bins,
         &analysis_index,
         resolver.as_ref(),
@@ -667,6 +689,7 @@ pub fn run_analyze_all(
     dir: PathBuf,
     force: bool,
     algo: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
     bins: Vec<PathBuf>,
     analysis_index: AnalysisIndex,
     ignore_incompatible: bool,
@@ -682,6 +705,7 @@ pub fn run_analyze_all(
             &mut difftest,
             force,
             algo,
+            commit,
             bins.clone(),
             &analysis_index,
             resolver.as_ref(),
@@ -719,15 +743,25 @@ fn main_impl() -> CargoDifftestsResult {
             root,
             force,
             algo,
+            commit,
             other_binaries,
             analysis_index,
         } => {
-            run_analyze(dir, force, algo, other_binaries, root, analysis_index)?;
+            run_analyze(
+                dir,
+                force,
+                algo,
+                commit,
+                other_binaries,
+                root,
+                analysis_index,
+            )?;
         }
         App::AnalyzeAll {
             dir,
             force,
             algo,
+            commit,
             other_binaries,
             analysis_index,
             ignore_incompatible,
@@ -736,6 +770,7 @@ fn main_impl() -> CargoDifftestsResult {
                 dir,
                 force,
                 algo,
+                commit,
                 other_binaries,
                 analysis_index,
                 ignore_incompatible,

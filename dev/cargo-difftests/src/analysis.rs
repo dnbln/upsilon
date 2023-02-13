@@ -227,7 +227,10 @@ pub struct AnalysisRegion<'r> {
 #[derive(Debug, Clone)]
 pub enum DirtyAlgorithm {
     FileSystemMtimes,
-    GitDiff { strategy: GitDiffStrategy },
+    GitDiff {
+        strategy: GitDiffStrategy,
+        commit: Option<git2::Oid>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -241,7 +244,14 @@ impl<'r> AnalysisContext<'r> {
 
         let r = match dirty_algorithm {
             DirtyAlgorithm::FileSystemMtimes => file_system_mtime_analysis(self)?,
-            DirtyAlgorithm::GitDiff { strategy } => git_diff_analysis(self, *strategy)?,
+            DirtyAlgorithm::GitDiff {
+                strategy,
+                commit: Some(commit),
+            } => git_diff_analysis_from_commit(self, *strategy, *commit)?,
+            DirtyAlgorithm::GitDiff {
+                strategy,
+                commit: None,
+            } => git_diff_analysis(self, *strategy)?,
         };
 
         self.result = r;
@@ -527,18 +537,17 @@ impl GitDiffStrategy {
     }
 }
 
-pub fn git_diff_analysis(
+pub fn git_diff_analysis_from_tree(
     cx: &AnalysisContext,
     strategy: GitDiffStrategy,
+    repo: &git2::Repository,
+    tree: &git2::Tree,
 ) -> DifftestsResult<AnalysisResult> {
-    let repo = git2::Repository::open_from_env()?;
-    let head = repo.head()?.peel_to_tree()?;
-
     let mut diff_options = git2::DiffOptions::new();
 
     diff_options.context_lines(0);
 
-    let diff = repo.diff_tree_to_workdir(Some(&head), Some(&mut diff_options))?;
+    let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut diff_options))?;
 
     let analysis_result = Rc::new(RefCell::new(AnalysisResult::Clean));
 
@@ -557,4 +566,25 @@ pub fn git_diff_analysis(
     let r = *analysis_result.borrow();
 
     Ok(r)
+}
+
+pub fn git_diff_analysis(
+    cx: &AnalysisContext,
+    strategy: GitDiffStrategy,
+) -> DifftestsResult<AnalysisResult> {
+    let repo = git2::Repository::open_from_env()?;
+    let head = repo.head()?.peel_to_tree()?;
+
+    git_diff_analysis_from_tree(cx, strategy, &repo, &head)
+}
+
+pub fn git_diff_analysis_from_commit(
+    cx: &AnalysisContext,
+    strategy: GitDiffStrategy,
+    commit: git2::Oid,
+) -> DifftestsResult<AnalysisResult> {
+    let repo = git2::Repository::open_from_env()?;
+    let tree = repo.find_commit(commit)?.tree()?;
+
+    git_diff_analysis_from_tree(cx, strategy, &repo, &tree)
 }
