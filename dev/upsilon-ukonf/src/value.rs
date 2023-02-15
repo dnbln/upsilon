@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
 #[derive(Copy, Clone, Debug)]
@@ -58,38 +59,58 @@ impl UkonfValue {
 
 #[derive(Clone, Debug, Default)]
 pub struct UkonfObject {
-    map: BTreeMap<String, UkonfValue>,
+    map: Vec<UkonfValue>,
+    key_map: BTreeMap<String, usize>,
 }
 
 impl UkonfObject {
     pub fn new() -> Self {
         Self {
-            map: BTreeMap::new(),
+            map: Vec::new(),
+            key_map: BTreeMap::new(),
         }
     }
 
     pub fn insert(&mut self, key: String, value: UkonfValue) {
-        self.map.insert(key, value);
+        self.key_map.insert(key, self.map.len());
+        self.map.push(value);
     }
 
     pub fn get_mut(&mut self, key: &str) -> Option<&mut UkonfValue> {
-        self.map.get_mut(key)
+        let Some(k) = self.key_map.get(key) else {
+            return None;
+        };
+
+        Some(&mut self.map[*k])
     }
 
+    #[track_caller]
     pub fn get_or_insert(&mut self, key: String, value: UkonfValue) -> &mut UkonfValue {
-        self.map.entry(key).or_insert(value)
+        match self.key_map.entry(key) {
+            Entry::Occupied(e) => &mut self.map[*e.get()],
+            Entry::Vacant(e) => {
+                let index = self.map.len();
+                self.map.push(value);
+                e.insert(index);
+                &mut self.map[index]
+            }
+        }
     }
 
     pub fn into_value(self) -> UkonfValue {
         UkonfValue::Object(self)
     }
-}
 
-impl std::ops::Deref for UkonfObject {
-    type Target = BTreeMap<String, UkonfValue>;
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &UkonfValue)> {
+        let mut keys = self
+            .key_map
+            .iter()
+            .map(|(k, v)| (k, *v))
+            .collect::<Vec<_>>();
 
-    fn deref(&self) -> &Self::Target {
-        &self.map
+        keys.sort_by_key(|(_, v)| *v);
+
+        keys.into_iter().map(|(k, v)| (k, &self.map[v]))
     }
 }
 

@@ -1,58 +1,26 @@
+name: Test
+on:
+  push:
+    branches:
+    - trunk
+    paths:
+    - crates/**
+    - dev/**
+    - Cargo.toml
+    - Cargo.lock
+    - rustfmt.toml
+    - clippy.toml
+    - .cargo/**
+    - .ci/github-workflows/**
+    - .config/nextest.toml
+    - .github/workflows/test.yaml
+    - schemas/graphql/schema.graphql
+  pull_request:
+    branches:
+    - trunk
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  ci-files-up-to-date:
-    name: CI files are up-to-date
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-    - name: Install lld
-      run: sudo apt-get install -y lld
-    - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
-    - name: Compile xtask
-      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
-    - name: Run ci files up to date check
-      run: cargo xtask check-ci-files-up-to-date
-  gql-schema-up-to-date:
-    name: GraphQL schema is up-to-date
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-    - name: Install lld
-      run: sudo apt-get install -y lld
-    - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
-    - name: Compile xtask
-      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
-    - name: Run gql schema check
-      run: cargo xtask graphql-schema-check
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-    - name: Install lld
-      run: sudo apt-get install -y lld
-    - name: Install openssl
-      run: sudo apt-get install -y libssl-dev
-    - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
-    - name: Install clippy
-      run: rustup component add clippy
-    - name: Compile xtask
-      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
-    - name: Lint
-      run: cargo xtask lint
   style-checks:
     name: Style checks
     runs-on: ubuntu-latest
@@ -71,15 +39,78 @@ jobs:
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Run fmt check
       run: cargo xtask fmt-check
-    - if: success() || failure()
-      name: Git checks
+    - name: Git checks
       run: cargo xtask git-checks --checkout
-    - if: success() || failure()
-      name: Check Cargo.toml dependencies order
+      if: success() || failure()
+    - name: Check Cargo.toml dependencies order
       run: cargo xtask check-cargo-dep-order
-    - if: success() || failure()
-      name: Check Cargo.toml dependencies from workspace.dependencies
+      if: success() || failure()
+    - name: Check Cargo.toml dependencies from workspace.dependencies
       run: cargo xtask check-cargo-dep-from-workspace
+      if: success() || failure()
+  gql-schema-up-to-date:
+    name: GraphQL schema is up-to-date
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install lld
+      run: sudo apt-get install -y lld
+    - name: Install rust
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+    - name: Compile xtask
+      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Run gql schema check
+      run: cargo xtask graphql-schema-check
+  ci-files-up-to-date:
+    name: CI files are up-to-date
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install lld
+      run: sudo apt-get install -y lld
+    - name: Install rust
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+    - name: Compile xtask
+      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Run ci files up to date check
+      run: cargo xtask check-ci-files-up-to-date
+  test-win:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Setup env
+      run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+    - name: Install openssl
+      run: vcpkg install openssl:x64-windows-static-md
+    - name: Cleanup vcpkg build trees
+      run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
+    - name: Install rust
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+    - name: Install nextest
+      uses: taiki-e/install-action@nextest
+    - name: Print environment
+      shell: pwsh
+      run: 'ls env:'
+    - name: Collect other system information
+      run: "\n          git --version\n        "
+    - name: Compile xtask
+      run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Compile binaries and tests
+      run: cargo xtask test --verbose --no-run --profile ci
+    - name: Run tests
+      run: cargo xtask test --verbose --no-fail-fast --profile ci
+    - name: Run doctests
+      run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest
@@ -134,54 +165,23 @@ jobs:
       run: cargo xtask test --verbose --no-run --profile difftests
     - name: Run tests (with difftests)
       run: cargo xtask test --verbose --no-fail-fast --profile difftests
-  test-win:
-    name: Test (Windows)
-    runs-on: windows-latest
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-    - name: Setup env
-      run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+    - name: Install lld
+      run: sudo apt-get install -y lld
     - name: Install openssl
-      run: vcpkg install openssl:x64-windows-static-md
-    - name: Cleanup vcpkg build trees
-      run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
+      run: sudo apt-get install -y libssl-dev
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
-    - name: Install nextest
-      uses: taiki-e/install-action@nextest
-    - name: Print environment
-      run: 'ls env:'
-      shell: pwsh
-    - name: Collect other system information
-      run: "\n          git --version\n        "
+    - name: Install clippy
+      run: rustup component add clippy
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
-    - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --profile ci
-    - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --profile ci
-    - name: Run doctests
-      run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
-name: Test
-on:
-  pull_request:
-    branches:
-    - trunk
-  push:
-    branches:
-    - trunk
-    paths:
-    - crates/**
-    - dev/**
-    - Cargo.toml
-    - Cargo.lock
-    - rustfmt.toml
-    - clippy.toml
-    - .cargo/**
-    - .ci/github-workflows/**
-    - .config/nextest.toml
-    - .github/workflows/test.yaml
-    - schemas/graphql/schema.graphql
+    - name: Lint
+      run: cargo xtask lint

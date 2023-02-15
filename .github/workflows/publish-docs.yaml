@@ -1,3 +1,11 @@
+name: Publish docs
+on:
+  push:
+    branches:
+    - trunk
+    paths:
+    - docs/**
+    - .github/workflows/publish-docs.yaml
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -24,11 +32,3 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/book
-name: Publish docs
-on:
-  push:
-    branches:
-    - trunk
-    paths:
-    - docs/**
-    - .github/workflows/publish-docs.yaml
