@@ -244,6 +244,7 @@ punct!(CloseBrace, "}");
 punct!(DollarBrace, "${");
 punct!(Semicolon, ";");
 punct!(Colon, ":");
+punct!(Dot, ".");
 
 pub trait Keyword: From<Span> {
     const KW: &'static str;
@@ -327,6 +328,7 @@ pub enum AstVal {
     Arr(OpenBracket, Vec<AstVal>, CloseBracket),
     Obj(OpenBrace, Vec<AstItem>, CloseBrace),
     FunctionCall(AstFunctionCall),
+    Dot(Ident, Dot, K),
 }
 
 #[derive(Clone, PartialEq, Eq)]

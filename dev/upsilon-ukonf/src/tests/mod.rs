@@ -118,3 +118,32 @@ test_case_eq_json! {
     "#,
     {"a": {"b": [1]}},
 }
+test_case_eq_json! {
+    get_key,
+    r#"
+    let x: {a: 1 b: 2}
+    a: x.a
+    "#,
+    {"a": 1},
+}
+
+test_case_eq_json! {
+    get_key_with_ref,
+    r#"
+    let x: {a: 1 b: 2}
+    let y: 'a'
+    a: x.${y}
+    "#,
+    {"a": 1},
+}
+
+test_case_eq_json! {
+    get_key_with_ref_ref,
+    r#"
+    let x: {a: 1 b: 2}
+    let y: 'a'
+    let z: 'y'
+    a: x.${${z}}
+    "#,
+    {"a": 1},
+}

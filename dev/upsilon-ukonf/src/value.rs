@@ -41,6 +41,13 @@ impl UkonfValue {
         }
     }
 
+    pub fn as_object(&self) -> Option<&UkonfObject> {
+        match self {
+            UkonfValue::Object(obj) => Some(obj),
+            _ => None,
+        }
+    }
+
     pub fn as_mut_object(&mut self) -> Option<&mut UkonfObject> {
         match self {
             UkonfValue::Object(obj) => Some(obj),
@@ -74,6 +81,14 @@ impl UkonfObject {
     pub fn insert(&mut self, key: String, value: UkonfValue) {
         self.key_map.insert(key, self.map.len());
         self.map.push(value);
+    }
+
+    pub fn get(&self, key: &str) -> Option<&UkonfValue> {
+        let Some(k) = self.key_map.get(key) else {
+            return None;
+        };
+
+        Some(&self.map[*k])
     }
 
     pub fn get_mut(&mut self, key: &str) -> Option<&mut UkonfValue> {

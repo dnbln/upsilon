@@ -320,6 +320,23 @@ impl UkonfRunner {
 
                 f(&args)?
             }
+            AstVal::Dot(base, _, k) => {
+                let base_value = scope.borrow().resolve(&base.0 .0).unwrap();
+                let (name, indirections) = k.key().lower();
+                let mut name = name.to_string();
+
+                if indirections > 0 {
+                    name = scope
+                        .borrow()
+                        .resolve_with_indirections(&name, indirections - 1)
+                        .unwrap()
+                        .as_string()
+                        .unwrap()
+                        .clone();
+                }
+
+                base_value.as_object().unwrap().get(&name).unwrap().clone()
+            }
         };
 
         Ok(v)

@@ -19,7 +19,6 @@ use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use crate::analysis_data::CoverageData;
 use crate::{Difftest, DifftestsResult};

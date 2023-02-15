@@ -20,7 +20,6 @@ pub mod password;
 use std::str::FromStr;
 
 use russh_keys::key::PublicKey;
-use russh_keys::PublicKeyBase64;
 
 use crate::assets::ImageAssetId;
 use crate::namespace::{PlainNamespaceFragment, PlainNamespaceFragmentRef};

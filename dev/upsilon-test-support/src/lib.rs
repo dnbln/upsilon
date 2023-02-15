@@ -29,7 +29,6 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt::{Debug, Display};
 use std::future::Future;
-use std::panic::{Location, PanicInfo};
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
@@ -37,7 +36,6 @@ use std::task::{Context as AsyncCx, Poll};
 use std::time::Duration;
 
 use anyhow::{bail, format_err, Context};
-use futures::future::CatchUnwind;
 use log::info;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Child;

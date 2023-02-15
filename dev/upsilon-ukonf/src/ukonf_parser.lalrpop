@@ -45,6 +45,7 @@ CloseBrace: CloseBrace = SpannedInto<"}", CloseBrace>;
 DollarBrace: DollarBrace = SpannedInto<"${", DollarBrace>;
 Colon: Colon = SpannedInto<":", Colon>;
 Comma: Comma = SpannedInto<",", Comma>;
+Dot: Dot = SpannedInto<".", Dot>;
 
 AstImport: AstImport = {
     <import_kw: Import> <path: AstVal> <semicolon: Semicolon> => AstImport::new(import_kw, path, semicolon),
@@ -91,6 +92,7 @@ AstVal: AstVal = {
     <num_lit: NumLit> => AstVal::Num(num_lit),
     <bool_lit: BoolLit> => AstVal::Bool(bool_lit),
     <function_call: FunctionCall> => AstVal::FunctionCall(function_call),
+    Ident Dot K => AstVal::Dot(<>),
     Arr,
     Obj,
 };
