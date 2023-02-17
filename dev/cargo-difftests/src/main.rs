@@ -67,6 +67,12 @@ pub struct CompileTestIndexFlags {
     ignore_cargo_registry: bool,
     #[clap(long)]
     flatten_files_to: Option<FlattenFilesTarget>,
+    #[clap(
+        long = "no-remove-bin-path",
+        default_value_t = true,
+        action(clap::ArgAction::SetFalse)
+    )]
+    remove_bin_path: bool,
     #[cfg(windows)]
     #[clap(
         long = "no-path-slash-replace",
@@ -81,6 +87,7 @@ impl Default for CompileTestIndexFlags {
         Self {
             ignore_cargo_registry: true,
             flatten_files_to: Some(FlattenFilesTarget::RepoRoot),
+            remove_bin_path: true,
             #[cfg(windows)]
             path_slash_replace: true,
         }
@@ -508,6 +515,7 @@ fn compile_test_index_config(
 
             true
         }),
+        remove_bin_path: compile_test_index_flags.remove_bin_path,
     };
 
     Ok(config)

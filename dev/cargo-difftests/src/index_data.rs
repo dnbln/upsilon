@@ -89,6 +89,10 @@ impl DifftestsSingleTestIndexData {
             test_desc: difftest.load_test_desc()?,
         };
 
+        if index_data_compiler_config.remove_bin_path {
+            index_data.test_desc.bin_path = PathBuf::new();
+        }
+
         let mut mapping_files = BTreeMap::<PathBuf, usize>::new();
 
         for mapping in &profdata.data {
@@ -144,4 +148,5 @@ impl DifftestsSingleTestIndexData {
 pub struct IndexDataCompilerConfig {
     pub index_filename_converter: Box<dyn FnMut(&Path) -> PathBuf>,
     pub accept_file: Box<dyn FnMut(&Path) -> bool>,
+    pub remove_bin_path: bool,
 }
