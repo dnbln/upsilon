@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct CoreTestDesc {
     pub pkg_name: String,
     pub crate_name: String,

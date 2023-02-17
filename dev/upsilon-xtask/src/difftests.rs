@@ -15,6 +15,7 @@
  */
 
 use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
 
 use cargo_difftests::{AnalysisVerdict, AnalyzeAllSingleTest};
 use clap::{Parser, ValueEnum};
@@ -77,6 +78,10 @@ impl Display for DirtyAlgo {
     }
 }
 
+fn index_root() -> PathBuf {
+    ws_path!("tests" / "difftests-index-root")
+}
+
 fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     let output = difftests_cmd_output!(
         "analyze-all",
@@ -90,7 +95,7 @@ fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
             name = "upsilon-gracefully-shutdown-host"
         ),
         "--index-root",
-        ws_path!("tests" / "difftests-index-root"),
+        index_root(),
         "--index-strategy",
         "always",
         "--algo",
@@ -102,8 +107,29 @@ fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(tests)
 }
 
+fn analyze_all_from_index(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    let output = difftests_cmd_output!(
+        "analyze-all-from-index",
+        "--index-root",
+        index_root(),
+        "--algo",
+        algo.to_string(),
+    )?;
+
+    let tests = serde_json::from_str::<Vec<AnalyzeAllSingleTest>>(&output)?;
+
+    Ok(tests)
+}
+
 pub fn tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(analyze_all(algo)?
+        .into_iter()
+        .filter(|it| it.verdict == AnalysisVerdict::Dirty)
+        .collect())
+}
+
+pub fn tests_to_rerun_from_index(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    Ok(analyze_all_from_index(algo)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)
         .collect())

@@ -332,6 +332,14 @@ pub enum App {
         #[clap(long)]
         ignore_incompatible: bool,
     },
+    AnalyzeAllFromIndex {
+        #[clap(long)]
+        index_root: PathBuf,
+        #[clap(long)]
+        algo: DirtyAlgorithm,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
+    },
     LowLevel {
         #[clap(subcommand)]
         cmd: LowLevelCommand,
@@ -713,7 +721,65 @@ pub fn run_analyze_all(
 
         let result = AnalyzeAllSingleTest {
             test_desc: difftest.load_test_desc()?,
-            difftest,
+            difftest: Some(difftest),
+            verdict: r.into(),
+        };
+
+        results.push(result);
+    }
+
+    let out_json = serde_json::to_string(&results)?;
+    println!("{out_json}");
+
+    Ok(())
+}
+
+fn discover_indexes_to_vec(
+    index_root: &Path,
+    indexes: &mut Vec<DifftestsSingleTestIndexData>,
+) -> CargoDifftestsResult {
+    for entry in fs::read_dir(index_root)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            discover_indexes_to_vec(&path, indexes)?;
+        } else {
+            let index = DifftestsSingleTestIndexData::read_from_file(&path)?;
+            indexes.push(index);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn run_analyze_all_from_index(
+    index_root: PathBuf,
+    algo: DirtyAlgorithm,
+    commit: Option<git2::Oid>,
+) -> CargoDifftestsResult {
+    let indexes = {
+        let mut indexes = vec![];
+        discover_indexes_to_vec(&index_root, &mut indexes)?;
+        indexes
+    };
+
+    let mut results = vec![];
+
+    for index in indexes {
+        let test_desc = index.test_desc.clone();
+
+        let r = {
+            let mut analysis_cx = AnalysisContext::from_index(index);
+            analysis_cx.run(&AnalysisConfig {
+                dirty_algorithm: algo.convert(commit),
+            })?;
+            analysis_cx.finish_analysis()
+        };
+
+        let result = AnalyzeAllSingleTest {
+            test_desc,
+            difftest: None,
             verdict: r.into(),
         };
 
@@ -775,6 +841,13 @@ fn main_impl() -> CargoDifftestsResult {
                 analysis_index,
                 ignore_incompatible,
             )?;
+        }
+        App::AnalyzeAllFromIndex {
+            index_root,
+            algo,
+            commit,
+        } => {
+            run_analyze_all_from_index(index_root, algo, commit)?;
         }
         App::LowLevel { cmd } => {
             run_low_level_cmd(cmd)?;

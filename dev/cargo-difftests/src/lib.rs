@@ -574,7 +574,7 @@ pub enum TouchSameFilesDifference {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct AnalyzeAllSingleTest {
-    pub difftest: Difftest,
+    pub difftest: Option<Difftest>,
     pub test_desc: CoreTestDesc,
     pub verdict: AnalysisVerdict,
 }

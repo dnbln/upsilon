@@ -19,6 +19,7 @@ use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use cargo_difftests_core::CoreTestDesc;
 
 use crate::analysis_data::CoverageData;
 use crate::{Difftest, DifftestsResult};
@@ -71,6 +72,7 @@ pub struct DifftestsSingleTestIndexData {
     pub regions: Vec<IndexRegion>,
     pub files: Vec<PathBuf>,
     pub test_run: chrono::DateTime<chrono::Utc>,
+    pub test_desc: CoreTestDesc,
 }
 
 impl DifftestsSingleTestIndexData {
@@ -83,6 +85,7 @@ impl DifftestsSingleTestIndexData {
             regions: vec![],
             files: vec![],
             test_run: difftest.self_json.metadata()?.modified()?.into(),
+            test_desc: difftest.load_test_desc()?,
         };
 
         let mut mapping_files = BTreeMap::<PathBuf, usize>::new();

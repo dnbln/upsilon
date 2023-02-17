@@ -224,6 +224,8 @@ enum App {
         no_capture: bool,
         #[clap(long)]
         clean_profiles_between_steps: bool,
+        #[clap(long)]
+        from_index: bool,
         #[clap(long, default_value = "difftests")]
         profile: String,
     },
@@ -1016,6 +1018,7 @@ fn main_impl() -> XtaskResult<()> {
             no_fail_fast,
             no_capture,
             clean_profiles_between_steps,
+            from_index,
             profile,
         } => {
             let profile = profile.as_str();
@@ -1023,7 +1026,12 @@ fn main_impl() -> XtaskResult<()> {
                 bail!("Only difftests profile is supported for quick tests");
             }
 
-            let tests = difftests::tests_to_rerun(DirtyAlgo::FsMtime)?;
+            let algo = DirtyAlgo::FsMtime;
+
+            let tests = match from_index {
+                false => difftests::tests_to_rerun(algo)?,
+                true => difftests::tests_to_rerun_from_index(algo)?,
+            };
 
             if tests.is_empty() {
                 info!("No tests to rerun");
