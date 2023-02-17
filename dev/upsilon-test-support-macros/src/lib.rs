@@ -21,7 +21,6 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, TokenStreamExt};
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
-use syn::token::Async;
 use syn::{Attribute, FnArg, ReturnType, Stmt, Type};
 
 #[proc_macro_attribute]
@@ -31,11 +30,9 @@ pub fn upsilon_test(
 ) -> proc_macro::TokenStream {
     let fun = syn::parse_macro_input!(item as syn::ItemFn);
 
-    let result = expand_upsilon_test(attr.into(), fun)
+    expand_upsilon_test(attr.into(), fun)
         .unwrap_or_else(syn::Error::into_compile_error)
-        .into();
-
-    result
+        .into()
 }
 
 fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<TokenStream> {
@@ -65,7 +62,6 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
 
     let inner_fun_name = format_ident!("__upsilon_test_impl");
     let name = std::mem::replace(&mut fun.sig.ident, inner_fun_name.clone());
-    let asyncness = fun.sig.asyncness;
     let vis = std::mem::replace(&mut fun.vis, syn::Visibility::Inherited);
     let inputs = fun
         .sig
@@ -152,7 +148,6 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
     let inner_fn_call = InnerFnCall {
         test_name: name.clone(),
         inner_fun_name,
-        asyncness,
         inputs,
         works_offline,
         config_path,
@@ -178,7 +173,6 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
 struct InnerFnCall {
     test_name: Ident,
     inner_fun_name: Ident,
-    asyncness: Option<Async>,
     inputs: Vec<(Vec<Attribute>, Box<Type>)>,
     works_offline: bool,
     config_path: TokenStream,

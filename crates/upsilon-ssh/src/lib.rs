@@ -17,7 +17,6 @@
 pub extern crate async_trait;
 
 use async_trait::async_trait;
-use upsilon_models::users::UserId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CommonSSHError {

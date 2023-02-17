@@ -14,15 +14,12 @@
  *    limitations under the License.
  */
 
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fs;
 use std::io::{Read, Seek, Write};
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, format_err, Context};
-use cargo::core::Workspace;
-use cargo::util::command_prelude::ArgMatchesExt;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
 use path_slash::PathExt;
@@ -31,8 +28,7 @@ use ukonf::value::UkonfValue;
 use ukonf::UkonfFunctions;
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
 use upsilon_xtask::difftests::{DiffTestsCommand, DirtyAlgo};
-use upsilon_xtask::mdbook::Mdbook;
-use upsilon_xtask::pkg::{Pkg, PkgKind};
+use upsilon_xtask::pkg::Pkg;
 use upsilon_xtask::{
     cargo_cmd, cmd_args, cmd_call, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
 };

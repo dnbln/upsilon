@@ -24,7 +24,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{ColorMode, CompletionType, Config};
 use serde::Deserialize;
 use upsilon_shell::{
-    parse_line, BuildUrlError, Client, Helper, UserMap, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
+    parse_line, BuildUrlError, Client, Helper, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
 };
 
 #[derive(Parser, Debug)]

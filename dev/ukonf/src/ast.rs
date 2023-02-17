@@ -97,6 +97,12 @@ pub struct StringInterner {
     strings: Vec<String>,
 }
 
+impl Default for StringInterner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StringInterner {
     pub fn new() -> Self {
         Self {

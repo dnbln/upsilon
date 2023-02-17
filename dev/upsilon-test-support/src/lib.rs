@@ -24,9 +24,8 @@ pub extern crate log;
 pub extern crate serde_json;
 pub extern crate upsilon_test_support_macros;
 
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fmt::{Debug, Display};
 use std::future::Future;
 use std::path::PathBuf;

@@ -19,9 +19,7 @@ use std::fmt::{Display, Formatter};
 use cargo_difftests::{AnalysisVerdict, AnalyzeAllSingleTest};
 use clap::{Parser, ValueEnum};
 
-use crate::{
-    cmd_call, cmd_output_pipe_to_file, cmd_output_string, cmd_process, ws_bin_path, ws_path, XtaskResult
-};
+use crate::{ws_bin_path, ws_path, XtaskResult};
 
 #[derive(Parser, Debug)]
 pub enum DiffTestsCommand {

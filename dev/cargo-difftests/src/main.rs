@@ -26,7 +26,6 @@ use cargo_difftests::index_data::{DifftestsSingleTestIndexData, IndexDataCompile
 use cargo_difftests::{
     AnalyzeAllSingleTest, Difftest, DiscoverIndexPathResolver, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
 };
-use cargo_difftests_core::CoreTestDesc;
 use clap::{Args, Parser, ValueEnum};
 use log::warn;
 use path_slash::PathExt;

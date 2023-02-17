@@ -772,6 +772,12 @@ pub struct GitRemoteRefBuilder {
     path: Option<String>,
 }
 
+impl Default for GitRemoteRefBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GitRemoteRefBuilder {
     pub fn new() -> Self {
         Self {
