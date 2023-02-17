@@ -202,7 +202,7 @@ pub struct QueryRoot;
 
 #[graphql_object(Context = GraphQLContext)]
 impl QueryRoot {
-    fn api_version() -> &str {
+    fn api_version() -> &'static str {
         "v1"
     }
 

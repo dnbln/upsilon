@@ -19,6 +19,7 @@ clippy.new_without_default = "deny"
 anyhow = "1.0.66"
 async-trait = "0.1.59"
 bitflags = "2.0.0-rc.1"
+cargo = "0.68.0"
 cargo-cranky = { path = "dev/cargo-cranky" }
 cargo-difftests = { path = "dev/cargo-difftests", version = "0.1.0-alpha.4" }
 cargo-difftests-core = { path = "dev/cargo-difftests-core", version = "0.1.0-alpha.4" }
@@ -49,7 +50,7 @@ serde_json = "1.0"
 serde_yaml = "0.9.17"
 thiserror = "1.0"
 tokio = { version = "1.22.0", features = ["full"] }
-ukonf = { path = "dev/upsilon-ukonf" }
+ukonf = { path = "dev/ukonf" }
 winapi = "0.3"
 
 

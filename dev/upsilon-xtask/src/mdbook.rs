@@ -1,5 +1,5 @@
 /*
- *        Copyright (c) 2022-2023 Dinu Blanovschi
+ *        Copyright (c) 2023 Dinu Blanovschi
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,15 +14,36 @@
  *    limitations under the License.
  */
 
-pub extern crate glob;
+use std::path::PathBuf;
 
-pub mod cmd;
-pub mod difftests;
-pub mod git_checks;
-pub mod pkg;
-pub mod result;
-pub mod ws;
-pub mod cargo_ws;
-pub mod mdbook;
+use crate::{cmd_call, XtaskResult};
 
-pub use result::XtaskResult;
+pub struct Mdbook {
+    pub root: PathBuf,
+}
+
+impl Mdbook {
+    pub fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    pub fn build(&self) -> XtaskResult<()> {
+        cmd_call!(
+            "mdbook",
+            "build",
+            @workdir = &self.root,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn serve(&self) -> XtaskResult<()> {
+        cmd_call!(
+            "mdbook",
+            "serve",
+            @workdir = &self.root,
+        )?;
+
+        Ok(())
+    }
+}

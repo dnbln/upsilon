@@ -1,7 +1,7 @@
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.7.20"
-    id("org.jetbrains.intellij") version "1.11.0"
+    id("org.jetbrains.intellij") version "1.13.0"
 }
 
 group = "dev.dnbln"
@@ -14,7 +14,7 @@ repositories {
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellij {
-    version.set("2022.3")
+    version.set("LATEST-EAP-SNAPSHOT")
     type.set("IC") // Target IDE Platform
 
     pluginsRepositories {
@@ -24,9 +24,9 @@ intellij {
 
     plugins.set(
         listOf(
-            "org.rust.lang:0.4.185.5086-223",
-            "com.intellij.lang.jsgraphql:3.3.0",
-            "org.jetbrains.plugins.yaml:223.7571.125",
+            "org.rust.lang:0.4.188.5205-231",
+            "com.intellij.lang.jsgraphql:3.4.0",
+            "org.jetbrains.plugins.yaml:231.6890.13",
             "com.almightyalpaca.intellij.plugins.discord:1.11.0+4",
         )
     )

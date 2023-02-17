@@ -4794,12 +4794,14 @@ name = "upsilon-xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cargo",
  "cargo-cranky",
  "cargo-difftests",
  "clap 4.1.4",
  "fs_extra",
  "git2",
  "glob",
+ "lazy_static",
  "log",
  "path-slash",
  "pretty_env_logger",

@@ -6,6 +6,7 @@ xt = "x t"
 xf = "x fmt"
 xfc = "x fmt-check"
 xd = "x d"
+xgen-ws-layout = "run --package upsilon-xtask --bin gen_ws_layout"
 
 [target.'cfg(all())']
 rustflags = [

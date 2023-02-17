@@ -104,7 +104,7 @@ fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(tests)
 }
 
-fn tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+pub fn tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(analyze_all(algo)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)

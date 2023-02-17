@@ -23,6 +23,7 @@ macro_rules! ws_path {
             use std::borrow::ToOwned;
             let mut p = $crate::ws::workspace_root().to_owned();
             $(
+                #[allow(unused_parens)]
                 p.push($s);
             )*
             p

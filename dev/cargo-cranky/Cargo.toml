@@ -13,7 +13,7 @@ rust-version = "1.56"
 
 [dependencies]
 anyhow.workspace = true
-cargo = "0.68.0"
+cargo.workspace = true
 clap.workspace = true
 serde = { workspace = true, features = ["derive"] }
 toml = "0.5.9"

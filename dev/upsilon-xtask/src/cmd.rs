@@ -20,6 +20,103 @@ use std::string::FromUtf8Error;
 use std::{fmt, io};
 
 #[macro_export]
+macro_rules! cmd_args_process {
+    (@@process_one $cmd_args:expr $(,)?) => {
+    };
+
+    (@@process_one $cmd_args:expr, ...$arg:expr => @if $arg_condition:expr, $($remaining:tt)*) => {
+        if $arg_condition {
+            for arg in $arg {
+                $cmd_args.push(arg.into());
+            }
+        }
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+    (@@process_one $cmd_args:expr, ...$arg:expr => @if let $pat:pat = $pat_expr:expr, $($remaining:tt)*) => {
+        if let $pat = $pat_expr {
+            for arg in $arg {
+                $cmd_args.push(arg.into());
+            }
+        }
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+    (@@process_one $cmd_args:expr, ...$arg:expr, $($remaining:tt)*) => {
+        for arg in $arg {
+            $cmd_args.push(arg.into());
+        }
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+
+    (@@process_one $cmd_args:expr, ...$arg:expr => @if $arg_condition:expr $(,)?) => {
+        if $arg_condition {
+            for arg in $arg {
+                $cmd_args.args(arg.into());
+            }
+        }
+    };
+    (@@process_one $cmd_args:expr, ...$arg:expr => @if let $pat:pat = $pat_expr:expr $(,)?) => {
+        if let $pat = $pat_expr {
+            for arg in $arg {
+                $cmd_args.push(arg.into());
+            }
+        }
+    };
+    (@@process_one $cmd_args:expr, ...$arg:expr $(,)?) => {
+        for arg in $arg {
+            $cmd_args.push(arg.into());
+        }
+    };
+
+    (@@process_one $cmd_args:expr, $arg:expr => @if $arg_condition:expr, $($remaining:tt)*) => {
+        if $arg_condition {
+            $cmd_args.push($arg.into());
+        }
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+    (@@process_one $cmd_args:expr, $arg:expr => @if let $pat:pat = $pat_expr:expr, $($remaining:tt)*) => {
+        if let $pat = $pat_expr {
+            $cmd_args.push($arg.into());
+        }
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+    (@@process_one $cmd_args:expr, $arg:expr, $($remaining:tt)*) => {
+        $cmd_args.push($arg.into());
+
+        $crate::cmd_args_process!(@@process_one $cmd_args, $($remaining)*);
+    };
+
+    (@@process_one $cmd_args:expr, $arg:expr => @if $arg_condition:expr $(,)?) => {
+        if $arg_condition {
+            $cmd_args.push($arg.into());
+        }
+    };
+    (@@process_one $cmd_args:expr, $arg:expr => @if let $pat:pat = $pat_expr:expr $(,)?) => {
+        if let $pat = $pat_expr {
+            $cmd_args.push($arg.into());
+        }
+    };
+    (@@process_one $cmd_args:expr, $arg:expr $(,)?) => {
+        $cmd_args.push($arg.into());
+    };
+}
+
+#[macro_export]
+macro_rules! cmd_args {
+    ($($args:tt)*) => {
+        {
+            let mut cmd_args = Vec::<std::ffi::OsString>::new();
+            $crate::cmd_args_process!(@@process_one cmd_args, $($args)*);
+            cmd_args
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! cmd_process {
     (@@process_one $cmd:expr $(,)?) => {
     };

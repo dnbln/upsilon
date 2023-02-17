@@ -14,10 +14,15 @@
  *    limitations under the License.
  */
 
+use std::ffi::{OsStr, OsString};
+use std::fs;
 use std::io::{Read, Seek, Write};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, format_err};
+use anyhow::{bail, format_err, Context};
+use cargo::core::Workspace;
+use cargo::util::command_prelude::ArgMatchesExt;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
 use path_slash::PathExt;
@@ -25,11 +30,18 @@ use toml_edit::{Item, Key, TableLike};
 use ukonf::value::UkonfValue;
 use ukonf::UkonfFunctions;
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
-use upsilon_xtask::difftests::DiffTestsCommand;
+use upsilon_xtask::difftests::{DiffTestsCommand, DirtyAlgo};
+use upsilon_xtask::mdbook::Mdbook;
+use upsilon_xtask::pkg::{Pkg, PkgKind};
 use upsilon_xtask::{
-    cargo_cmd, cmd_call, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
+    cargo_cmd, cmd_args, cmd_call, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
 };
+use ws_layout::WS_BIN_LAYOUT;
 use zip::write::{FileOptions, ZipWriter};
+
+use crate::ws_layout::{WsPkgLayout, DOCS, WS_PKG_LAYOUT};
+
+pub mod ws_layout;
 
 macro_rules! expand_known_test_group {
     ({@testsuitebin $name:literal: $bin:literal}) => {
@@ -200,6 +212,25 @@ enum App {
 
         tests_filters: Vec<String>,
     },
+    #[clap(name = "test-quick")]
+    #[clap(alias = "tq")]
+    #[clap(alias = "qt")]
+    TestQuick {
+        #[clap(short, long)]
+        dgql: bool,
+        #[clap(short, long)]
+        offline: bool,
+        #[clap(short, long)]
+        verbose: bool,
+        #[clap(long)]
+        no_fail_fast: bool,
+        #[clap(long)]
+        no_capture: bool,
+        #[clap(long)]
+        clean_profiles_between_steps: bool,
+        #[clap(long, default_value = "difftests")]
+        profile: String,
+    },
     #[clap(name = "test-support-examples")]
     #[clap(alias = "tse")]
     TestSupportExamples {
@@ -261,56 +292,40 @@ enum App {
 }
 
 fn build_dev(dgql: bool, verbose: bool, profile: Option<&str>) -> XtaskResult<()> {
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon-debug-data-driver",
-        "--bin", "upsilon-debug-data-driver",
-        "--features=dump_gql_response" => @if dgql,
-        "--verbose" => @if verbose,
-        ...["--profile", profile] => @if let Some(profile) = profile,
-        @workdir = ws_root!(),
-    )?;
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon-git-hooks",
-        "--bin", "upsilon-git-hooks",
+    WS_BIN_LAYOUT
+        .upsilon_debug_data_driver_main
+        .build(cmd_args!(
+            "--features=dump_gql_response" => @if dgql,
+            "--verbose" => @if verbose,
+            ...["--profile", profile] => @if let Some(profile) = profile,
+        ))?;
+    WS_BIN_LAYOUT.upsilon_git_hooks_main.build(cmd_args!(
         "--features=build-bin",
         "--verbose" => @if verbose,
         ...["--profile", profile] => @if let Some(profile) = profile,
-        @workdir = ws_root!(),
-    )?;
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon-git-protocol-accesshook",
-        "--bin", "upsilon-git-protocol-accesshook",
+    ))?;
+    WS_BIN_LAYOUT
+        .upsilon_git_protocol_accesshook_main
+        .build(cmd_args!(
+            "--verbose" => @if verbose,
+            ...["--profile", profile] => @if let Some(profile) = profile,
+        ))?;
+    WS_BIN_LAYOUT.upsilon_web_main.build(cmd_args!(
         "--verbose" => @if verbose,
         ...["--profile", profile] => @if let Some(profile) = profile,
-        @workdir = ws_root!(),
-    )?;
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon-web",
-        "--verbose" => @if verbose,
-        ...["--profile", profile] => @if let Some(profile) = profile,
-        @workdir = ws_root!(),
-    )?;
+    ))?;
 
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon-gracefully-shutdown-host",
-        "--bin", "upsilon-gracefully-shutdown-host",
-        "--verbose" => @if verbose,
-        ...["--profile", profile] => @if let Some(profile) = profile,
-        @workdir = ws_root!(),
-    )?;
+    WS_BIN_LAYOUT
+        .upsilon_gracefully_shutdown_host_main
+        .build(cmd_args!(
+            "--verbose" => @if verbose,
+            ...["--profile", profile] => @if let Some(profile) = profile,
+        ))?;
 
-    cargo_cmd!(
-        "build",
-        "-p", "upsilon",
-        "--bin", "upsilon",
+    WS_BIN_LAYOUT.upsilon_main.build(cmd_args!(
         "--verbose" => @if verbose,
         ...["--profile", profile] => @if let Some(profile) = profile,
-    )?;
+    ))?;
 
     Ok(())
 }
@@ -415,6 +430,65 @@ fn run_tests(
     Ok(())
 }
 
+fn run_tests_quick(
+    setup_testenv: &Path,
+    offline: bool,
+    verbose: bool,
+    no_fail_fast: bool,
+    no_capture: bool,
+    clean_profiles_between_steps: bool,
+    profile: &str,
+    test_filters: Vec<OsString>,
+) -> XtaskResult<()> {
+    let prof = profile;
+
+    cargo_cmd!(
+        "run",
+        ...WS_BIN_LAYOUT.upsilon_setup_testenv_main.run_args(),
+        "--verbose" => @if verbose,
+        "--profile",
+        profile,
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+        @env "RUST_LOG" => "info",
+        @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
+        @workdir = ws_root!(),
+    )?;
+
+    if clean_profiles_between_steps {
+        clean_unneeded_instrumentation_files()?;
+    }
+
+    let upsilon_web_binary = ws_bin_path!(profile = prof, name = "upsilon-web");
+
+    let upsilon_gracefully_shutdown_host_binary =
+        ws_bin_path!(profile = prof, name = "upsilon-gracefully-shutdown-host");
+
+    cargo_cmd!(
+        "nextest",
+        "run",
+        "--all",
+        "--offline" => @if offline,
+        "--verbose" => @if verbose,
+        "--no-fail-fast" => @if no_fail_fast,
+        "--no-capture" => @if no_capture,
+        "--cargo-profile", profile,
+        ...test_filters,
+        @env "CLICOLOR_FORCE" => "1",
+        @env "UPSILON_TEST_GUARD" => "1",
+        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+        @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+        @env "UPSILON_HOST_REPO_GIT" => ws_path!(".git"),
+        @env "UPSILON_WEB_BIN" => upsilon_web_binary,
+        @env "UPSILON_GRACEFULLY_SHUTDOWN_HOST_BIN" => upsilon_gracefully_shutdown_host_binary,
+        @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
+        @env "UPSILON_TESTSUITE_LOG" => "info",
+        @workdir = ws_root!(),
+    )?;
+
+    Ok(())
+}
+
 fn run_test_support_examples(
     setup_testenv: &Path,
     tmpdir: &Path,
@@ -423,10 +497,7 @@ fn run_test_support_examples(
 ) -> XtaskResult<()> {
     cargo_cmd!(
         "run",
-        "-p",
-        "upsilon-setup-testenv",
-        "--bin",
-        "upsilon-setup-testenv",
+        ...WS_BIN_LAYOUT.upsilon_setup_testenv_main.run_args(),
         "--verbose",
         ...["--profile", profile] => @if let Some(profile) = profile,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
@@ -444,8 +515,7 @@ fn run_test_support_examples(
     for example in examples {
         cargo_cmd!(
             "run",
-            "-p",
-            "upsilon-test-support",
+            ...WS_PKG_LAYOUT.upsilon_test_support.run_args(),
             "--example",
             example,
             @env "CLICOLOR_FORCE" => "1",
@@ -484,7 +554,7 @@ fn write_bin_file_to_zip<W: Write + Seek>(
         .with_extension(std::env::consts::EXE_EXTENSION);
 
     let mut buf = [0u8; 65536];
-    let mut f = std::fs::File::open(path)?;
+    let mut f = fs::File::open(path)?;
 
     loop {
         let read = f.read(&mut buf)?;
@@ -582,7 +652,7 @@ fn check_dep_order_for_table(
 }
 
 fn load_cargo_manifest(path: impl AsRef<Path>) -> XtaskResult<toml_edit::Document> {
-    std::fs::read_to_string(path)?.parse().map_err(Into::into)
+    fs::read_to_string(path)?.parse().map_err(Into::into)
 }
 
 fn check_dep_order(
@@ -692,27 +762,17 @@ fn extend_filext_new(p: impl AsRef<Path>) -> PathBuf {
     ))
 }
 
-fn build_docs() -> XtaskResult<()> {
-    cmd_call!(
-        "mdbook",
-        "build",
-        @workdir = ws_path!("docs"),
-    )?;
-
-    Ok(())
-}
-
 fn copy(from: impl AsRef<Path>, to: impl AsRef<Path>) -> XtaskResult<()> {
     let from = from.as_ref();
     let to = to.as_ref();
 
     if from.is_file() {
-        std::fs::copy(from, to)?;
+        fs::copy(from, to)?;
         return Ok(());
     }
 
     if !to.exists() {
-        std::fs::create_dir_all(to)?;
+        fs::create_dir_all(to)?;
     }
 
     fs_extra::dir::copy(
@@ -740,7 +800,7 @@ fn ukonf_to_yaml_string(from: PathBuf, fns: fn() -> UkonfFunctions) -> XtaskResu
 
 fn ukonf_to_yaml(from: PathBuf, to: &Path, fns: fn() -> UkonfFunctions) -> XtaskResult<()> {
     let s = ukonf_to_yaml_string(from, fns)?;
-    std::fs::write(to, s)?;
+    fs::write(to, s)?;
 
     Ok(())
 }
@@ -791,7 +851,7 @@ pub struct OutdatedReport {
 fn check_ci_file(from: &str, to: &str, reports: &mut Vec<OutdatedReport>) -> XtaskResult<()> {
     let new = ukonf_to_yaml_string(PathBuf::from(from), ukonf_ci_functions)?;
 
-    let old = std::fs::read_to_string(to)?;
+    let old = fs::read_to_string(to)?;
 
     if old == new {
         return Ok(());
@@ -826,9 +886,9 @@ fn rm(p: &Path) -> XtaskResult<()> {
     info!("Removing {p:?}");
 
     if p.is_file() {
-        std::fs::remove_file(p)?;
+        fs::remove_file(p)?;
     } else {
-        std::fs::remove_dir_all(p)?;
+        fs::remove_dir_all(p)?;
     }
 
     Ok(())
@@ -885,15 +945,14 @@ fn main_impl() -> XtaskResult<()> {
 
             cargo_cmd!(
                 "run",
-                "-p",
-                "upsilon",
+                ...WS_BIN_LAYOUT.upsilon_main.run_args(),
                 "--",
                 "web",
                 @workdir = ws_path!("testenv"),
             )?;
         }
         App::FrontendRunDev => {
-            build_docs()?;
+            DOCS.build()?;
 
             copy(
                 ws_path!("docs" / "book"),
@@ -931,10 +990,10 @@ fn main_impl() -> XtaskResult<()> {
             let setup_testenv = testenv_tests.join(std::process::id().to_string());
 
             if setup_testenv.exists() {
-                std::fs::remove_dir_all(&setup_testenv)?;
+                fs::remove_dir_all(&setup_testenv)?;
             }
 
-            std::fs::create_dir_all(&setup_testenv)?;
+            fs::create_dir_all(&setup_testenv)?;
 
             let result = run_tests(
                 &setup_testenv,
@@ -950,7 +1009,75 @@ fn main_impl() -> XtaskResult<()> {
                 profile,
             );
 
-            std::fs::remove_dir_all(&testenv_tests)?;
+            fs::remove_dir_all(&testenv_tests)?;
+
+            result?;
+        }
+        App::TestQuick {
+            dgql,
+            offline,
+            verbose,
+            no_fail_fast,
+            no_capture,
+            clean_profiles_between_steps,
+            profile,
+        } => {
+            let profile = profile.as_str();
+            if profile != "difftests" && !profile.starts_with("difftests-") {
+                bail!("Only difftests profile is supported for quick tests");
+            }
+
+            let tests = difftests::tests_to_rerun(DirtyAlgo::FsMtime)?;
+
+            if tests.is_empty() {
+                info!("No tests to rerun");
+                return Ok(());
+            }
+
+            let tests = tests
+                .iter()
+                .map(|t| {
+                    Ok((
+                        WsPkgLayout::package_from_str(&t.test_desc.pkg_name)
+                            .context("Unknown package")?,
+                        t,
+                    ))
+                })
+                .collect::<XtaskResult<Vec<_>>>()?;
+
+            let test_filters = tests
+                .iter()
+                .flat_map(|(pkg, t)| pkg.nextest_test_filter(&t.test_desc.test_name))
+                .collect::<Vec<_>>();
+
+            build_dev(dgql, verbose, Some(profile))?;
+
+            if clean_profiles_between_steps {
+                clean_unneeded_instrumentation_files()?;
+            }
+
+            let testenv_tests = ws_path!("testenv_tests");
+
+            let setup_testenv = testenv_tests.join(std::process::id().to_string());
+
+            if setup_testenv.exists() {
+                fs::remove_dir_all(&setup_testenv)?;
+            }
+
+            fs::create_dir_all(&setup_testenv)?;
+
+            let result = run_tests_quick(
+                &setup_testenv,
+                offline,
+                verbose,
+                no_fail_fast,
+                no_capture,
+                clean_profiles_between_steps,
+                profile,
+                test_filters,
+            );
+
+            fs::remove_dir_all(&testenv_tests)?;
 
             result?;
         }
@@ -963,64 +1090,45 @@ fn main_impl() -> XtaskResult<()> {
             let tmpdir_root = testenv_tests.join(std::process::id().to_string());
 
             if tmpdir_root.exists() {
-                std::fs::remove_dir_all(&tmpdir_root)?;
+                fs::remove_dir_all(&tmpdir_root)?;
             }
 
-            std::fs::create_dir_all(&tmpdir_root)?;
+            fs::create_dir_all(&tmpdir_root)?;
 
             let setup_testenv = tmpdir_root.join("testenv");
 
-            std::fs::create_dir_all(&setup_testenv)?;
+            fs::create_dir_all(&setup_testenv)?;
 
             let tmpdir = tmpdir_root.join("tmpdir");
 
-            std::fs::create_dir_all(&tmpdir)?;
+            fs::create_dir_all(&tmpdir)?;
 
             let result = run_test_support_examples(&setup_testenv, &tmpdir, &examples, profile);
 
-            std::fs::remove_dir_all(&testenv_tests)?;
+            fs::remove_dir_all(&testenv_tests)?;
 
             result?;
         }
         App::PackRelease => {
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-web",
-                "--bin", "upsilon-web",
-                "--release",
-                @workdir = ws_root!(),
-            )?;
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon",
-                "--bin", "upsilon",
-                "--release",
-                @workdir = ws_root!(),
-            )?;
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-protocol-accesshook",
-                "--bin", "upsilon-git-protocol-accesshook",
-                "--release",
-                @workdir = ws_root!(),
-            )?;
-            cargo_cmd!(
-                "build",
-                "-p", "upsilon-git-hooks",
-                "--bin", "upsilon-git-hooks",
-                "--features=build-bin",
-                "--release",
-                @workdir = ws_root!(),
-            )?;
+            WS_BIN_LAYOUT
+                .upsilon_web_main
+                .build(cmd_args!("--release"))?;
+            WS_BIN_LAYOUT.upsilon_main.build(cmd_args!("--release"))?;
+            WS_BIN_LAYOUT
+                .upsilon_git_protocol_accesshook_main
+                .build(cmd_args!("--release"))?;
+            WS_BIN_LAYOUT
+                .upsilon_git_hooks_main
+                .build(cmd_args!("--release", "--features=build-bin"))?;
 
             let release_zip_file = std::env::var("UPSILON_RELEASE_ZIP_PATH")
                 .map_or_else(|_| ws_path!("releases" / "release.zip"), PathBuf::from);
 
             if let Some(parent) = release_zip_file.parent() {
-                std::fs::create_dir_all(parent)?;
+                fs::create_dir_all(parent)?;
             }
 
-            let mut wr = ZipWriter::new(std::fs::File::create(release_zip_file)?);
+            let mut wr = ZipWriter::new(fs::File::create(release_zip_file)?);
             let options =
                 FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
@@ -1063,18 +1171,14 @@ fn main_impl() -> XtaskResult<()> {
             }
         }
         App::BuildDocs => {
-            build_docs()?;
+            DOCS.build()?;
         }
         App::ServeDocs => {
-            cmd_call!(
-                "mdbook",
-                "serve",
-                @workdir = ws_path!("docs"),
-            )?;
+            DOCS.serve()?;
         }
 
         App::PublishDocs => {
-            build_docs()?;
+            DOCS.build()?;
 
             #[cfg(windows)]
             cmd_call!(
@@ -1090,8 +1194,7 @@ fn main_impl() -> XtaskResult<()> {
         App::GraphQLSchema => {
             cargo_cmd!(
                 "run",
-                "-p", "upsilon-dump-gql-schema",
-                "--bin", "upsilon-dump-gql-schema",
+                ...WS_BIN_LAYOUT.upsilon_dump_gql_schema_main.run_args(),
                 "--", gqls_path(),
                 @workdir = ws_root!(),
             )?;
@@ -1102,14 +1205,13 @@ fn main_impl() -> XtaskResult<()> {
 
             cargo_cmd!(
                 "run",
-                "-p", "upsilon-dump-gql-schema",
-                "--bin", "upsilon-dump-gql-schema",
+                ...WS_BIN_LAYOUT.upsilon_dump_gql_schema_main.run_args(),
                 "--", &temp_p,
                 @workdir = ws_root!(),
             )?;
 
-            let contents = std::fs::read_to_string(&p)?;
-            let new_contents = std::fs::read_to_string(&temp_p)?;
+            let contents = fs::read_to_string(&p)?;
+            let new_contents = fs::read_to_string(&temp_p)?;
 
             let up_to_date = contents == new_contents;
 
@@ -1123,7 +1225,7 @@ fn main_impl() -> XtaskResult<()> {
                 eprintln!("=====================");
             }
 
-            std::fs::remove_file(&temp_p)?;
+            fs::remove_file(&temp_p)?;
 
             if !up_to_date {
                 bail!("GraphQL schema is out of date");
@@ -1241,17 +1343,15 @@ fn main_impl() -> XtaskResult<()> {
             clean_unneeded_instrumentation_files()?;
         }
         App::InstallBinutils => {
-            cargo_cmd!("install", "cargo-binutils",)?;
+            Pkg::crates_io("cargo-binutils").install()?;
         }
         App::Difftests { command } => {
             difftests::run(command)?;
         }
         App::PublishDifftestsCrates => {
-            cargo_cmd!("publish", "-p", "cargo-difftests-core")?;
-
-            cargo_cmd!("publish", "-p", "cargo-difftests-testclient")?;
-
-            cargo_cmd!("publish", "-p", "cargo-difftests")?;
+            Pkg::dev_pkg("cargo-difftests-core").publish()?;
+            Pkg::dev_pkg("cargo-difftests-testclient").publish()?;
+            Pkg::dev_pkg("cargo-difftests").publish()?;
         }
     }
 
