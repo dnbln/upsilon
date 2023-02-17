@@ -28,7 +28,6 @@ use cargo_difftests::{
 };
 use clap::{Args, Parser, ValueEnum};
 use log::warn;
-use path_slash::PathExt;
 
 #[derive(Args, Debug)]
 pub struct ExportProfdataCommand {
@@ -482,6 +481,8 @@ fn compile_test_index_config(
 
             #[cfg(windows)]
             let p = if compile_test_index_flags.path_slash_replace {
+                use path_slash::PathExt;
+
                 PathBuf::from(p.to_slash().unwrap().into_owned())
             } else {
                 p.to_path_buf()
