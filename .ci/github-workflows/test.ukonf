@@ -37,6 +37,15 @@ let checkout: {
   }
 }
 
+let checkout_with_history: {
+  name: 'Checkout'
+  uses: 'actions/checkout@v3'
+  with {
+    ref: '${{ github.event.pull_request.head.sha }}'
+    fetch-depth: 0
+  }
+}
+
 let install_lld: {
   name: 'Install lld'
   run: 'sudo apt-get install -y lld'
@@ -293,7 +302,7 @@ jobs {
     runs-on: 'ubuntu-latest'
 
     steps [
-      checkout
+      checkout_with_history
       get_old_commit
       install_lld
       install_openssl

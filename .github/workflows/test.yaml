@@ -173,6 +173,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
     - name: Get old commit
       id: get-old-commit
       run: "\n    if [ \"$PUSH_BEFORE\" != \"\" ]; then\n        echo \"OLD_COMMIT=$PUSH_BEFORE\" >> $GITHUB_OUTPUT\n    else\n        if [ \"$PULL_REQUEST_BASE_SHA\" != \"\" ]; then\n            echo \"OLD_COMMIT=$PULL_REQUEST_BASE_SHA\" >> $GITHUB_OUTPUT\n        else\n            echo \"Error: neither PUSH_BEFORE nor PULL_REQUEST_BASE_SHA is set\" >&2\n            exit 1\n        fi\n    fi\n  "
