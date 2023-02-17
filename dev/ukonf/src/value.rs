@@ -17,6 +17,9 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
+use crate::ast::Span;
+use crate::UkonfRunError;
+
 #[derive(Copy, Clone, Debug)]
 pub enum NumValue {
     Int(i64),
@@ -38,6 +41,30 @@ impl UkonfValue {
         match self {
             UkonfValue::Str(s) => Some(s),
             _ => None,
+        }
+    }
+
+    pub(crate) fn expect_string(self, span: &Span) -> Result<String, UkonfRunError> {
+        match self {
+            UkonfValue::Str(s) => Ok(s),
+            v => Err(UkonfRunError::ExpectedString(v, span.clone())),
+        }
+    }
+
+    pub(crate) fn expect_object(self, span: &Span) -> Result<UkonfObject, UkonfRunError> {
+        match self {
+            UkonfValue::Object(obj) => Ok(obj),
+            v => Err(UkonfRunError::ExpectedObject(v, span.clone())),
+        }
+    }
+
+    pub(crate) fn expect_mut_object(
+        &mut self,
+        span: &Span,
+    ) -> Result<&mut UkonfObject, UkonfRunError> {
+        match self {
+            UkonfValue::Object(obj) => Ok(obj),
+            v => Err(UkonfRunError::ExpectedObject(v.clone(), span.clone())),
         }
     }
 

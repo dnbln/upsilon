@@ -22,7 +22,7 @@ use std::rc::Rc;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::{lalrpop_mod, ParseError};
 
-use crate::ast::{AstItem, AstVal, FileId, NumLit, Spanned};
+use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned};
 use crate::value::{UkonfObject, UkonfValue};
 
 lalrpop_mod!(
@@ -152,7 +152,7 @@ impl UkonfParser {
 
 #[derive(Default)]
 pub struct UkonfFunctions {
-    functions: BTreeMap<String, fn(&[UkonfValue]) -> Result<UkonfValue, String>>,
+    functions: BTreeMap<String, fn(&[UkonfValue]) -> Result<UkonfValue, UkonfRunError>>,
 }
 
 impl UkonfFunctions {
@@ -163,7 +163,7 @@ impl UkonfFunctions {
     pub fn with_fn(
         mut self,
         name: impl Into<String>,
-        f: fn(&[UkonfValue]) -> Result<UkonfValue, String>,
+        f: fn(&[UkonfValue]) -> Result<UkonfValue, UkonfRunError>,
     ) -> Self {
         self.functions.insert(name.into(), f);
         self
@@ -172,7 +172,7 @@ impl UkonfFunctions {
     pub fn add_fn(
         &mut self,
         name: impl Into<String>,
-        f: fn(&[UkonfValue]) -> Result<UkonfValue, String>,
+        f: fn(&[UkonfValue]) -> Result<UkonfValue, UkonfRunError>,
     ) -> &mut Self {
         self.functions.insert(name.into(), f);
         self
@@ -199,12 +199,14 @@ impl UkonfRunner {
         None
     }
 
-    fn process_string_file(&self, file: String) -> Result<FileId, String> {
+    fn process_string_file(&self, file: String) -> Result<FileId, UkonfRunError> {
         let mut parser = UkonfParser::new(UkonfSourceFile::String(file), self.config.clone());
-        parser.parse(|_file, e| e.to_string())
+        parser
+            .parse(|_file, e| e.to_string())
+            .map_err(|e| UkonfRunError::ParseError(e))
     }
 
-    fn recursively_process_imports(&self, file: PathBuf) -> Result<FileId, String> {
+    fn recursively_process_imports(&self, file: PathBuf) -> Result<FileId, UkonfRunError> {
         let mut files: BTreeMap<PathBuf, FileId> = BTreeMap::new();
         let mut files_to_process = vec![file];
         let mut first_file_id = None;
@@ -218,7 +220,9 @@ impl UkonfRunner {
 
             let mut parser =
                 UkonfParser::new(UkonfSourceFile::OnDisk(file.clone()), self.config.clone());
-            let file_id = parser.parse(|_file, e| e.to_string())?;
+            let file_id = parser
+                .parse(|_file, e| e.to_string())
+                .map_err(|e| UkonfRunError::ParseError(e))?;
             files.insert(file, file_id);
             if first_file_id.is_none() {
                 first_file_id = Some(file_id);
@@ -237,12 +241,17 @@ impl UkonfRunner {
                         let p = s.str_val();
                         let p = match self.find_file(p.as_ref()) {
                             Some(path) => path,
-                            None => return Some(format!("Could not find file {p}")),
+                            None => {
+                                return Some(UkonfRunError::CannotFindImport(
+                                    p.into_owned(),
+                                    s.span().clone(),
+                                ))
+                            }
                         };
                         files_to_process.push(p);
                         None
                     }
-                    _ => Some("Invalid import path".to_string()),
+                    _ => Some(UkonfRunError::InvalidImport(it.path.span().clone())),
                 })
                 .next()
             {
@@ -277,12 +286,14 @@ impl UkonfRunner {
         file_id: FileId,
         scope: &Rc<RefCell<Scope>>,
         val: &AstVal,
-    ) -> Result<UkonfValue, String> {
+    ) -> Result<UkonfValue, UkonfRunError> {
         let v = match val {
             AstVal::Null(_) => UkonfValue::Null,
             AstVal::Ident(ident) => {
                 let name = &ident.0 .0;
-                scope.borrow().resolve(name).unwrap()
+                Scope::resolve(scope, name).ok_or_else(|| {
+                    UkonfRunError::UndefinedVariable(name.clone(), ident.0 .1.clone())
+                })?
             }
             AstVal::Str(s) => UkonfValue::Str(s.str_val().into_owned()),
             AstVal::Num(NumLit::Int(Spanned(v, _))) => UkonfValue::Num(value::NumValue::Int(*v)),
@@ -310,7 +321,9 @@ impl UkonfRunner {
             AstVal::FunctionCall(call) => {
                 let name = &call.name.0 .0;
 
-                let f = self.functions.functions.get(name).unwrap();
+                let f = self.functions.functions.get(name).ok_or_else(|| {
+                    UkonfRunError::UnknownFunction(name.clone(), call.name.0 .1.clone())
+                })?;
 
                 let args = call
                     .args
@@ -321,21 +334,18 @@ impl UkonfRunner {
                 f(&args)?
             }
             AstVal::Dot(base, _, k) => {
-                let base_value = scope.borrow().resolve(&base.0 .0).unwrap();
+                let base_value = Scope::resolve(scope, &base.0 .0)
+                    .ok_or_else(|| UkonfRunError::UndefinedVariable(base.0 .0.clone(), k.span()))?;
                 let (name, indirections) = k.key().lower();
                 let mut name = name.to_string();
+                let span = k.span();
 
                 if indirections > 0 {
-                    name = scope
-                        .borrow()
-                        .resolve_with_indirections(&name, indirections - 1)
-                        .unwrap()
-                        .as_string()
-                        .unwrap()
-                        .clone();
+                    name = Scope::resolve_with_indirections(scope, &name, &span, indirections)?
+                        .expect_string(&span)?;
                 }
 
-                base_value.as_object().unwrap().get(&name).unwrap().clone()
+                base_value.expect_object(&span)?.get(&name).unwrap().clone()
             }
         };
 
@@ -348,7 +358,7 @@ impl UkonfRunner {
         file_id: FileId,
         scope: &Rc<RefCell<Scope>>,
         scope_items: &[AstItem],
-    ) -> Result<UkonfObject, String> {
+    ) -> Result<UkonfObject, UkonfRunError> {
         let mut result = UkonfValue::Object(UkonfObject::new());
 
         for item in scope_items {
@@ -367,38 +377,34 @@ impl UkonfRunner {
                     for k in &patch.key[..patch.key.len() - 1] {
                         let (name, indirections) = k.key().lower();
                         let mut name = name.to_string();
+                        let span = k.span();
 
                         if indirections > 0 {
-                            name = scope
-                                .borrow()
-                                .resolve_with_indirections(&name, indirections - 1)
-                                .unwrap()
-                                .as_string()
-                                .unwrap()
-                                .clone();
+                            name = Scope::resolve_with_indirections(
+                                scope,
+                                &name,
+                                &span,
+                                indirections,
+                            )?
+                            .expect_string(&span)?;
                         }
 
                         t = t
-                            .as_mut_object()
-                            .unwrap()
+                            .expect_mut_object(&span)?
                             .get_or_insert(name, UkonfValue::Object(UkonfObject::new()));
                     }
 
                     let k = patch.key.last().unwrap();
                     let (name, indirections) = k.key().lower();
                     let mut name = name.to_string();
+                    let span = k.span();
 
                     if indirections > 0 {
-                        name = scope
-                            .borrow()
-                            .resolve_with_indirections(&name, indirections - 1)
-                            .unwrap()
-                            .as_string()
-                            .unwrap()
-                            .clone();
+                        name = Scope::resolve_with_indirections(scope, &name, &span, indirections)?
+                            .expect_string(&span)?;
                     }
 
-                    t.as_mut_object().unwrap().insert(
+                    t.expect_mut_object(&span)?.insert(
                         name,
                         self.run_value(
                             files,
@@ -417,7 +423,7 @@ impl UkonfRunner {
         Ok(result.unwrap_object())
     }
 
-    fn run_file(&self, file_id: FileId) -> Result<UkonfObject, String> {
+    fn run_file(&self, file_id: FileId) -> Result<UkonfObject, UkonfRunError> {
         let files = self.config.files.borrow();
         let ast = files.get_ast(file_id).unwrap();
 
@@ -432,13 +438,13 @@ impl UkonfRunner {
         )
     }
 
-    pub fn run(&self, file: PathBuf) -> Result<UkonfObject, String> {
+    pub fn run(&self, file: PathBuf) -> Result<UkonfObject, UkonfRunError> {
         let file_id = self.recursively_process_imports(file)?;
 
         self.run_file(file_id)
     }
 
-    pub fn run_str(&self, s: &str) -> Result<UkonfObject, String> {
+    pub fn run_str(&self, s: &str) -> Result<UkonfObject, UkonfRunError> {
         let file_id = self.process_string_file(s.to_string())?;
 
         self.run_file(file_id)
@@ -451,33 +457,82 @@ pub struct Scope {
 }
 
 impl Scope {
-    fn resolve(&self, name: &String) -> Option<UkonfValue> {
-        self.vars
-            .get(name)
-            .cloned()
-            .or_else(|| self.parent.as_ref().and_then(|p| p.borrow().resolve(name)))
+    fn resolve(scope: &Rc<RefCell<Self>>, name: &str) -> Option<UkonfValue> {
+        Scope::resolve_one(Rc::clone(scope), name).map(|(v, _)| v)
     }
 
-    fn resolve_with_indirections(&self, name: &String, indirections: usize) -> Option<UkonfValue> {
-        if indirections == 0 {
-            return self.resolve(name);
-        }
-
-        let val = self.vars.get(name);
-
-        if let Some(val) = val {
-            if indirections == 0 {
-                return Some(val.clone());
-            }
-
-            let name = val.as_string().unwrap();
-            self.resolve_with_indirections(name, indirections - 1)
-        } else {
-            self.parent
+    fn resolve_one<'a>(
+        scope: Rc<RefCell<Self>>,
+        name: &str,
+    ) -> Option<(UkonfValue, Rc<RefCell<Self>>)> {
+        let v = scope.borrow().vars.get(name).cloned();
+        match v {
+            Some(val) => Some((val, scope)),
+            None => scope
+                .borrow()
+                .parent
                 .as_ref()
-                .and_then(|p| p.borrow().resolve_with_indirections(name, indirections))
+                .and_then(|p| Scope::resolve_one(Rc::clone(p), name)),
         }
     }
+
+    fn resolve_with_indirections(
+        scope: &Rc<RefCell<Self>>,
+        name: &str,
+        span: &Span,
+        indirections: usize,
+    ) -> Result<UkonfValue, UkonfRunError> {
+        if indirections == 1 {
+            return Scope::resolve(scope, name)
+                .ok_or_else(|| UkonfRunError::UndefinedVariable(name.to_string(), span.clone()));
+        }
+
+        let mut name = name.to_string();
+
+        enum R<'a> {
+            Ref(&'a Rc<RefCell<Scope>>),
+            Owned(Rc<RefCell<Scope>>),
+        }
+
+        impl<'a> R<'a> {
+            fn as_ref(&self) -> &Rc<RefCell<Scope>> {
+                match self {
+                    R::Ref(r) => r,
+                    R::Owned(r) => r,
+                }
+            }
+        }
+
+        let mut resolver_scope = R::Ref(scope);
+
+        for _ in 1..indirections {
+            let (v, scope) = Scope::resolve_one(Rc::clone(resolver_scope.as_ref()), &name)
+                .ok_or_else(|| UkonfRunError::UndefinedVariable(name, span.clone()))?;
+            name = v.expect_string(span)?;
+            resolver_scope = R::Owned(scope);
+        }
+
+        Scope::resolve(resolver_scope.as_ref(), &name)
+            .ok_or_else(|| UkonfRunError::UndefinedVariable(name, span.clone()))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum UkonfRunError {
+    #[error("Undefined variable: {0}@{1}")]
+    UndefinedVariable(String, Span),
+    #[error("Expected string, got {0:?}@{1}")]
+    ExpectedString(UkonfValue, Span),
+    #[error("Expected object, got {0:?}@{1}")]
+    ExpectedObject(UkonfValue, Span),
+    #[error("Unknown function: {0}@{1}")]
+    UnknownFunction(String, Span),
+    #[error("Cannot find import: {0}@{1}")]
+    CannotFindImport(String, Span),
+    #[error("Invalid import: {0}")]
+    InvalidImport(Span),
+    #[error("Parse error: {0}")]
+    ParseError(String),
 }
 
 pub mod value;

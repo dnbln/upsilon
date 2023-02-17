@@ -171,6 +171,29 @@ impl Span {
         }
     }
 
+    pub fn join_with(&self, other: &Self) -> Self {
+        match (&self.0, &other.0) {
+            (
+                SpanInner::Physical(PhysicalSpan {
+                    file_id: file_id1,
+                    start: start1,
+                    end: end1,
+                }),
+                SpanInner::Physical(PhysicalSpan {
+                    file_id: file_id2,
+                    start: start2,
+                    end: end2,
+                }),
+            ) if file_id1 == file_id2 => {
+                let start = start1.min(start2);
+                let end = end1.max(end2);
+
+                Self::new(*start, *end, *file_id1)
+            }
+            _ => panic!("Cannot join spans"),
+        }
+    }
+
     pub fn spanned<T>(self, v: T) -> Spanned<T> {
         Spanned(v, self)
     }
@@ -337,6 +360,25 @@ pub enum AstVal {
     Dot(Ident, Dot, K),
 }
 
+impl AstVal {
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Null(it) => it.0.clone(),
+            Self::Ident(it) => it.0 .1.clone(),
+            Self::Str(it) => it.span().clone(),
+            Self::Num(it) => match it {
+                NumLit::Int(it) => it.1.clone(),
+                NumLit::Float(it) => it.1.clone(),
+            },
+            Self::Bool(it) => it.span.clone(),
+            Self::Arr(start, _, end) => start.0.join_with(&end.0),
+            Self::Obj(start, _, end) => start.0.join_with(&end.0),
+            Self::FunctionCall(it) => it.name.0 .1.join_with(&it.close_paren.0),
+            Self::Dot(base, _, k) => base.0 .1.join_with(&k.span()),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Spanned<T>(pub(crate) T, pub(crate) Span);
 
@@ -378,6 +420,14 @@ impl StrLit {
             StrLit::Apostrophe(s) => Cow::Borrowed(&s.0[1..s.0.len() - 1]),
             StrLit::Quote(s) => Cow::Owned(unquote(&s.0[1..s.0.len() - 1])),
             StrLit::TripleQuote(s) => Cow::Owned(patch_triple_quote_string(&s.0[3..s.0.len() - 3])),
+        }
+    }
+
+    pub fn span(&self) -> &Span {
+        match self {
+            StrLit::Apostrophe(s) => &s.1,
+            StrLit::Quote(s) => &s.1,
+            StrLit::TripleQuote(s) => &s.1,
         }
     }
 }
@@ -428,6 +478,16 @@ pub enum K {
     Name(Ident),
     StrLit(StrLit),
     Ref(DollarBrace, Box<K>, CloseBrace),
+}
+
+impl K {
+    pub fn span(&self) -> Span {
+        match self {
+            K::Name(Ident(s)) => s.span().clone(),
+            K::StrLit(s) => s.span().clone(),
+            K::Ref(db, _k, cb) => db.0.join_with(&cb.0),
+        }
+    }
 }
 
 pub enum ResolvedKey<'a> {

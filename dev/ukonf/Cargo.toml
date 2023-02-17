@@ -10,6 +10,7 @@ lalrpop-util = "0.19.8"
 logos.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 upsilon-json-diff.workspace = true
