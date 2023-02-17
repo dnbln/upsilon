@@ -87,6 +87,35 @@ let run_tests_with_difftests: {
   run: 'cargo xtask test --verbose --no-fail-fast --profile difftests'
 }
 
+let get_old_commit: {
+  name: 'Get old commit'
+  id: 'get-old-commit'
+  run: """
+    if [ "$PUSH_BEFORE" != "" ]; then
+        echo "OLD_COMMIT=$PUSH_BEFORE" >> $GITHUB_OUTPUT
+    else
+        if [ "$PULL_REQUEST_BASE_SHA" != "" ]; then
+            echo "OLD_COMMIT=$PULL_REQUEST_BASE_SHA" >> $GITHUB_OUTPUT
+        else
+            echo "Error: neither PUSH_BEFORE nor PULL_REQUEST_BASE_SHA is set" >&2
+            exit 1
+        fi
+    fi
+  """
+  env {
+    PUSH_BEFORE: '${{ github.event.before }}'
+    PULL_REQUEST_BASE_SHA: '${{ github.event.pull_request.base.sha }}'
+  }
+}
+
+let run_only_difftests: {
+  name: 'Run tests (only difftests)'
+  run: concat(
+    'cargo xtask test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ',
+    '${{ steps.', get_old_commit.id, '.outputs.OLD_COMMIT }}',
+  )
+}
+
 let run_doctests: {
   name: 'Run doctests'
   run: 'cargo xtask test --verbose --no-fail-fast --doc --profile ci'
@@ -256,6 +285,35 @@ jobs {
       compile_xtask
       compile_binaries_and_tests_with_difftests
       run_tests_with_difftests
+    ]
+  }
+
+  test-linux-only-difftests {
+    name: 'Test (Linux only difftests)'
+    runs-on: 'ubuntu-latest'
+
+    steps [
+      checkout
+      get_old_commit
+      install_lld
+      install_openssl
+      install_rust
+      install_nextest
+      {
+        name: 'Print environment'
+        run: """
+          env
+        """
+      }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      compile_xtask
+      compile_binaries_and_tests_with_difftests
+      run_only_difftests
     ]
   }
 

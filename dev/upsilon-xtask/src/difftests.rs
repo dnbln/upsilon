@@ -28,6 +28,8 @@ pub enum DiffTestsCommand {
     PrintTestsToRerun {
         #[clap(long, default_value_t = Default::default())]
         algo: DirtyAlgo,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
     },
 }
 
@@ -82,7 +84,10 @@ fn index_root() -> PathBuf {
     ws_path!("tests" / "difftests-index-root")
 }
 
-fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+fn analyze_all(
+    algo: DirtyAlgo,
+    commit: Option<git2::Oid>,
+) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     let output = difftests_cmd_output!(
         "analyze-all",
         "--dir",
@@ -100,6 +105,7 @@ fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
         "always",
         "--algo",
         algo.to_string(),
+        ...["--commit", &commit.to_string()] => @if let Some(commit) = commit,
     )?;
 
     let tests = serde_json::from_str::<Vec<AnalyzeAllSingleTest>>(&output)?;
@@ -107,13 +113,17 @@ fn analyze_all(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     Ok(tests)
 }
 
-fn analyze_all_from_index(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+fn analyze_all_from_index(
+    algo: DirtyAlgo,
+    commit: Option<git2::Oid>,
+) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     let output = difftests_cmd_output!(
         "analyze-all-from-index",
         "--index-root",
         index_root(),
         "--algo",
         algo.to_string(),
+        ...["--commit", &commit.to_string()] => @if let Some(commit) = commit,
     )?;
 
     let tests = serde_json::from_str::<Vec<AnalyzeAllSingleTest>>(&output)?;
@@ -121,22 +131,28 @@ fn analyze_all_from_index(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTe
     Ok(tests)
 }
 
-pub fn tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
-    Ok(analyze_all(algo)?
+pub fn tests_to_rerun(
+    algo: DirtyAlgo,
+    commit: Option<git2::Oid>,
+) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    Ok(analyze_all(algo, commit)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)
         .collect())
 }
 
-pub fn tests_to_rerun_from_index(algo: DirtyAlgo) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
-    Ok(analyze_all_from_index(algo)?
+pub fn tests_to_rerun_from_index(
+    algo: DirtyAlgo,
+    commit: Option<git2::Oid>,
+) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
+    Ok(analyze_all_from_index(algo, commit)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)
         .collect())
 }
 
-fn print_tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<()> {
-    let to_rerun = tests_to_rerun(algo)?
+fn print_tests_to_rerun(algo: DirtyAlgo, commit: Option<git2::Oid>) -> XtaskResult<()> {
+    let to_rerun = tests_to_rerun(algo, commit)?
         .into_iter()
         .map(|it| it.test_desc)
         .collect::<Vec<_>>();
@@ -149,8 +165,8 @@ fn print_tests_to_rerun(algo: DirtyAlgo) -> XtaskResult<()> {
 
 pub fn run(command: DiffTestsCommand) -> XtaskResult<()> {
     match command {
-        DiffTestsCommand::PrintTestsToRerun { algo } => {
-            print_tests_to_rerun(algo)?;
+        DiffTestsCommand::PrintTestsToRerun { algo, commit } => {
+            print_tests_to_rerun(algo, commit)?;
         }
     }
 

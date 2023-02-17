@@ -226,6 +226,10 @@ enum App {
         clean_profiles_between_steps: bool,
         #[clap(long)]
         from_index: bool,
+        #[clap(long, default_value_t = Default::default())]
+        algo: DirtyAlgo,
+        #[clap(long)]
+        commit: Option<git2::Oid>,
         #[clap(long, default_value = "difftests")]
         profile: String,
     },
@@ -1019,6 +1023,8 @@ fn main_impl() -> XtaskResult<()> {
             no_capture,
             clean_profiles_between_steps,
             from_index,
+            algo,
+            commit,
             profile,
         } => {
             let profile = profile.as_str();
@@ -1026,11 +1032,9 @@ fn main_impl() -> XtaskResult<()> {
                 bail!("Only difftests profile is supported for quick tests");
             }
 
-            let algo = DirtyAlgo::FsMtime;
-
             let tests = match from_index {
-                false => difftests::tests_to_rerun(algo)?,
-                true => difftests::tests_to_rerun_from_index(algo)?,
+                false => difftests::tests_to_rerun(algo, commit)?,
+                true => difftests::tests_to_rerun_from_index(algo, commit)?,
             };
 
             if tests.is_empty() {

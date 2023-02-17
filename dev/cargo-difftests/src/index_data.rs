@@ -19,6 +19,7 @@ use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+
 use cargo_difftests_core::CoreTestDesc;
 
 use crate::analysis_data::CoverageData;
