@@ -43,7 +43,6 @@ pub struct WsPkgLayout {
     pub upsilon_xtask: upsilon_xtask::pkg::Pkg,
 }
 
-
 lazy_static::lazy_static! {
     pub static ref WS_PKG_LAYOUT: WsPkgLayout = WsPkgLayout {
         upsilon: upsilon_xtask::pkg::Pkg::local_crates("upsilon"),
@@ -87,7 +86,6 @@ lazy_static::lazy_static! {
     };
 }
 
-
 impl WsPkgLayout {
     pub fn package_from_str(name: &str) -> Option<&'static upsilon_xtask::pkg::Pkg> {
         match name {
@@ -105,7 +103,9 @@ impl WsPkgLayout {
             "upsilon-data-cache-inmemory" => Some(&WS_PKG_LAYOUT.upsilon_data_cache_inmemory),
             "upsilon-data-inmemory" => Some(&WS_PKG_LAYOUT.upsilon_data_inmemory),
             "upsilon-data-pg" => Some(&WS_PKG_LAYOUT.upsilon_data_pg),
-            "upsilon-git-protocol-accesshook" => Some(&WS_PKG_LAYOUT.upsilon_git_protocol_accesshook),
+            "upsilon-git-protocol-accesshook" => {
+                Some(&WS_PKG_LAYOUT.upsilon_git_protocol_accesshook)
+            }
             "upsilon-ssh" => Some(&WS_PKG_LAYOUT.upsilon_ssh),
             "upsilon-ssh-russh" => Some(&WS_PKG_LAYOUT.upsilon_ssh_russh),
             "upsilon-vcs-permissions" => Some(&WS_PKG_LAYOUT.upsilon_vcs_permissions),
@@ -122,7 +122,9 @@ impl WsPkgLayout {
             "upsilon-debug-data-driver" => Some(&WS_PKG_LAYOUT.upsilon_debug_data_driver),
             "upsilon-dump-gql-schema" => Some(&WS_PKG_LAYOUT.upsilon_dump_gql_schema),
             "upsilon-gracefully-shutdown" => Some(&WS_PKG_LAYOUT.upsilon_gracefully_shutdown),
-            "upsilon-gracefully-shutdown-host" => Some(&WS_PKG_LAYOUT.upsilon_gracefully_shutdown_host),
+            "upsilon-gracefully-shutdown-host" => {
+                Some(&WS_PKG_LAYOUT.upsilon_gracefully_shutdown_host)
+            }
             "upsilon-setup-testenv" => Some(&WS_PKG_LAYOUT.upsilon_setup_testenv),
             "upsilon-test-support" => Some(&WS_PKG_LAYOUT.upsilon_test_support),
             "upsilon-test-support-macros" => Some(&WS_PKG_LAYOUT.upsilon_test_support_macros),
@@ -151,7 +153,6 @@ pub struct WsBinLayout {
     pub upsilon_xtask_uxrd: upsilon_xtask::pkg::BinTarget<'static>,
 }
 
-
 lazy_static::lazy_static! {
     pub static ref WS_BIN_LAYOUT: WsBinLayout = WsBinLayout {
         upsilon_main: upsilon_xtask::pkg::BinTarget::new(&WS_PKG_LAYOUT.upsilon, "upsilon"),
@@ -171,8 +172,6 @@ lazy_static::lazy_static! {
         upsilon_xtask_uxrd: upsilon_xtask::pkg::BinTarget::new(&WS_PKG_LAYOUT.upsilon_xtask, "uxrd"),
     };
 }
-
-
 
 lazy_static::lazy_static! {
     pub static ref DOCS: upsilon_xtask::mdbook::Mdbook = upsilon_xtask::mdbook::Mdbook::new(upsilon_xtask::ws_path!("docs"));

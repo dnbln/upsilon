@@ -148,10 +148,12 @@ impl WsPkgLayout {
         "#,
     )?;
     ws_layout_file.write_all(package_from_str.as_bytes())?;
-    ws_layout_file.write_all(br#"
+    ws_layout_file.write_all(
+        br#"
     }
 }
-"#)?;
+"#,
+    )?;
     ws_layout_file.write_all(ws_bin_layout_decl.as_bytes())?;
     ws_layout_file.write_all(ws_bin_layout.as_bytes())?;
 

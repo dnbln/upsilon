@@ -16,13 +16,13 @@
 
 pub extern crate glob;
 
+pub mod cargo_ws;
 pub mod cmd;
 pub mod difftests;
 pub mod git_checks;
+pub mod mdbook;
 pub mod pkg;
 pub mod result;
 pub mod ws;
-pub mod cargo_ws;
-pub mod mdbook;
 
 pub use result::XtaskResult;
