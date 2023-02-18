@@ -15,17 +15,13 @@
  */
 
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
 use cargo_difftests_core::CoreTestDesc;
-use log::{debug, info, warn};
 
-use crate::analysis::{AnalysisContext, AnalysisResult};
+use crate::analysis::AnalysisResult;
 use crate::difftest::Difftest;
-use crate::index_data::{IndexDataCompilerConfig, TestIndex};
+use crate::index_data::TestIndex;
 
 pub mod analysis;
 pub mod analysis_data;

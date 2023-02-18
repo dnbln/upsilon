@@ -137,7 +137,7 @@ fn report_gql_result<T>(result: &GqlQueryResult<T>) {
     match result {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
         }
     }
 }
