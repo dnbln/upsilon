@@ -103,6 +103,8 @@ pub enum AnalysisIndexStrategy {
     #[default]
     #[clap(name = "never")]
     Never,
+    #[clap(name = "always-and-clean")]
+    AlwaysAndClean,
 }
 
 impl Display for AnalysisIndexStrategy {
@@ -111,6 +113,7 @@ impl Display for AnalysisIndexStrategy {
             AnalysisIndexStrategy::Always => write!(f, "always"),
             AnalysisIndexStrategy::IfAvailable => write!(f, "if-available"),
             AnalysisIndexStrategy::Never => write!(f, "never"),
+            AnalysisIndexStrategy::AlwaysAndClean => write!(f, "always-and-clean"),
         }
     }
 }
@@ -276,7 +279,7 @@ impl AnalysisIndex {
         root: Option<PathBuf>,
     ) -> Result<Option<DiscoverIndexPathResolver>, IndexResolverError> {
         match self.index_strategy {
-            AnalysisIndexStrategy::Always => {
+            AnalysisIndexStrategy::Always | AnalysisIndexStrategy::AlwaysAndClean => {
                 let index_root = self.index_root.as_ref().unwrap(); // should be set by clap
 
                 Ok(Some(DiscoverIndexPathResolver::Remap {
@@ -638,6 +641,39 @@ fn analyze_single_test(
                         fs::create_dir_all(parent)?;
                     }
                     test_index_data.write_to_file(&p)?;
+                }
+
+                AnalysisContext::from_index(test_index_data)
+            }
+        }
+        AnalysisIndexStrategy::AlwaysAndClean => {
+            'l: {
+                if difftest.has_index() {
+                    // if we already have the index built, use it
+                    break 'l AnalysisContext::with_index_from_difftest(difftest)?;
+                }
+
+                let has_profdata = difftest.merge_profraw_files_into_profdata(force)?;
+                let has_exported_profdata =
+                    has_profdata.export_profdata_file(ExportProfdataConfig {
+                        force,
+                        ignore_registry_files: true,
+                        other_binaries: bins,
+                        test_desc: None, // will read from `self.json`
+                    })?;
+
+                let config = compile_test_index_config(CompileTestIndexFlags::default())?;
+
+                let test_index_data = has_exported_profdata.compile_test_index_data(config)?;
+
+                if let Some(p) = resolver.and_then(|r| r.resolve(difftest.dir())) {
+                    let parent = p.parent().unwrap();
+                    if !parent.exists() {
+                        fs::create_dir_all(parent)?;
+                    }
+                    test_index_data.write_to_file(&p)?;
+
+                    difftest.clean()?;
                 }
 
                 AnalysisContext::from_index(test_index_data)

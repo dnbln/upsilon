@@ -28,7 +28,7 @@ use crate::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
 
 pub mod analysis_data;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Difftest {
     dir: PathBuf,
     self_profraw: PathBuf,
@@ -37,6 +37,8 @@ pub struct Difftest {
     profdata_file: Option<PathBuf>,
     exported_profdata_file: Option<PathBuf>,
     index_data: Option<PathBuf>,
+
+    cleaned: bool,
 }
 
 impl Difftest {
@@ -217,6 +219,8 @@ impl<'r> HasProfdata<'r> {
 }
 
 impl Difftest {
+    const CLEANED_FILE_NAME: &'static str = "cargo_difftests_cleaned";
+
     pub fn load_test_desc(&self) -> DifftestsResult<CoreTestDesc> {
         let s = fs::read_to_string(&self.self_json)?;
         let desc = serde_json::from_str(&s)
@@ -241,6 +245,10 @@ impl Difftest {
         &mut self,
         force: bool,
     ) -> DifftestsResult<HasProfdata<'_>> {
+        if self.cleaned {
+            return Err(DifftestsError::DifftestCleaned);
+        }
+
         if self.profdata_file.is_some() && !force {
             return Ok(HasProfdata { difftest: self });
         }
@@ -271,7 +279,37 @@ impl Difftest {
         Ok(HasProfdata { difftest: self })
     }
 
+    pub fn clean(&mut self) -> DifftestsResult<()> {
+        fn clean_file(f: &mut Option<PathBuf>) -> DifftestsResult<()> {
+            if let Some(f) = f {
+                fs::remove_file(f)?;
+            }
+
+            *f = None;
+            Ok(())
+        }
+
+        clean_file(&mut self.profdata_file)?;
+        clean_file(&mut self.exported_profdata_file)?;
+
+        fs::write(&self.self_profraw, b"")?;
+
+        for profraw in self.other_profraws.drain(..) {
+            fs::remove_file(profraw)?;
+        }
+
+        fs::write(self.dir.join(Self::CLEANED_FILE_NAME), b"")?;
+
+        self.cleaned = true;
+
+        Ok(())
+    }
+
     pub fn has_profdata(&mut self) -> Option<HasProfdata<'_>> {
+        if self.cleaned {
+            return None;
+        }
+
         if self.profdata_file.is_some() {
             Some(HasProfdata { difftest: self })
         } else {
@@ -279,7 +317,14 @@ impl Difftest {
         }
     }
 
+    #[track_caller]
     pub fn assert_has_profdata(&mut self) -> HasProfdata<'_> {
+        assert!(
+            !self.cleaned,
+            "difftest has been cleaned (from {})",
+            self.dir.display(),
+        );
+
         assert!(
             self.profdata_file.is_some(),
             "profdata file missing (from {})",
@@ -289,6 +334,7 @@ impl Difftest {
         HasProfdata { difftest: self }
     }
 
+    #[track_caller]
     pub fn assert_has_exported_profdata(&mut self) -> HasExportedProfdata<'_> {
         self.assert_has_profdata().assert_has_exported_profdata()
     }
@@ -333,6 +379,8 @@ pub enum DifftestsError {
     ProfdataFileMissing,
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
+    #[error("difftest has been cleaned")]
+    DifftestCleaned,
 }
 
 impl From<serde_json::Error> for DifftestsError {
@@ -397,6 +445,8 @@ fn discover_difftest_from_tempdir(
 
     let mut profdata_file = None;
 
+    let mut cleaned = false;
+
     for e in dir.read_dir()? {
         let e = e?;
         let p = e.path();
@@ -430,6 +480,10 @@ fn discover_difftest_from_tempdir(
             }
             continue;
         }
+
+        if file_name == Some(OsStr::new(Difftest::CLEANED_FILE_NAME)) {
+            cleaned = true;
+        }
     }
 
     let exported_profdata_path = dir.join(EXPORTED_PROFDATA_FILE_NAME);
@@ -440,33 +494,29 @@ fn discover_difftest_from_tempdir(
     }
 
     let index_data = 'index_data: {
-        if exported_profdata_file.is_some() {
-            let index_data = index_resolver.and_then(|resolver| resolver.resolve(&dir));
+        let index_data = index_resolver.and_then(|resolver| resolver.resolve(&dir));
 
-            if let Some(ind) = &index_data {
-                if !ind.exists() {
-                    debug!("index data file does not exist: {}", ind.display());
-                    break 'index_data None;
-                } else if !ind.is_file() {
-                    debug!("index data file is not a file: {}", ind.display());
-                    break 'index_data None;
-                }
-
-                if ind.metadata()?.modified()? < self_json.metadata()?.modified()? {
-                    warn!(
-                        "index data file is older than {}: {} older than {}",
-                        cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME,
-                        ind.display(),
-                        self_json.display()
-                    );
-                    break 'index_data None;
-                }
+        if let Some(ind) = &index_data {
+            if !ind.exists() {
+                debug!("index data file does not exist: {}", ind.display());
+                break 'index_data None;
+            } else if !ind.is_file() {
+                debug!("index data file is not a file: {}", ind.display());
+                break 'index_data None;
             }
 
-            index_data
-        } else {
-            None
+            if ind.metadata()?.modified()? < self_json.metadata()?.modified()? {
+                warn!(
+                    "index data file is older than {}: {} older than {}",
+                    cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME,
+                    ind.display(),
+                    self_json.display()
+                );
+                break 'index_data None;
+            }
         }
+
+        index_data
     };
 
     Ok(Difftest {
@@ -477,6 +527,7 @@ fn discover_difftest_from_tempdir(
         profdata_file,
         exported_profdata_file,
         index_data,
+        cleaned,
     })
 }
 

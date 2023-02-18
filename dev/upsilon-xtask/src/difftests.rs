@@ -102,7 +102,7 @@ fn analyze_all(
         "--index-root",
         index_root(),
         "--index-strategy",
-        "always",
+        "always-and-clean",
         "--algo",
         algo.to_string(),
         ...["--commit", &commit.to_string()] => @if let Some(commit) = commit,
