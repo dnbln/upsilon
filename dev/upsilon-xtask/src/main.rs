@@ -39,25 +39,153 @@ use crate::ws_layout::{WsPkgLayout, DOCS, WS_PKG_LAYOUT};
 
 pub mod ws_layout;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TestSuiteBinGroup {
+    name: &'static str,
+    aliases: &'static [&'static str],
+
+    bin: &'static str,
+    nextest_filter: &'static str,
+
+    needs_upsilon_clone: bool,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum TestGroup {
+    TestSuiteBin(TestSuiteBinGroup),
+    Package {
+        name: &'static str,
+        aliases: &'static [&'static str],
+
+        package: &'static str,
+        needs_testenv: bool,
+        nextest_filter: &'static str,
+    },
+}
+
+impl TestGroup {
+    fn name(&self) -> &'static str {
+        match self {
+            TestGroup::TestSuiteBin(group) => group.name,
+            TestGroup::Package { name, .. } => name,
+        }
+    }
+
+    fn aliases(&self) -> &'static [&'static str] {
+        match self {
+            TestGroup::TestSuiteBin(group) => group.aliases,
+            TestGroup::Package { aliases, .. } => aliases,
+        }
+    }
+
+    fn nextest_filter(&self) -> &'static str {
+        match self {
+            TestGroup::TestSuiteBin(group) => group.nextest_filter,
+            TestGroup::Package { nextest_filter, .. } => nextest_filter,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TestenvConfig {
+    needs_upsilon_clone: bool,
+}
+
+impl TestenvConfig {
+    fn merge_with(&mut self, other: Option<TestenvConfig>) {
+        let Some(other) = other else {return;};
+        self.needs_upsilon_clone |= other.needs_upsilon_clone;
+    }
+
+    fn all() -> Self {
+        Self {
+            needs_upsilon_clone: true,
+        }
+    }
+
+    fn compile(self) -> Option<TestenvConfig> {
+        if let TestenvConfig {
+            needs_upsilon_clone: false,
+        } = &self
+        {
+            None
+        } else {
+            Some(self)
+        }
+    }
+}
+
+impl TestGroup {
+    fn testenv_config(&self) -> Option<TestenvConfig> {
+        match self {
+            TestGroup::TestSuiteBin(TestSuiteBinGroup {
+                needs_upsilon_clone,
+                ..
+            }) => TestenvConfig {
+                needs_upsilon_clone: *needs_upsilon_clone,
+            }
+            .compile(),
+            TestGroup::Package { needs_testenv, .. } => TestenvConfig {
+                needs_upsilon_clone: *needs_testenv,
+            }
+            .compile(),
+        }
+    }
+}
+
+const fn test_suite_bin_group_needs_upsilon_clone_patch(
+    mut test_group: TestSuiteBinGroup,
+) -> TestSuiteBinGroup {
+    test_group.needs_upsilon_clone = true;
+    test_group
+}
+
 macro_rules! expand_known_test_group {
     ({@testsuitebin $name:literal: $bin:literal}) => {
-        (
-            $name,
-            concat!("package(upsilon-testsuite) & binary(", $bin, ")"),
-            &[],
-        )
+        TestGroup::TestSuiteBin(TestSuiteBinGroup {
+            name: $name,
+            aliases: &[],
+            bin: $bin,
+            nextest_filter: concat!("package(=upsilon-testsuite) & binary(=", $bin, ")"),
+            needs_upsilon_clone: false,
+        })
     };
+    ({@testsuitebin $name:literal: $bin:literal, patch: [$($patch:ident),* $(,)?]$(,)?}) => {{
+        let group = TestSuiteBinGroup {
+            name: $name,
+            aliases: &[],
+            bin: $bin,
+            nextest_filter: concat!("package(=upsilon-testsuite) & binary(=", $bin, ")"),
+            needs_upsilon_clone: false,
+        };
+        $(
+            let group = $patch(group);
+        )*
+        TestGroup::TestSuiteBin(group)
+    }};
     ({@package $name:literal}) => {
-        ($name, concat!("package(", $name, ")"), &[])
+        TestGroup::Package {
+            name: $name,
+            aliases: &[],
+            package: $name,
+            needs_testenv: false,
+            nextest_filter: concat!("package(=", $name, ")"),
+        }
     };
     ({@package $name:literal, aliases: $aliases:tt}) => {
-        ($name, concat!("package(", $name, ")"), &$aliases)
+        TestGroup::Package {
+            name: $name,
+            aliases: &$aliases,
+            package: $name,
+            needs_testenv: false,
+            nextest_filter: concat!("package(=", $name, ")"),
+        }
     };
 }
 
 macro_rules! known_test_groups {
     ($($group:tt),* $(,)?) => {
-        const KNOWN_TEST_GROUPS: &[(&str, &str, &[&str])] = &[
+        const KNOWN_TEST_GROUPS: &[TestGroup] = &[
             $(
                 expand_known_test_group!($group),
             )*
@@ -66,10 +194,19 @@ macro_rules! known_test_groups {
 }
 
 known_test_groups! {
-    {@testsuitebin "git-clone": "git_clone"},
-    {@testsuitebin "git-graphql": "git_graphql"},
+    {@testsuitebin
+        "git-clone": "git_clone",
+        patch: [test_suite_bin_group_needs_upsilon_clone_patch],
+    },
+    {@testsuitebin
+        "git-graphql": "git_graphql",
+        patch: [test_suite_bin_group_needs_upsilon_clone_patch],
+    },
     {@testsuitebin "github-mirror": "github_mirror"},
-    {@testsuitebin "lookup-repo": "lookup_repo"},
+    {@testsuitebin
+        "lookup-repo": "lookup_repo",
+        patch: [test_suite_bin_group_needs_upsilon_clone_patch],
+    },
     {@testsuitebin "viewer": "viewer"},
     {@package "ukonf"},
     {@package "upsilon-shell", aliases: ["ush"]},
@@ -77,7 +214,8 @@ known_test_groups! {
 
 #[derive(Debug, Clone)]
 struct TestGroups {
-    groups: Vec<String>,
+    groups: Vec<&'static TestGroup>,
+    testenv_config: Option<TestenvConfig>,
 }
 
 impl TestGroups {
@@ -85,35 +223,44 @@ impl TestGroups {
         let mut args = Vec::new();
         for group in &self.groups {
             args.push("-E".to_string());
-            args.push(
-                KNOWN_TEST_GROUPS
-                    .iter()
-                    .find_map(|(g, expr, _)| (g == group).then_some(expr))
-                    .unwrap()
-                    .to_string(),
-            );
+            args.push(group.nextest_filter().to_string());
         }
         args
+    }
+
+    fn testenv_config(&self) -> Option<TestenvConfig> {
+        if self.groups.is_empty() {
+            Some(TestenvConfig::all())
+        } else {
+            self.testenv_config
+        }
     }
 }
 
 impl FromArgMatches for TestGroups {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
         let mut groups = vec![];
-        for (group, _, _) in KNOWN_TEST_GROUPS {
-            if matches.get_flag(group) {
-                groups.push(group.to_string());
+        let mut testenv_config = TestenvConfig {
+            needs_upsilon_clone: false,
+        };
+        for group in KNOWN_TEST_GROUPS {
+            if matches.get_flag(group.name()) {
+                groups.push(group);
+                testenv_config.merge_with(group.testenv_config());
             }
         }
 
-        Ok(Self { groups })
+        Ok(Self {
+            groups,
+            testenv_config: testenv_config.compile(),
+        })
     }
 
     fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
         let mut groups = vec![];
-        for (group, _, _) in KNOWN_TEST_GROUPS {
-            if matches.get_flag(&group) {
-                groups.push(group.to_string());
+        for group in KNOWN_TEST_GROUPS {
+            if matches.get_flag(group.name()) {
+                groups.push(group);
             }
         }
 
@@ -125,13 +272,16 @@ impl FromArgMatches for TestGroups {
 
 impl Args for TestGroups {
     fn augment_args(mut cmd: Command) -> Command {
-        for (group, _, aliases) in KNOWN_TEST_GROUPS {
+        for group in KNOWN_TEST_GROUPS {
             cmd = cmd.arg(
-                Arg::new(group)
-                    .long(group)
+                Arg::new(group.name())
+                    .long(group.name())
                     .action(ArgAction::SetTrue)
-                    .aliases(aliases.iter().map(|it| it.to_string()))
-                    .help(format!("Filter tests from the {group} test group")),
+                    .aliases(group.aliases().iter().map(|it| it.to_string()))
+                    .help(format!(
+                        "Filter tests from the {group} test group",
+                        group = group.name()
+                    )),
             );
         }
 
@@ -380,21 +530,24 @@ fn run_tests(
 
     let prof = profile.unwrap_or("debug");
 
-    cargo_cmd!(
-        "build" => @if no_run,
-        "run" => @if !no_run,
-        "-p",
-        "upsilon-setup-testenv",
-        "--bin",
-        "upsilon-setup-testenv",
-        "--verbose" => @if verbose,
-        ...["--profile", profile] => @if let Some(profile) = profile,
-        @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
-        @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
-        @env "RUST_LOG" => "info",
-        @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
-        @workdir = ws_root!(),
-    )?;
+    if let Some(testenv_config) = test_groups.testenv_config() {
+        cargo_cmd!(
+            "build" => @if no_run,
+            "run" => @if !no_run,
+            "-p",
+            "upsilon-setup-testenv",
+            "--bin",
+            "upsilon-setup-testenv",
+            "--verbose" => @if verbose,
+            ...["--profile", profile] => @if let Some(profile) = profile,
+            @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
+            @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+            @env "UPSILON_SETUP_TESTENV_UPSILON_CLONE" => "1" => @if testenv_config.needs_upsilon_clone,
+            @env "RUST_LOG" => "info",
+            @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
+            @workdir = ws_root!(),
+        )?;
+    }
 
     if clean_profiles_between_steps {
         clean_unneeded_instrumentation_files()?;

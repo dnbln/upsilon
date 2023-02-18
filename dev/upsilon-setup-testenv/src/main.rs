@@ -41,7 +41,9 @@ fn env_present(name: &str) -> bool {
 fn main() {
     pretty_env_logger::init();
 
-    if !env_present("UPSILON_TESTSUITE_OFFLINE") {
+    if env_present("UPSILON_SETUP_TESTENV_UPSILON_CLONE")
+        && !env_present("UPSILON_TESTSUITE_OFFLINE")
+    {
         setup_local_clone();
     }
 }
