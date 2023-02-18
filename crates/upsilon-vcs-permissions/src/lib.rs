@@ -115,12 +115,10 @@ pub async fn check_user_has_permissions(
                 .repo_config
                 .protected_branches
                 .iter()
-                .map(
-                    |it| upsilon_git_hooks::repo_config::ProtectedBranchRule {
-                        name: it.branch_name.clone(),
-                        needs_admin: it.needs_admin,
-                    },
-                )
+                .map(|it| upsilon_git_hooks::repo_config::ProtectedBranchRule {
+                    name: it.branch_name.clone(),
+                    needs_admin: it.needs_admin,
+                })
                 .collect(),
         },
         upsilon_git_hooks::user_config::UserConfig {

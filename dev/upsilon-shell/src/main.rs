@@ -373,9 +373,12 @@ query {
                 println!("upload ssh key {}", upload_ssh_key.key.value.0);
             }
             UshParsedCommand::ListUsers(list_users) => {
-                client.usermap().borrow().for_each_user(|username, _tokens| {
-                    println!("{username}");
-                });
+                client
+                    .usermap()
+                    .borrow()
+                    .for_each_user(|username, _tokens| {
+                        println!("{username}");
+                    });
             }
         }
     };
