@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-#![cfg(cargo_difftests)]
+#![cfg(any(cargo_difftests, docsrs))]
 
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
@@ -22,22 +22,36 @@ use std::path::{Path, PathBuf};
 
 use cargo_difftests_core::CoreTestDesc;
 
+/// A description of a test.
+///
+/// This is used to identify the test, and the binary from which it came from.
+/// `cargo difftests` only uses the `bin_path`, all the other fields can
+/// have any values you'd like to give them.
 pub struct TestDesc {
+    /// The package name.
     pub pkg_name: String,
+    /// The crate name.
     pub crate_name: String,
+    /// The binary name.
     pub bin_name: Option<String>,
+    /// The binary path.
     pub bin_path: PathBuf,
+    /// The test name.
     pub test_name: String,
 
+    /// Any other fields to help identify the test.
     pub other_fields: HashMap<String, String>,
 }
 
+/// The difftests environment.
 pub struct DifftestsEnv {
     llvm_profile_file_name: OsString,
     llvm_profile_file_value: OsString,
 }
 
 impl DifftestsEnv {
+    /// Returns an iterator over the environment variables that should be set
+    /// for child processes.
     pub fn env_for_children(&self) -> impl Iterator<Item = (&OsStr, &OsStr)> {
         std::iter::once((
             self.llvm_profile_file_name.as_os_str(),
@@ -46,10 +60,16 @@ impl DifftestsEnv {
     }
 }
 
+#[cfg(cargo_difftests)]
 extern "C" {
     fn __llvm_profile_set_filename(filename: *const std::ffi::c_char);
 }
 
+// put a dummy for docs.rs
+#[cfg(all(not(cargo_difftests), docsrs))]
+unsafe fn __llvm_profile_set_filename(_: *const std::ffi::c_char) {}
+
+/// Initializes the difftests environment.
 pub fn init(desc: TestDesc, tmpdir: &Path) -> std::io::Result<DifftestsEnv> {
     if tmpdir.exists() {
         std::fs::remove_dir_all(tmpdir)?;
