@@ -28,7 +28,7 @@ use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
 use rocket::{Ignite, Request, Rocket, Sentinel, State};
 use upsilon_core::config::{Cfg, GqlDebugConfig, UsersConfig};
-use upsilon_data::DataQueryMaster;
+use upsilon_data::{CommonDataClientError, DataQueryMaster};
 use upsilon_models::assets::ImageAssetId;
 use upsilon_models::email::Email;
 use upsilon_models::namespace::NamespaceId;
@@ -385,6 +385,13 @@ impl EntityRef {
 
 pub struct MutationRoot;
 
+fn default_repo_config() -> upsilon_models::repo::RepoConfig {
+    upsilon_models::repo::RepoConfig {
+        global_permissions: RepoPermissions::READ,
+        protected_branches: Vec::new(),
+    }
+}
+
 impl MutationRoot {
     async fn make_global_mirror(
         context: &GraphQLContext,
@@ -402,7 +409,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::GlobalNamespace),
             name: RepoName::from(name),
             display_name: None,
-            global_permissions: RepoPermissions::WRITE | RepoPermissions::READ,
+            repo_config: default_repo_config(),
         };
 
         let repo_clone = repo.clone();
@@ -617,7 +624,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::User(auth.claims.sub)),
             name: name.clone(),
             display_name: None,
-            global_permissions: RepoPermissions::READ,
+            repo_config: default_repo_config(),
         };
 
         let repo_clone = repo.clone();
@@ -663,7 +670,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::Organization(organization_id)),
             name: name.clone(),
             display_name: None,
-            global_permissions: RepoPermissions::READ,
+            repo_config: default_repo_config(),
         };
 
         let repo_clone = repo.clone();
@@ -714,7 +721,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::Team(team.organization_id, team_id)),
             name: name.clone(),
             display_name: None,
-            global_permissions: RepoPermissions::READ,
+            repo_config: default_repo_config(),
         };
 
         let repo_clone = repo.clone();
@@ -765,7 +772,7 @@ impl MutationRoot {
             namespace: RepoNamespace(NamespaceId::GlobalNamespace),
             name: RepoName::from(name),
             display_name: None,
-            global_permissions: RepoPermissions::READ,
+            repo_config: default_repo_config(),
         };
 
         let repo_clone = repo.clone();
@@ -773,6 +780,24 @@ impl MutationRoot {
         context
             .query(|qm| async move { qm.create_repo(repo_clone).await })
             .await?;
+
+        if let Some(auth) = &context.auth {
+            let user_id = auth.claims.sub;
+            context
+                .query(|qm| async move {
+                    qm.init_repo_user_perms(repo.id, user_id).await?;
+
+                    qm.add_repo_user_perms(
+                        repo.id,
+                        user_id,
+                        RepoPermissions::ADMIN | RepoPermissions::WRITE | RepoPermissions::READ,
+                    )
+                    .await?;
+
+                    Ok::<_, CommonDataClientError>(())
+                })
+                .await?;
+        }
 
         let repo_id_string = repo.id.to_string();
 

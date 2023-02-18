@@ -19,5 +19,6 @@ mod hooks_rs {
 }
 
 pub mod repo_config;
+pub mod user_config;
 
 pub use hooks_rs::HOOKS_TO_REGISTER;

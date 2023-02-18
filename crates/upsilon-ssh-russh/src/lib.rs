@@ -432,7 +432,7 @@ impl Handler for RusshServerHandler {
 
         let user_id = self.user.expect("user not set");
 
-        check_user_has_permissions(
+        let (lowered_repo_config, user_config) = check_user_has_permissions(
             &repo,
             service,
             &self.internals.dcmh.query_master(),
@@ -452,6 +452,16 @@ impl Handler for RusshServerHandler {
             let mut cmd = tokio::process::Command::new("git");
             cmd.arg("shell").arg("-c").arg(reconstructed_shell_cmd);
             cmd.current_dir(self.internals.config.vcs_config.get_path());
+
+            cmd.env(
+                upsilon_vcs::upsilon_git_hooks::repo_config::ENV_VAR_REPO_CONFIG,
+                serde_json::to_string(&lowered_repo_config).unwrap(),
+            );
+
+            cmd.env(
+                upsilon_vcs::upsilon_git_hooks::user_config::ENV_VAR_USER_CONFIG,
+                serde_json::to_string(&user_config).unwrap(),
+            );
 
             cmd
         };

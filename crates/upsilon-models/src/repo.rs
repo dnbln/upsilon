@@ -59,8 +59,21 @@ pub struct Repo {
     pub name: RepoName,
     pub namespace: RepoNamespace,
     pub display_name: Option<RepoDisplayName>,
+    pub repo_config: RepoConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct RepoConfig {
     /// Permissions all users have by default.
     pub global_permissions: RepoPermissions,
+
+    pub protected_branches: Vec<BranchProtectionRule>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BranchProtectionRule {
+    pub branch_name: String,
+    pub needs_admin: bool,
 }
 
 bitflags! {

@@ -4675,6 +4675,7 @@ dependencies = [
  "russh",
  "russh-keys",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "upsilon-core",

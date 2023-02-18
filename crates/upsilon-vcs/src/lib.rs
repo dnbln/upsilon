@@ -17,6 +17,7 @@
 #![feature(drain_filter)]
 
 pub extern crate git2;
+pub extern crate upsilon_git_hooks;
 
 mod config;
 mod daemon;

@@ -607,7 +607,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
         let repo = repos_lock
             .get(&repo_id)
             .ok_or(InMemoryError::RepoNotFound)?;
-        let global_perms = repo.global_permissions;
+        let global_perms = repo.repo_config.global_permissions;
 
         repo_perms_map.insert(user_id, global_perms);
 

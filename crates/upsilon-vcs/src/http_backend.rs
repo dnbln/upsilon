@@ -25,6 +25,7 @@ use std::task::{Context, Poll};
 use path_slash::PathBufExt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadBuf};
 use tokio::process::{Child, ChildStdout};
+use upsilon_git_hooks::user_config::UserConfig;
 
 use crate::config::GitHttpProtocol;
 use crate::UpsilonVcsConfig;
@@ -60,6 +61,8 @@ pub struct GitBackendCgiRequest<B: AsyncRead> {
     headers: Vec<(String, String)>,
     remote_addr: SocketAddr,
     req_body: Pin<Box<B>>,
+    repo_config: upsilon_git_hooks::repo_config::RepoConfig,
+    user_config: UserConfig,
 }
 
 impl<B: AsyncRead> GitBackendCgiRequest<B> {
@@ -70,6 +73,8 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
         headers: Vec<(String, String)>,
         remote_addr: SocketAddr,
         req_body: B,
+        repo_config: upsilon_git_hooks::repo_config::RepoConfig,
+        user_config: UserConfig,
     ) -> Self {
         Self {
             method,
@@ -78,6 +83,8 @@ impl<B: AsyncRead> GitBackendCgiRequest<B> {
             headers,
             remote_addr,
             req_body: Box::pin(req_body),
+            repo_config,
+            user_config,
         }
     }
 }
@@ -194,10 +201,11 @@ pub async fn handle<B: AsyncRead>(
         .env("REMOTE_ADDR", req.remote_addr.ip().to_string())
         .env(
             upsilon_git_hooks::repo_config::ENV_VAR_REPO_CONFIG,
-            upsilon_git_hooks::repo_config::RepoConfig {
-                protected_branches: vec!["trunk".to_string()],
-            }
-            .serialized(),
+            req.repo_config.serialized(),
+        )
+        .env(
+            upsilon_git_hooks::user_config::ENV_VAR_USER_CONFIG,
+            req.user_config.serialized(),
         )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());

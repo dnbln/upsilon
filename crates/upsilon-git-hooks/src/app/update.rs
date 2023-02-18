@@ -18,6 +18,7 @@ use std::process::exit;
 
 use clap::Parser;
 use upsilon_git_hooks::repo_config::RepoConfig;
+use upsilon_git_hooks::user_config::UserConfig;
 
 use crate::app::GitHook;
 use crate::GitHookResult;
@@ -30,6 +31,8 @@ pub struct Update {
 
     #[clap(skip = RepoConfig::from_env())]
     pub repo_config: RepoConfig,
+    #[clap(skip = UserConfig::from_env())]
+    pub user_config: UserConfig,
 }
 
 fn run_hook(hook: Update) -> GitHookResult<()> {
@@ -38,18 +41,21 @@ fn run_hook(hook: Update) -> GitHookResult<()> {
         old_oid,
         new_oid,
         repo_config,
+        user_config,
     } = hook;
 
     println!("update {ref_name} {old_oid} {new_oid}");
     dbg!(&repo_config);
 
-    if repo_config
+    for rule in repo_config
         .protected_branches
         .iter()
-        .any(|it| format!("refs/heads/{it}") == ref_name)
+        .filter(|it| format!("refs/heads/{}", it.name) == ref_name)
     {
-        println!("update: protected branch");
-        exit(1);
+        if rule.needs_admin && !user_config.permissions.has_admin {
+            println!("update: protected branch, needs admin");
+            exit(1);
+        }
     }
 
     Ok(())

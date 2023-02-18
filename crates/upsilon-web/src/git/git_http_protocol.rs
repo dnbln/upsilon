@@ -404,12 +404,12 @@ async fn get_service_for_path_and_query(
     Ok(service)
 }
 
-fn cast_lacking_perms_error(
-    result: Result<(), LackingPermissionsError>,
+fn cast_lacking_perms_error<T>(
+    result: Result<T, LackingPermissionsError>,
     has_auth: bool,
-) -> Result<(), GitHttpBackendError> {
+) -> Result<T, GitHttpBackendError> {
     match result {
-        Ok(()) => Ok(()),
+        Ok(v) => Ok(v),
         Err(LackingPermissionsError::Read) => {
             if has_auth {
                 Err(GitHttpBackendError::HiddenRepo)
@@ -454,7 +454,7 @@ async fn git_http_backend_cgi_get(
     )
     .await;
 
-    cast_lacking_perms_error(result, auth_token.is_some())?;
+    let (repo_config, user_config) = cast_lacking_perms_error(result, auth_token.is_some())?;
 
     let req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Get,
@@ -463,6 +463,8 @@ async fn git_http_backend_cgi_get(
         headers.to_headers_list(),
         remote_addr,
         Cursor::new(""),
+        repo_config,
+        user_config,
     );
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
@@ -498,9 +500,9 @@ async fn git_http_backend_cgi_post(
     )
     .await;
 
-    cast_lacking_perms_error(result, auth_token.is_some())?;
+    let (repo_config, user_config) = cast_lacking_perms_error(result, auth_token.is_some())?;
 
-    let data_stream = data.open(ByteUnit::Mebibyte(20));
+    let data_stream = data.open(ByteUnit::Gigabyte(1));
     let req = GitBackendCgiRequest::new(
         GitBackendCgiRequestMethod::Post,
         path,
@@ -508,6 +510,8 @@ async fn git_http_backend_cgi_post(
         headers.to_headers_list(),
         remote_addr,
         data_stream,
+        repo_config,
+        user_config,
     );
 
     let response = upsilon_vcs::http_backend_handle(vcs_config, req).await?;
@@ -530,8 +534,8 @@ async fn git_static_get(
         Some(auth) => qm
             .query_repo_user_perms(repo.id, auth.token.claims.sub)
             .await?
-            .unwrap_or(repo.global_permissions),
-        None => repo.global_permissions,
+            .unwrap_or(repo.repo_config.global_permissions),
+        None => repo.repo_config.global_permissions,
     };
 
     // we only need read perms to send static files

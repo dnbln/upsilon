@@ -16,6 +16,8 @@
 
 use std::str::FromStr;
 
+use upsilon_vcs::upsilon_git_hooks;
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum GitService {
     UploadPack,
@@ -76,15 +78,21 @@ pub async fn check_user_has_permissions(
     service: GitService,
     qm: &upsilon_data::DataQueryMaster<'_>,
     user: Option<upsilon_models::users::UserId>,
-) -> Result<(), LackingPermissionsError> {
+) -> Result<
+    (
+        upsilon_git_hooks::repo_config::RepoConfig,
+        upsilon_git_hooks::user_config::UserConfig,
+    ),
+    LackingPermissionsError,
+> {
     let required = RequiredRepoPermissions::for_service(service);
 
     let user_perms = if let Some(user) = user {
         let user_perms = qm.query_repo_user_perms(repo.id, user).await?;
 
-        user_perms.unwrap_or(repo.global_permissions)
+        user_perms.unwrap_or(repo.repo_config.global_permissions)
     } else {
-        repo.global_permissions
+        repo.repo_config.global_permissions
     };
 
     if required.read {
@@ -101,5 +109,26 @@ pub async fn check_user_has_permissions(
         }
     }
 
-    Ok(())
+    Ok((
+        upsilon_git_hooks::repo_config::RepoConfig {
+            protected_branches: repo
+                .repo_config
+                .protected_branches
+                .iter()
+                .map(
+                    |it| upsilon_git_hooks::repo_config::ProtectedBranchRule {
+                        name: it.branch_name.clone(),
+                        needs_admin: it.needs_admin,
+                    },
+                )
+                .collect(),
+        },
+        upsilon_git_hooks::user_config::UserConfig {
+            permissions: upsilon_git_hooks::user_config::UserPermissions {
+                has_read: user_perms.can_read(),
+                has_write: user_perms.can_write(),
+                has_admin: user_perms.has_admin(),
+            },
+        },
+    ))
 }
