@@ -605,6 +605,7 @@ fn run_tests_quick(
         profile,
         @env "UPSILON_SETUP_TESTENV" => &setup_testenv,
         @env "UPSILON_TESTSUITE_OFFLINE" => "" => @if offline,
+        @env "UPSILON_SETUP_TESTENV_UPSILON_CLONE" => "1",
         @env "RUST_LOG" => "info",
         @env "UPSILON_BIN_DIR" => ws_path!("target" / prof),
         @workdir = ws_root!(),
