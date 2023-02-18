@@ -14,6 +14,9 @@
  *    limitations under the License.
  */
 
+//! Holds the [`TestIndex`] struct, and logic for indexing [`CoverageData`] into
+//! a [`TestIndex`].
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
@@ -27,16 +30,23 @@ use crate::{Difftest, DifftestsResult};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-pub struct IndexRegionSerDe([usize; 6]);
+struct IndexRegionSerDe([usize; 6]);
 
+/// A region in a [`TestIndex`].
 #[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Debug)]
 #[serde(from = "IndexRegionSerDe", into = "IndexRegionSerDe")]
 pub struct IndexRegion {
+    /// The line number of the first line of the region.
     pub l1: usize,
+    /// The column number of the first column of the region.
     pub c1: usize,
+    /// The line number of the last line of the region.
     pub l2: usize,
+    /// The column number of the last column of the region.
     pub c2: usize,
+    /// The number of times the region was executed.
     pub count: usize,
+    /// The index of the file in the [`TestIndex`].
     pub file_id: usize,
 }
 
@@ -68,15 +78,22 @@ impl From<IndexRegion> for IndexRegionSerDe {
     }
 }
 
+/// A test index, which is a more compact representation of [`CoverageData`],
+/// and contains only the information needed for analysis.
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct DifftestsSingleTestIndexData {
+pub struct TestIndex {
+    /// The regions in all the files.
     pub regions: Vec<IndexRegion>,
+    /// The paths to all the files.
     pub files: Vec<PathBuf>,
+    /// The time the test was run.
     pub test_run: chrono::DateTime<chrono::Utc>,
+    /// The test description.
     pub test_desc: CoreTestDesc,
 }
 
-impl DifftestsSingleTestIndexData {
+impl TestIndex {
+    /// Indexes/compiles the [`CoverageData`] into a [`TestIndex`].
     pub fn index(
         difftest: &Difftest,
         profdata: CoverageData,
@@ -85,7 +102,7 @@ impl DifftestsSingleTestIndexData {
         let mut index_data = Self {
             regions: vec![],
             files: vec![],
-            test_run: difftest.self_json.metadata()?.modified()?.into(),
+            test_run: difftest.self_json_mtime()?.into(),
             test_desc: difftest.load_test_desc()?,
         };
 
@@ -133,6 +150,7 @@ impl DifftestsSingleTestIndexData {
         Ok(index_data)
     }
 
+    /// Writes the [`TestIndex`] to a file.
     pub fn write_to_file(&self, path: &Path) -> DifftestsResult {
         let mut file = File::create(path)?;
         let mut writer = BufWriter::new(&mut file);
@@ -140,13 +158,26 @@ impl DifftestsSingleTestIndexData {
         Ok(())
     }
 
+    /// Reads a [`TestIndex`] from a file.
     pub fn read_from_file(path: &Path) -> DifftestsResult<Self> {
         Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
     }
 }
 
+/// Configuration for the [`TestIndex::index`] function.
 pub struct IndexDataCompilerConfig {
+    /// A conversion function for the file names in the index.
+    /// This is useful for converting absolute paths to paths
+    /// relative to the repository root for example.
     pub index_filename_converter: Box<dyn FnMut(&Path) -> PathBuf>,
+    /// A function that determines whether a file should be indexed.
+    /// This is useful for excluding files that are not part of the
+    /// project, such as files in the cargo registry.
     pub accept_file: Box<dyn FnMut(&Path) -> bool>,
+    /// Whether to remove the binary path from the test description.
+    ///
+    /// As it is usually an absolute path (given by [`std::env::current_exe`]), it is not
+    /// really useful, and may even not exist anymore, so passing true for this field
+    /// removes it from the [`TestIndex`].
     pub remove_bin_path: bool,
 }

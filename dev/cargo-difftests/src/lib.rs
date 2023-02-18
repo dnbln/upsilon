@@ -24,339 +24,22 @@ use cargo_difftests_core::CoreTestDesc;
 use log::{debug, info, warn};
 
 use crate::analysis::{AnalysisContext, AnalysisResult};
-use crate::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
-
-pub mod analysis_data;
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct Difftest {
-    dir: PathBuf,
-    self_profraw: PathBuf,
-    other_profraws: Vec<PathBuf>,
-    self_json: PathBuf,
-    profdata_file: Option<PathBuf>,
-    exported_profdata_file: Option<PathBuf>,
-    index_data: Option<PathBuf>,
-
-    cleaned: bool,
-}
-
-impl Difftest {
-    pub fn dir(&self) -> &Path {
-        &self.dir
-    }
-
-    pub fn has_index(&self) -> bool {
-        self.index_data.is_some()
-    }
-}
-
-pub struct ExportProfdataConfig {
-    pub ignore_registry_files: bool,
-    pub other_binaries: Vec<PathBuf>,
-    pub test_desc: Option<CoreTestDesc>,
-    pub force: bool,
-}
-
-pub struct HasProfdata<'r> {
-    difftest: &'r mut Difftest,
-}
-
-pub struct HasExportedProfdata<'r> {
-    difftest: &'r mut Difftest,
-}
-
-impl<'r> HasExportedProfdata<'r> {
-    pub fn get_exported_profdata(&self) -> &Path {
-        match self.difftest.exported_profdata_file.as_ref() {
-            Some(p) => p,
-            None => unreachable!(),
-        }
-    }
-
-    pub fn get_profdata(&self) -> &Path {
-        match self.difftest.profdata_file.as_ref() {
-            Some(p) => p,
-            None => unreachable!(),
-        }
-    }
-
-    fn read_exported_profdata(&self) -> DifftestsResult<analysis_data::CoverageData> {
-        let p = self.get_exported_profdata();
-        let s = fs::read_to_string(p)?;
-        let r =
-            serde_json::from_str(&s).map_err(|e| DifftestsError::Json(e, Some(p.to_path_buf())))?;
-        Ok(r)
-    }
-
-    pub fn start_analysis(self) -> DifftestsResult<AnalysisContext<'r>> {
-        info!("Starting analysis...");
-        debug!(
-            "Reading exported profdata file from {:?}...",
-            self.get_exported_profdata()
-        );
-        let profdata = self.read_exported_profdata()?;
-        debug!(
-            "Done reading exported profdata file from {:?}.",
-            self.get_exported_profdata()
-        );
-
-        Ok(AnalysisContext::new(self.difftest, profdata))
-    }
-
-    pub fn compile_test_index_data(
-        &self,
-        index_data_compiler_config: IndexDataCompilerConfig,
-    ) -> DifftestsResult<DifftestsSingleTestIndexData> {
-        info!("Compiling test index data...");
-
-        let profdata = self.read_exported_profdata()?;
-        let test_index_data = DifftestsSingleTestIndexData::index(
-            self.difftest,
-            profdata,
-            index_data_compiler_config,
-        )?;
-
-        info!("Done compiling test index data.");
-        Ok(test_index_data)
-    }
-}
+use crate::difftest::Difftest;
+use crate::index_data::{IndexDataCompilerConfig, TestIndex};
 
 pub mod analysis;
+pub mod analysis_data;
+pub mod difftest;
 pub mod index_data;
 
-const EXPORTED_PROFDATA_FILE_NAME: &str = "exported.json";
-
-impl<'r> HasProfdata<'r> {
-    pub fn get_profdata(&self) -> &Path {
-        match self.difftest.profdata_file.as_ref() {
-            Some(p) => p,
-            None => unreachable!(),
-        }
-    }
-
-    pub fn export_profdata_file(
-        mut self,
-        config: ExportProfdataConfig,
-    ) -> DifftestsResult<HasExportedProfdata<'r>> {
-        if self.difftest.exported_profdata_file.as_ref().is_some() && !config.force {
-            return Ok(HasExportedProfdata {
-                difftest: self.difftest,
-            });
-        }
-
-        let profdata = self.get_profdata();
-
-        let p = self.difftest.dir.join(EXPORTED_PROFDATA_FILE_NAME);
-
-        let ExportProfdataConfig {
-            ignore_registry_files,
-            mut other_binaries,
-            test_desc,
-            force: _,
-        } = config;
-
-        let test_desc = match test_desc {
-            Some(d) => d,
-            None => self.difftest.load_test_desc()?,
-        };
-
-        for other_binary in other_binaries.iter_mut() {
-            if !other_binary.is_absolute() {
-                use path_absolutize::Absolutize;
-                *other_binary = other_binary.absolutize()?.into_owned();
-            }
-        }
-
-        let mut cmd = Command::new("rust-cov");
-
-        cmd.arg("export")
-            .arg("-instr-profile")
-            .arg(profdata)
-            .arg(&test_desc.bin_path)
-            .args(
-                other_binaries
-                    .iter()
-                    .flat_map(|it| [OsStr::new("--object"), it.as_os_str()]),
-            );
-
-        #[cfg(not(windows))]
-        const REGISTRY_FILES_REGEX: &str = r"/.cargo/registry";
-
-        #[cfg(windows)]
-        const REGISTRY_FILES_REGEX: &str = r#"[\].cargo[\]registry"#;
-
-        if ignore_registry_files {
-            cmd.arg("--ignore-filename-regex").arg(REGISTRY_FILES_REGEX);
-        }
-
-        cmd.stdout(fs::File::create(&p)?);
-
-        let status = cmd.status()?;
-
-        if !status.success() {
-            return Err(DifftestsError::ProcessFailed { name: "rust-cov" });
-        }
-
-        self.difftest.exported_profdata_file = Some(p);
-
-        Ok(HasExportedProfdata {
-            difftest: self.difftest,
-        })
-    }
-
-    pub fn assert_has_exported_profdata(self) -> HasExportedProfdata<'r> {
-        assert!(
-            self.difftest.exported_profdata_file.is_some(),
-            "exported profdata file missing (from {})",
-            self.difftest.dir.display(),
-        );
-
-        HasExportedProfdata {
-            difftest: self.difftest,
-        }
-    }
-}
-
-impl Difftest {
-    const CLEANED_FILE_NAME: &'static str = "cargo_difftests_cleaned";
-
-    pub fn load_test_desc(&self) -> DifftestsResult<CoreTestDesc> {
-        let s = fs::read_to_string(&self.self_json)?;
-        let desc = serde_json::from_str(&s)
-            .map_err(|e| DifftestsError::Json(e, Some(self.self_json.clone())))?;
-        Ok(desc)
-    }
-
-    pub fn load_exported_profdata_file(
-        &self,
-    ) -> DifftestsResult<Option<analysis_data::CoverageData>> {
-        let Some(p) = self.exported_profdata_file.as_ref() else {
-            return Ok(None);
-        };
-
-        let data = serde_json::from_reader(fs::File::open(p)?)
-            .map_err(|e| DifftestsError::Json(e, Some(p.clone())))?;
-
-        Ok(Some(data))
-    }
-
-    pub fn merge_profraw_files_into_profdata(
-        &mut self,
-        force: bool,
-    ) -> DifftestsResult<HasProfdata<'_>> {
-        if self.cleaned {
-            return Err(DifftestsError::DifftestCleaned);
-        }
-
-        if self.profdata_file.is_some() && !force {
-            return Ok(HasProfdata { difftest: self });
-        }
-
-        const OUT_FILE_NAME: &str = "merged.profdata";
-
-        let p = self.dir.join(OUT_FILE_NAME);
-
-        let mut cmd = Command::new("rust-profdata");
-
-        cmd.arg("merge")
-            .arg("-sparse")
-            .arg(&self.self_profraw)
-            .args(&self.other_profraws)
-            .arg("-o")
-            .arg(&p);
-
-        let status = cmd.status()?;
-
-        if !status.success() {
-            return Err(DifftestsError::ProcessFailed {
-                name: "rust-profdata",
-            });
-        }
-
-        self.profdata_file = Some(p);
-
-        Ok(HasProfdata { difftest: self })
-    }
-
-    pub fn clean(&mut self) -> DifftestsResult<()> {
-        fn clean_file(f: &mut Option<PathBuf>) -> DifftestsResult<()> {
-            if let Some(f) = f {
-                fs::remove_file(f)?;
-            }
-
-            *f = None;
-            Ok(())
-        }
-
-        clean_file(&mut self.profdata_file)?;
-        clean_file(&mut self.exported_profdata_file)?;
-
-        fs::write(&self.self_profraw, b"")?;
-
-        for profraw in self.other_profraws.drain(..) {
-            fs::remove_file(profraw)?;
-        }
-
-        fs::write(self.dir.join(Self::CLEANED_FILE_NAME), b"")?;
-
-        self.cleaned = true;
-
-        Ok(())
-    }
-
-    pub fn has_profdata(&mut self) -> Option<HasProfdata<'_>> {
-        if self.cleaned {
-            return None;
-        }
-
-        if self.profdata_file.is_some() {
-            Some(HasProfdata { difftest: self })
-        } else {
-            None
-        }
-    }
-
-    #[track_caller]
-    pub fn assert_has_profdata(&mut self) -> HasProfdata<'_> {
-        assert!(
-            !self.cleaned,
-            "difftest has been cleaned (from {})",
-            self.dir.display(),
-        );
-
-        assert!(
-            self.profdata_file.is_some(),
-            "profdata file missing (from {})",
-            self.dir.display(),
-        );
-
-        HasProfdata { difftest: self }
-    }
-
-    #[track_caller]
-    pub fn assert_has_exported_profdata(&mut self) -> HasExportedProfdata<'_> {
-        self.assert_has_profdata().assert_has_exported_profdata()
-    }
-
-    pub fn discover_from(
-        dir: PathBuf,
-        index_resolver: Option<&DiscoverIndexPathResolver>,
-    ) -> DifftestsResult<Self> {
-        let self_json = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME);
-
-        if !self_json.exists() || !self_json.is_file() {
-            return Err(DifftestsError::SelfJsonDoesNotExist(self_json));
-        }
-
-        discover_difftest_from_tempdir(dir, self_json, index_resolver)
-    }
-}
-
+/// Errors that can occur when running `cargo difftests`.
 #[derive(thiserror::Error, Debug)]
 pub enum DifftestsError {
+    /// IO error.
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
+    /// JSON error (during the deserialization of the
+    /// file at the given [PathBuf], if any).
     #[error(
         "JSON error: {0}{}",
         match &.1 {
@@ -365,20 +48,27 @@ pub enum DifftestsError {
         }
     )]
     Json(#[source] serde_json::Error, Option<PathBuf>),
+    /// The `self.json` file does not exist.
     #[error("Self json does not exist: {0:?}")]
     SelfJsonDoesNotExist(PathBuf),
+    /// The `self.profraw` file does not exist.
     #[error("Self profraw does not exist: {0:?}")]
     SelfProfrawDoesNotExist(PathBuf),
+    /// The `cargo_difftests_version` file does not exist.
     #[error("cargo_difftests_version file does not exist: {0:?}")]
     CargoDifftestsVersionDoesNotExist(PathBuf),
+    /// The content of the `cargo_difftests_version` file indicates
+    /// a mismatch between the version of `cargo_difftests_testclient`
+    /// that generated the difftest and the version of `cargo_difftests`.
     #[error("cargo difftests version mismatch: {0} (file) != {1} (cargo difftests)")]
     CargoDifftestsVersionMismatch(String, String),
+    /// The process failed.
     #[error("process failed: {name}")]
     ProcessFailed { name: &'static str },
-    #[error("profdata file missing")]
-    ProfdataFileMissing,
+    /// A [git2::Error] occurred.
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
+    /// The difftest has been cleaned.
     #[error("difftest has been cleaned")]
     DifftestCleaned,
 }
@@ -391,192 +81,14 @@ impl From<serde_json::Error> for DifftestsError {
 
 pub type DifftestsResult<T = ()> = Result<T, DifftestsError>;
 
-pub enum DiscoverIndexPathResolver {
-    Remap {
-        from: PathBuf,
-        to: PathBuf,
-    },
-    Custom {
-        f: Box<dyn Fn(&Path) -> Option<PathBuf>>,
-    },
-}
-
-impl DiscoverIndexPathResolver {
-    pub fn resolve(&self, p: &Path) -> Option<PathBuf> {
-        match self {
-            DiscoverIndexPathResolver::Remap { from, to } => {
-                let p = p.strip_prefix(from).ok()?;
-                Some(to.join(p))
-            }
-            DiscoverIndexPathResolver::Custom { f } => f(p),
-        }
-    }
-}
-
-fn discover_difftest_from_tempdir(
-    dir: PathBuf,
-    self_json: PathBuf,
-    index_resolver: Option<&DiscoverIndexPathResolver>,
-) -> DifftestsResult<Difftest> {
-    let self_profraw = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME);
-
-    if !self_profraw.exists() {
-        return Err(DifftestsError::SelfProfrawDoesNotExist(self_profraw));
-    }
-
-    let cargo_difftests_version = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_VERSION_FILENAME);
-
-    if !cargo_difftests_version.exists() {
-        return Err(DifftestsError::CargoDifftestsVersionDoesNotExist(
-            cargo_difftests_version,
-        ));
-    }
-
-    let version = fs::read_to_string(&cargo_difftests_version)?;
-
-    if version != env!("CARGO_PKG_VERSION") {
-        return Err(DifftestsError::CargoDifftestsVersionMismatch(
-            version,
-            env!("CARGO_PKG_VERSION").to_string(),
-        ));
-    }
-
-    let mut other_profraws = Vec::new();
-
-    let mut profdata_file = None;
-
-    let mut cleaned = false;
-
-    for e in dir.read_dir()? {
-        let e = e?;
-        let p = e.path();
-
-        if !p.is_file() {
-            continue;
-        }
-
-        let file_name = p.file_name();
-        let ext = p.extension();
-
-        if ext == Some(OsStr::new("profraw"))
-            && file_name
-                != Some(OsStr::new(
-                    cargo_difftests_core::CARGO_DIFFTESTS_SELF_PROFILE_FILENAME,
-                ))
-        {
-            other_profraws.push(p);
-            continue;
-        }
-
-        if ext == Some(OsStr::new("profdata")) {
-            if profdata_file.is_none() {
-                profdata_file = Some(p);
-            } else {
-                warn!(
-                    "multiple profdata files found in difftest directory: {}",
-                    dir.display()
-                );
-                warn!("ignoring: {}", p.display());
-            }
-            continue;
-        }
-
-        if file_name == Some(OsStr::new(Difftest::CLEANED_FILE_NAME)) {
-            cleaned = true;
-        }
-    }
-
-    let exported_profdata_path = dir.join(EXPORTED_PROFDATA_FILE_NAME);
-
-    let mut exported_profdata_file = None;
-    if exported_profdata_path.exists() && exported_profdata_path.is_file() {
-        exported_profdata_file = Some(exported_profdata_path);
-    }
-
-    let index_data = 'index_data: {
-        let index_data = index_resolver.and_then(|resolver| resolver.resolve(&dir));
-
-        if let Some(ind) = &index_data {
-            if !ind.exists() {
-                debug!("index data file does not exist: {}", ind.display());
-                break 'index_data None;
-            } else if !ind.is_file() {
-                debug!("index data file is not a file: {}", ind.display());
-                break 'index_data None;
-            }
-
-            if ind.metadata()?.modified()? < self_json.metadata()?.modified()? {
-                warn!(
-                    "index data file is older than {}: {} older than {}",
-                    cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME,
-                    ind.display(),
-                    self_json.display()
-                );
-                break 'index_data None;
-            }
-        }
-
-        index_data
-    };
-
-    Ok(Difftest {
-        dir,
-        self_profraw,
-        other_profraws,
-        self_json,
-        profdata_file,
-        exported_profdata_file,
-        index_data,
-        cleaned,
-    })
-}
-
-fn discover_difftests_to_vec(
-    dir: &Path,
-    discovered: &mut Vec<Difftest>,
-    ignore_incompatible: bool,
-    index_resolver: Option<&DiscoverIndexPathResolver>,
-) -> DifftestsResult {
-    let self_json = dir.join(cargo_difftests_core::CARGO_DIFFTESTS_SELF_JSON_FILENAME);
-    if self_json.exists() && self_json.is_file() {
-        let r = discover_difftest_from_tempdir(dir.to_path_buf(), self_json, index_resolver);
-
-        if let Err(DifftestsError::CargoDifftestsVersionMismatch(_, _)) = r {
-            if ignore_incompatible {
-                return Ok(());
-            }
-        }
-
-        discovered.push(r?);
-        return Ok(());
-    }
-
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            discover_difftests_to_vec(&path, discovered, ignore_incompatible, index_resolver)?;
-        }
-    }
-
-    Ok(())
-}
-
-pub fn discover_difftests(
-    dir: &Path,
-    ignore_incompatible: bool,
-    index_resolver: Option<&DiscoverIndexPathResolver>,
-) -> DifftestsResult<Vec<Difftest>> {
-    let mut discovered = Vec::new();
-
-    discover_difftests_to_vec(dir, &mut discovered, ignore_incompatible, index_resolver)?;
-
-    Ok(discovered)
-}
-
+/// Compares two indexes, returning an error consisting of their deltas
+/// if they are different, or [Ok] if they are the same.
+///
+/// This only looks at the files that are touched by the indexes,
+/// and not at individual code regions.
 pub fn compare_indexes_touch_same_files(
-    index_a: &DifftestsSingleTestIndexData,
-    index_b: &DifftestsSingleTestIndexData,
+    index_a: &TestIndex,
+    index_b: &TestIndex,
 ) -> Result<(), IndexCompareDifferences<TouchSameFilesDifference>> {
     let mut diffs = IndexCompareDifferences {
         differences: vec![],
@@ -604,6 +116,7 @@ pub fn compare_indexes_touch_same_files(
     }
 }
 
+/// A list of differences between two indexes.
 #[derive(Clone, Debug)]
 pub struct IndexCompareDifferences<D> {
     differences: Vec<D>,
@@ -615,25 +128,45 @@ impl<D> IndexCompareDifferences<D> {
     }
 }
 
+/// A difference between two indexes, given by comparing the list
+/// of files that the [Difftest]s they come from touched.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum TouchSameFilesDifference {
+    /// A file that was touched by the first index, but not by the second.
     #[serde(rename = "first_only")]
     TouchedByFirstOnly(PathBuf),
+    /// A file that was touched by the second index, but not by the first.
     #[serde(rename = "second_only")]
     TouchedBySecondOnly(PathBuf),
 }
 
+/// When using `analyze-all`, the output is a JSON stream of type
+/// [Vec]<[AnalyzeAllSingleTest]>.
+///
+/// This is in the library so that it can be used by consumers of the
+/// `cargo difftests` binary.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct AnalyzeAllSingleTest {
+    /// The [Difftest] that was analyzed, or [None] if
+    /// the analysis was performed on the index data alone,
+    /// with no [Difftest] associated.
     pub difftest: Option<Difftest>,
+    /// The description of the test that was analyzed.
     pub test_desc: CoreTestDesc,
+    /// The result of the analysis.
     pub verdict: AnalysisVerdict,
 }
 
+/// An analysis verdict.
 #[derive(serde::Serialize, serde::Deserialize, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AnalysisVerdict {
+    /// The analysis found no modifications to the source files used by the test,
+    /// and it should probably not be rerun (unless something else changed, like
+    /// non-source code file system inputs).
     #[serde(rename = "clean")]
     Clean,
+    /// The analysis found some modifications to the source files used by the test,
+    /// and the it should be rerun.
     #[serde(rename = "dirty")]
     Dirty,
 }

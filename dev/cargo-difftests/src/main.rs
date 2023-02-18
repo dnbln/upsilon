@@ -22,7 +22,7 @@ use anyhow::{bail, Context};
 use cargo_difftests::analysis::{
     file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult, GitDiffStrategy
 };
-use cargo_difftests::index_data::{DifftestsSingleTestIndexData, IndexDataCompilerConfig};
+use cargo_difftests::index_data::{TestIndex, IndexDataCompilerConfig};
 use cargo_difftests::{
     AnalyzeAllSingleTest, Difftest, DiscoverIndexPathResolver, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
 };
@@ -31,20 +31,37 @@ use log::warn;
 
 #[derive(Args, Debug)]
 pub struct ExportProfdataCommand {
+    /// Whether to ignore files from the cargo registry.
+    ///
+    /// This is enabled by default, as files in the cargo registry are not
+    /// expected to be modified by the user.
+    ///
+    /// If you want to include files from the cargo registry, use the
+    /// `--no-ignore-cargo-registry` flag.
     #[clap(
         long = "no-ignore-registry-files",
         default_value_t = true,
         action(clap::ArgAction::SetFalse)
     )]
     ignore_registry_files: bool,
-    #[clap(long = "bin")]
-    other_binaries: Vec<PathBuf>,
+    #[clap(flatten)]
+    other_binaries: OtherBinaries,
+    /// Whether to force the stages of the analysis.
+    ///
+    /// Without this flag, we will try to use intermediary cached results
+    /// from previous runs of `cargo-difftests` if possible, to speed up
+    /// the analysis.
+    ///
+    /// This flag will force the analysis to be run from scratch.
     #[clap(long)]
     force: bool,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone)]
 pub enum FlattenFilesTarget {
+    /// Flatten all files to the root of the repository.
+    ///
+    /// Files outside of the repository will be kept as-is.
     #[clap(name = "repo-root")]
     RepoRoot,
 }
@@ -59,20 +76,35 @@ impl Display for FlattenFilesTarget {
 
 #[derive(Args, Debug, Copy, Clone)]
 pub struct CompileTestIndexFlags {
+    /// Whether to ignore files from the cargo registry.
+    ///
+    /// This is enabled by default, as files in the cargo registry are not
+    /// expected to be modified by the user.
+    ///
+    /// If you want to include files from the cargo registry, use the
+    /// `--no-ignore-cargo-registry` flag.
     #[clap(
         long = "no-ignore-cargo-registry",
         default_value_t = true,
         action(clap::ArgAction::SetFalse)
     )]
     ignore_cargo_registry: bool,
+    /// Whether to flatten all files to a directory.
     #[clap(long)]
     flatten_files_to: Option<FlattenFilesTarget>,
+    /// Whether to remove the binary path from the difftest info
+    /// in the index.
+    ///
+    /// This is enabled by default, as it is expected to be an absolute
+    /// path.
     #[clap(
         long = "no-remove-bin-path",
         default_value_t = true,
         action(clap::ArgAction::SetFalse)
     )]
     remove_bin_path: bool,
+    /// Windows-only: Whether to replace all backslashes in paths with
+    /// normal forward slashes.
     #[cfg(windows)]
     #[clap(
         long = "no-path-slash-replace",
@@ -96,13 +128,27 @@ impl Default for CompileTestIndexFlags {
 
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
 pub enum AnalysisIndexStrategy {
+    /// Will always use indexes.
+    ///
+    /// If the indexes are not available, or they are outdated,
+    /// they will be re-generated, and then the analysis will use
+    /// the indexes.
     #[clap(name = "always")]
     Always,
+    /// Will use indexes if they are available,
+    /// but if they are not available, it will not generate them,
+    /// and instead use a slightly slower algorithm to work with data
+    /// straight from `llvm-cov export` instead.
     #[clap(name = "if-available")]
     IfAvailable,
+    /// Will never use indexes.
     #[default]
     #[clap(name = "never")]
     Never,
+    /// Will always use indexes, and will also clean up the difftest
+    /// directory of all the profiling data, which should in theory
+    /// not be needed anymore, as the analysis can run on index data alone,
+    /// unless using the `never` strategy in subsequent calls of `cargo-difftests`.
     #[clap(name = "always-and-clean")]
     AlwaysAndClean,
 }
@@ -118,47 +164,73 @@ impl Display for AnalysisIndexStrategy {
     }
 }
 
+#[derive(Args, Debug)]
+pub struct DifftestDir {
+    /// The path to the difftest directory.
+    ///
+    /// This should be the directory that was passed
+    /// to `cargo_difftests_testclient::init`.
+    #[clap(long)]
+    pub dir: PathBuf,
+}
+
 #[derive(Parser, Debug)]
 pub enum LowLevelCommand {
+    /// Run the `llvm-profdata merge` command, to merge all
+    /// the `.profraw` files from a difftest directory into
+    /// a single `.profdata` file.
     MergeProfdata {
-        #[clap(long)]
-        dir: PathBuf,
+        #[clap(flatten)]
+        dir: DifftestDir,
+        /// Whether to force the merge.
+        ///
+        /// If this flag is not passed, and the `.profdata` file
+        /// already exists, the merge will not be run.
         #[clap(long)]
         force: bool,
     },
+    /// Run the `llvm-cov export` command, to export the
+    /// `.profdata` file into a `.json` file that can be later
+    /// used for analysis.
     ExportProfdata {
-        #[clap(long)]
-        dir: PathBuf,
+        #[clap(flatten)]
+        dir: DifftestDir,
         #[clap(flatten)]
         cmd: ExportProfdataCommand,
     },
+    /// Run the analysis for a single difftest directory.
     RunAnalysis {
-        #[clap(long)]
-        dir: PathBuf,
-        #[clap(long, default_value_t = Default::default())]
-        algo: DirtyAlgorithm,
-        #[clap(long)]
-        commit: Option<git2::Oid>,
+        #[clap(flatten)]
+        dir: DifftestDir,
+        #[clap(flatten)]
+        algo: AlgoArgs,
     },
+    /// Compile a test index for a single difftest directory.
     CompileTestIndex {
-        #[clap(long)]
-        dir: PathBuf,
+        #[clap(flatten)]
+        dir: DifftestDir,
+        /// The output file to write the index to.
         #[clap(short, long)]
         output: PathBuf,
         #[clap(flatten)]
         compile_test_index_flags: CompileTestIndexFlags,
     },
+    /// Runs the analysis for a single test index.
     RunAnalysisWithTestIndex {
+        /// The path to the test index.
         #[clap(long)]
         index: PathBuf,
-        #[clap(long, default_value_t = Default::default())]
-        algo: DirtyAlgorithm,
-        #[clap(long)]
-        commit: Option<git2::Oid>,
+        #[clap(flatten)]
+        algo: AlgoArgs,
     },
+    /// Compare two test indexes, by the files that they "touch"
+    /// (have regions that have an execution count > 0).
     IndexesTouchSameFilesReport {
+        /// The first index to compare.
         index1: PathBuf,
+        /// The second index to compare.
         index2: PathBuf,
+        /// The action to take for the report.
         #[clap(long, default_value_t = Default::default())]
         action: IndexesTouchSameFilesReportAction,
     },
@@ -166,9 +238,13 @@ pub enum LowLevelCommand {
 
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
 pub enum IndexesTouchSameFilesReportAction {
+    /// Print the report to stdout.
     #[default]
     #[clap(name = "print")]
     Print,
+    /// Assert that the indexes touch the same files.
+    ///
+    /// If they do not, the program will exit with a non-zero exit code.
     #[clap(name = "assert")]
     Assert,
 }
@@ -216,13 +292,29 @@ impl Display for IndexesTouchSameFilesReportAction {
     }
 }
 
+/// The algorithm to use for the analysis.
 #[derive(ValueEnum, Debug, Copy, Clone, Default)]
 pub enum DirtyAlgorithm {
+    /// Use file system mtimes to find the files that have changed.
+    ///
+    /// This is the fastest algorithm, but it is not very accurate.
     #[default]
     #[clap(name = "fs-mtime")]
     FsMtime,
+    /// Use the list of files from `git diff`.
+    ///
+    /// This is a bit slower than `fs-mtime`.
+    ///
+    /// Warning: not very accurate if not used well.
+    /// See the introductory blog post for more details.
     #[clap(name = "git-diff-files")]
     GitDiffFiles,
+    /// Use the list of diff hunks from `git diff` to compute the changed files.
+    ///
+    /// This is a bit slower than `fs-mtime`.
+    ///
+    /// Warning: like `git-diff-files`, it is not very accurate if not used well.
+    /// See the introductory blog post for more details.
     #[clap(name = "git-diff-hunks")]
     GitDiffHunks,
 }
@@ -255,14 +347,20 @@ impl Display for DirtyAlgorithm {
 
 #[derive(Args, Debug)]
 pub struct AnalysisIndex {
+    /// The root directory where all index files will be stored.
+    ///
+    /// Only used if `--index-strategy` is set to `always`, `always-and-clean`
+    /// or `if-available`, otherwise ignored.
     #[clap(
         long,
         required_if_eq_any = [
             ("index_strategy", "always"),
+            ("index_strategy", "always-and-clean"),
             ("index_strategy", "if-available"),
         ]
     )]
     index_root: Option<PathBuf>,
+    /// The strategy to use for the analysis index.
     #[clap(long, default_value_t = Default::default())]
     index_strategy: AnalysisIndexStrategy,
 }
@@ -300,55 +398,121 @@ impl AnalysisIndex {
     }
 }
 
+#[derive(Args, Debug)]
+pub struct AlgoArgs {
+    /// The algorithm to use to find the "dirty" files.
+    #[clap(long, default_value_t = Default::default())]
+    algo: DirtyAlgorithm,
+    /// Optionally, if the algorithm is `git-diff-files` or `git-diff-hunks`,
+    /// through this option we can specify another commit to use as the base
+    /// for the diff.
+    ///
+    /// By default, the commit `HEAD` points to will be used.
+    #[clap(long)]
+    commit: Option<git2::Oid>,
+}
+
+#[derive(Args, Debug)]
+pub struct OtherBinaries {
+    /// Any other binaries to use for the analysis.
+    ///
+    /// By default, the only binary that `cargo-difftests` uses will
+    /// be the `bin_path` from the test description (passed to
+    /// `cargo_difftests_testclient::init`), but if the test spawned other
+    /// children subprocesses that were profiled, and should be used in the
+    /// analysis, then the paths to those binaries should be passed here.
+    #[clap(long = "bin")]
+    other_binaries: Vec<PathBuf>,
+}
+
 #[derive(Parser, Debug)]
 pub enum App {
+    /// Discover the difftests from a given directory.
     DiscoverDifftests {
+        /// The root directory where all the difftests were stored.
+        ///
+        /// This should be some common ancestor directory of all
+        /// the paths passed to `cargo_difftests_testclient::init`.
         #[clap(long, default_value = "target/tmp/cargo-difftests")]
         dir: PathBuf,
+        /// The directory where the index files were stored, if any.
         #[clap(long)]
         index_root: Option<PathBuf>,
+        /// With this flag, `cargo-difftests` will ignore any incompatible difftest and continue.
+        ///
+        /// Without this flag, when `cargo-difftests` finds an
+        /// incompatible difftest on-disk, it will fail.
         #[clap(long)]
         ignore_incompatible: bool,
     },
+    /// Analyze a single difftest.
     Analyze {
-        #[clap(long)]
-        dir: PathBuf,
+        #[clap(flatten)]
+        dir: DifftestDir,
+        /// Whether to force the generation of intermediary files.
+        ///
+        /// Without this flag, if the intermediary files are already present,
+        /// they will be used instead of being regenerated.
         #[clap(long)]
         force: bool,
-        #[clap(long, default_value_t = Default::default())]
-        algo: DirtyAlgorithm,
-        #[clap(long)]
-        commit: Option<git2::Oid>,
-        #[clap(long = "bin")]
-        other_binaries: Vec<PathBuf>,
+        #[clap(flatten)]
+        algo: AlgoArgs,
+        #[clap(flatten)]
+        other_binaries: OtherBinaries,
         #[clap(flatten)]
         analysis_index: AnalysisIndex,
-        #[clap(long)]
+        /// The root directory where all the difftests were stored.
+        ///
+        /// Needs to be known to be able to properly remap the paths
+        /// to the index files, and is therefore only required if the
+        /// `--index-strategy` is `always`, `always-and-clean`, or
+        /// `if-available`.
+        #[clap(long, default_value = "target/tmp/cargo-difftests")]
         root: Option<PathBuf>,
     },
+    /// Analyze all the difftests in a given directory.
+    ///
+    /// This is somewhat equivalent to running `cargo difftests discover-difftests`,
+    /// and then `cargo difftests analyze` on each of the discovered difftests.
     AnalyzeAll {
+        /// The root directory where all the difftests were stored.
+        ///
+        /// This should be some common ancestor directory of all
+        /// the paths passed to `cargo_difftests_testclient::init`.
         #[clap(long, default_value = "target/tmp/cargo-difftests")]
         dir: PathBuf,
+        /// Whether to force the generation of intermediary files.
+        ///
+        /// Without this flag, if the intermediary files are already present,
+        /// they will be used instead of being regenerated.
         #[clap(long)]
         force: bool,
-        #[clap(long, default_value_t = Default::default())]
-        algo: DirtyAlgorithm,
-        #[clap(long)]
-        commit: Option<git2::Oid>,
-        #[clap(long = "bin")]
-        other_binaries: Vec<PathBuf>,
+        #[clap(flatten)]
+        algo: AlgoArgs,
+        #[clap(flatten)]
+        other_binaries: OtherBinaries,
         #[clap(flatten)]
         analysis_index: AnalysisIndex,
+        /// With this flag, `cargo-difftests` will ignore any incompatible
+        /// difftest and continue.
+        ///
+        /// Without this flag, when `cargo-difftests` finds an
+        /// incompatible difftest on-disk, it will fail.
         #[clap(long)]
         ignore_incompatible: bool,
     },
+    /// Analyze all the difftests in a given directory, using their index files.
+    ///
+    /// Note that this does not require the outputs of the difftests to be
+    /// present on-disk, and can be used to analyze difftests that were
+    /// run on a different machine (given correct flags when
+    /// compiling the index).
     AnalyzeAllFromIndex {
+        /// The root directory where all the index files are stored.
         #[clap(long)]
         index_root: PathBuf,
-        #[clap(long)]
-        algo: DirtyAlgorithm,
-        #[clap(long)]
-        commit: Option<git2::Oid>,
+        #[clap(flatten)]
+        algo: AlgoArgs,
     },
     LowLevel {
         #[clap(subcommand)]
@@ -425,7 +589,7 @@ fn run_export_profdata(dir: PathBuf, cmd: ExportProfdataCommand) -> CargoDifftes
     has_profdata.export_profdata_file(ExportProfdataConfig {
         force: cmd.force,
         ignore_registry_files: cmd.ignore_registry_files,
-        other_binaries: cmd.other_binaries,
+        other_binaries: cmd.other_binaries.other_binaries,
         test_desc: None, // will read from `self.json`
     })?;
 
@@ -546,8 +710,8 @@ fn run_indexes_touch_same_files_report(
     index2: PathBuf,
     action: IndexesTouchSameFilesReportAction,
 ) -> CargoDifftestsResult {
-    let index1 = DifftestsSingleTestIndexData::read_from_file(&index1)?;
-    let index2 = DifftestsSingleTestIndexData::read_from_file(&index2)?;
+    let index1 = TestIndex::read_from_file(&index1)?;
+    let index2 = TestIndex::read_from_file(&index2)?;
 
     let report = cargo_difftests::compare_indexes_touch_same_files(&index1, &index2);
 
@@ -559,25 +723,27 @@ fn run_indexes_touch_same_files_report(
 fn run_low_level_cmd(cmd: LowLevelCommand) -> CargoDifftestsResult {
     match cmd {
         LowLevelCommand::MergeProfdata { dir, force } => {
-            run_merge_profdata(dir, force)?;
+            run_merge_profdata(dir.dir, force)?;
         }
         LowLevelCommand::ExportProfdata { dir, cmd } => {
-            run_export_profdata(dir, cmd)?;
+            run_export_profdata(dir.dir, cmd)?;
         }
-        LowLevelCommand::RunAnalysis { dir, algo, commit } => {
-            run_analysis(dir, algo, commit)?;
+        LowLevelCommand::RunAnalysis {
+            dir,
+            algo: AlgoArgs { algo, commit },
+        } => {
+            run_analysis(dir.dir, algo, commit)?;
         }
         LowLevelCommand::CompileTestIndex {
             dir,
             output,
             compile_test_index_flags,
         } => {
-            run_compile_test_index(dir, output, compile_test_index_flags)?;
+            run_compile_test_index(dir.dir, output, compile_test_index_flags)?;
         }
         LowLevelCommand::RunAnalysisWithTestIndex {
             index,
-            algo,
-            commit,
+            algo: AlgoArgs { algo, commit },
         } => {
             run_analysis_with_test_index(index, algo, commit)?;
         }
@@ -780,7 +946,7 @@ pub fn run_analyze_all(
 
 fn discover_indexes_to_vec(
     index_root: &Path,
-    indexes: &mut Vec<DifftestsSingleTestIndexData>,
+    indexes: &mut Vec<TestIndex>,
 ) -> CargoDifftestsResult {
     for entry in fs::read_dir(index_root)? {
         let entry = entry?;
@@ -789,7 +955,7 @@ fn discover_indexes_to_vec(
         if path.is_dir() {
             discover_indexes_to_vec(&path, indexes)?;
         } else {
-            let index = DifftestsSingleTestIndexData::read_from_file(&path)?;
+            let index = TestIndex::read_from_file(&path)?;
             indexes.push(index);
         }
     }
@@ -852,17 +1018,16 @@ fn main_impl() -> CargoDifftestsResult {
             dir,
             root,
             force,
-            algo,
-            commit,
+            algo: AlgoArgs { algo, commit },
             other_binaries,
             analysis_index,
         } => {
             run_analyze(
-                dir,
+                dir.dir,
                 force,
                 algo,
                 commit,
-                other_binaries,
+                other_binaries.other_binaries,
                 root,
                 analysis_index,
             )?;
@@ -870,8 +1035,7 @@ fn main_impl() -> CargoDifftestsResult {
         App::AnalyzeAll {
             dir,
             force,
-            algo,
-            commit,
+            algo: AlgoArgs { algo, commit },
             other_binaries,
             analysis_index,
             ignore_incompatible,
@@ -881,15 +1045,14 @@ fn main_impl() -> CargoDifftestsResult {
                 force,
                 algo,
                 commit,
-                other_binaries,
+                other_binaries.other_binaries,
                 analysis_index,
                 ignore_incompatible,
             )?;
         }
         App::AnalyzeAllFromIndex {
             index_root,
-            algo,
-            commit,
+            algo: AlgoArgs { algo, commit },
         } => {
             run_analyze_all_from_index(index_root, algo, commit)?;
         }
