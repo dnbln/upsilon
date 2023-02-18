@@ -22,10 +22,9 @@ use anyhow::{bail, Context};
 use cargo_difftests::analysis::{
     file_is_from_cargo_registry, AnalysisConfig, AnalysisContext, AnalysisResult, GitDiffStrategy
 };
-use cargo_difftests::index_data::{TestIndex, IndexDataCompilerConfig};
-use cargo_difftests::{
-    AnalyzeAllSingleTest, Difftest, DiscoverIndexPathResolver, ExportProfdataConfig, IndexCompareDifferences, TouchSameFilesDifference
-};
+use cargo_difftests::difftest::{Difftest, DiscoverIndexPathResolver, ExportProfdataConfig};
+use cargo_difftests::index_data::{IndexDataCompilerConfig, TestIndex};
+use cargo_difftests::{AnalyzeAllSingleTest, IndexCompareDifferences, TouchSameFilesDifference};
 use clap::{Args, Parser, ValueEnum};
 use log::warn;
 
