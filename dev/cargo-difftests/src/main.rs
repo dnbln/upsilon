@@ -554,7 +554,7 @@ fn discover_difftests(
     let resolver = resolver_for_index_root(&dir, index_root);
 
     let discovered =
-        cargo_difftests::discover_difftests(&dir, ignore_incompatible, resolver.as_ref())?;
+        cargo_difftests::difftest::discover_difftests(&dir, ignore_incompatible, resolver.as_ref())?;
 
     Ok(discovered)
 }
