@@ -5,6 +5,9 @@ edition = "2021"
 description = "cargo-difftests: test client library"
 license = "Apache-2.0"
 
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
