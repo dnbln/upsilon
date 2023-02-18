@@ -24,7 +24,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{ColorMode, CompletionType, Config};
 use serde::Deserialize;
 use upsilon_shell::{
-    parse_line, BuildUrlError, Client, Helper, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
+    parse_line, BuildUrlError, Client, GqlQueryResult, Helper, UshHostInfo, UshParsedCommand, UshRepoAccessProtocol
 };
 
 #[derive(Parser, Debug)]
@@ -133,6 +133,15 @@ impl ParsedApp {
 
 const HISTORY_FILE: &str = ".ush-history";
 
+fn report_gql_result<T>(result: &GqlQueryResult<T>) {
+    match result {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error: {}", e);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init_custom_env("UPSILON_SHELL_LOG");
@@ -222,13 +231,14 @@ query {
     }));
 
     let exit_code = loop {
-        let mut cwd_str = cwd.borrow().display().to_string();
+        let cwd_str = cwd.borrow().display().to_string();
+
         #[cfg(windows)]
-        {
+        let cwd_str = {
             // quirk on windows
             // \\?\C:\Users => C:\Users
-            cwd_str = cwd_str.replace("\\\\?\\", "");
-        }
+            cwd_str.replace("\\\\?\\", "")
+        };
 
         let line = match editor.readline(&format!("ush: [{cwd_str}] >>> ")) {
             Ok(line) => line,
@@ -295,18 +305,22 @@ query {
                 }
             }
             UshParsedCommand::Login(login) => {
-                println!(
-                    "login {} with pass {}",
-                    login.username.value.0, login.password.value
-                );
+                let r = client
+                    .login(&login.username.value, &login.password.value)
+                    .await;
+
+                report_gql_result(&r);
             }
             UshParsedCommand::CreateUser(create_user) => {
-                println!(
-                    "create user {} with email {} and pass {}",
-                    create_user.username.value.0,
-                    create_user.email.value,
-                    create_user.password.value
-                );
+                let r = client
+                    .create_user(
+                        &create_user.username.value,
+                        &create_user.email.value,
+                        &create_user.password.value,
+                    )
+                    .await;
+
+                report_gql_result(&r);
             }
             UshParsedCommand::CreateRepo(create_repo) => {
                 println!("create repo {}", create_repo.repo_name.value);
@@ -357,6 +371,11 @@ query {
             }
             UshParsedCommand::UploadSshKey(upload_ssh_key) => {
                 println!("upload ssh key {}", upload_ssh_key.key.value.0);
+            }
+            UshParsedCommand::ListUsers(list_users) => {
+                client.usermap().borrow().for_each_user(|username, _tokens| {
+                    println!("{username}");
+                });
             }
         }
     };

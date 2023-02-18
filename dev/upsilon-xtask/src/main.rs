@@ -356,7 +356,7 @@ enum App {
         #[clap(flatten)]
         test_groups: TestGroups,
 
-        tests_filters: Vec<String>,
+        test_filters: Vec<String>,
     },
     #[clap(name = "test-quick")]
     #[clap(alias = "tq")]
@@ -1038,7 +1038,7 @@ fn rm(p: &Path) -> XtaskResult<()> {
         return Ok(());
     }
 
-    info!("Removing {p:?}");
+    info!("Removing {}", p.display());
 
     if p.is_file() {
         fs::remove_file(p)?;
@@ -1130,7 +1130,7 @@ fn main_impl() -> XtaskResult<()> {
             doc,
             clean_profiles_between_steps,
             profile,
-            tests_filters,
+            test_filters,
             test_groups,
         } => {
             let profile = profile.as_deref();
@@ -1158,7 +1158,7 @@ fn main_impl() -> XtaskResult<()> {
                 no_run,
                 no_capture,
                 clean_profiles_between_steps,
-                &tests_filters,
+                &test_filters,
                 &test_groups,
                 doc,
                 profile,

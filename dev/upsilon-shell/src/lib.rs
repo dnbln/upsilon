@@ -271,6 +271,7 @@ commands!(
     SshUrl "ssh-url",
     Url "url",
     UploadSshKey "upload-ssh-key",
+    ListUsers "list-users",
 );
 
 pub struct CompletionContext<'src> {
@@ -352,8 +353,14 @@ pub struct UshExitCommand {
     pub exit_code: Option<Spanned<i32>>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Username(pub String);
+
+impl Display for Username {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl From<String> for Username {
     fn from(value: String) -> Self {
@@ -539,6 +546,11 @@ pub struct UshUploadSshKeyCommand {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub struct UshListUsersCommand {
+    pub command_name: Spanned<CommandName>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UshParsedCommand {
     Cd(UshCdCommand),
     Ls(UshLsCommand),
@@ -554,6 +566,7 @@ pub enum UshParsedCommand {
     SshUrl(UshSshUrlCommand),
     Url(UshUrlCommand),
     UploadSshKey(UshUploadSshKeyCommand),
+    ListUsers(UshListUsersCommand),
 }
 
 #[cfg(test)]
@@ -766,6 +779,7 @@ impl CompletionProvider for UshParsedCommand {
             UshParsedCommand::SshUrl(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::Url(cmd) => cmd.lookup_element_at(pos, completion_ctx),
             UshParsedCommand::UploadSshKey(cmd) => cmd.lookup_element_at(pos, completion_ctx),
+            UshParsedCommand::ListUsers(cmd) => cmd.lookup_element_at(pos, completion_ctx),
         }
     }
 }
@@ -844,6 +858,8 @@ impl CompletionProvider for UshUploadSshKeyCommand {
         None
     }
 }
+
+impl CompletionProvider for UshListUsersCommand {}
 
 #[derive(logos::Logos, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -986,6 +1002,7 @@ impl<'src> UshCommandParser<'src> {
             UshCommand::UploadSshKey => {
                 UshParsedCommand::UploadSshKey(self.parse_upload_ssh_key()?)
             }
+            UshCommand::ListUsers => UshParsedCommand::ListUsers(self.parse_list_users()?),
         };
 
         self.expect_end()?;
@@ -1252,6 +1269,12 @@ impl<'src> UshCommandParser<'src> {
         Ok(UshUploadSshKeyCommand {
             command_name: self.command_name.clone(),
             key,
+        })
+    }
+
+    fn parse_list_users(&mut self) -> UshParseResult<UshListUsersCommand> {
+        Ok(UshListUsersCommand {
+            command_name: self.command_name.clone(),
         })
     }
 }
@@ -2067,6 +2090,17 @@ pub struct UserMap {
     map: HashMap<Username, Vec<JwtToken>>,
 }
 
+impl UserMap {
+    pub fn for_each_user<F>(&self, mut f: F)
+    where
+        F: FnMut(&Username, &[JwtToken]),
+    {
+        for (username, tokens) in &self.map {
+            f(username, tokens);
+        }
+    }
+}
+
 struct ClientCore {
     usermap: Rc<RefCell<UserMap>>,
     gql_endpoint: String,
@@ -2147,6 +2181,83 @@ impl Client {
         token: impl Into<Option<&str>>,
     ) -> GqlQueryResult<T> {
         self._gql_query(query, variables, token).await
+    }
+
+    pub async fn login(&self, username: &Username, password: &str) -> GqlQueryResult<()> {
+        #[derive(serde::Deserialize)]
+        struct LoginResponse {
+            login: String,
+        }
+
+        let res = self
+            .gql_query_with_variables::<LoginResponse>(
+                // language=graphql
+                r#"
+                mutation Login($username: String!, $password: PlainPassword!) {
+                    login(usernameOrEmail: $username, password: $password)
+                }            
+            "#,
+                HashMap::from([
+                    ("username".to_string(), serde_json::json!(&username.0)),
+                    ("password".to_string(), serde_json::json!(password)),
+                ]),
+                None,
+            )
+            .await?;
+
+        let token = JwtToken(res.login);
+
+        self.core
+            .usermap
+            .borrow_mut()
+            .map
+            .entry(username.clone())
+            .or_default()
+            .push(token);
+
+        Ok(())
+    }
+
+    pub async fn create_user(
+        &self,
+        username: &Username,
+        password: &str,
+        email: &str,
+    ) -> GqlQueryResult<()> {
+        #[derive(serde::Deserialize)]
+        struct CreateUserResponse {
+            #[serde(rename = "createUser")]
+            create_user: String,
+        }
+
+        let res = self
+            .gql_query_with_variables::<CreateUserResponse>(
+                // language=graphql
+                r#"
+                mutation CreateUser($username: Username!, $email: Email!, $password: PlainPassword!) {
+                    createUser(username: $username, email: $email, password: $password)
+                }
+            "#,
+                HashMap::from([
+                    ("username".to_string(), serde_json::json!(&username.0)),
+                    ("email".to_string(), serde_json::json!(email)),
+                    ("password".to_string(), serde_json::json!(password)),
+                ]),
+                None,
+            )
+            .await?;
+
+        let token = JwtToken(res.create_user);
+
+        self.core
+            .usermap
+            .borrow_mut()
+            .map
+            .entry(username.clone())
+            .or_default()
+            .push(token);
+
+        Ok(())
     }
 }
 
