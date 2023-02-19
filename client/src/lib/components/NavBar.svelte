@@ -14,12 +14,17 @@
   -    limitations under the License.
   -->
 
-<script lang="ts" context="module">
-
-</script>
-
 <script lang="ts">
-    export let viewer = null;
+    import { fragment, graphql } from '$houdini';
+
+    export let viewer: import('$houdini').NavBar_viewer | null = null;
+
+    $: navbarViewerInfo = fragment(viewer, graphql`
+    fragment NavBar_viewer on User {
+        id
+        username
+    }
+    `)
 </script>
 
 <nav class="nav-bar">
@@ -28,7 +33,7 @@
             <a href="/"><img src="/upsilon-transparent-white.png" alt="Home"></a>
         </div>
         <div class="nav-bar-item">
-            <a href="/docs/book/index.html">Docs</a>
+            <a href="/docs/book/index.html" rel="external">Docs</a>
         </div>
     </div>
 

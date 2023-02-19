@@ -1,7 +1,6 @@
 query EntityPage($entity: String!) {
   viewer {
-    id
-    username
+    ...NavBar_viewer
     displayName
   }
 
