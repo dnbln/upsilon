@@ -17,8 +17,13 @@ scalar PlainPassword
 
 scalar ImageAssetId
 
-type Repo {
+type Repo implements Entity {
   id: RepoId!
+  entityId: String!
+  entityUser: User
+  entityRepo: Repo
+  entityOrganization: Organization
+  entityTeam: Team
   name: RepoName!
   path: String!
   git: RepoGit!
@@ -33,9 +38,9 @@ type GitCommit {
   tree: GitTree!
 }
 
-scalar Email
-
 scalar TeamName
+
+scalar Email
 
 type MutationRoot {
   createUser(username: Username!, email: Email!, password: PlainPassword!): String!
@@ -58,7 +63,7 @@ scalar UserDisplayName
 
 scalar RepoPermissions
 
-scalar Username
+scalar TeamDisplayName
 
 type RepoGit {
   commit(sha: String!): GitCommit!
@@ -71,10 +76,18 @@ type GitBranch {
   _debug__contributors: [GitSignatureContributions!]!
 }
 
-scalar TeamDisplayName
+scalar Username
 
 type GitTreeEntry {
   name: String!
+}
+
+interface Entity {
+  entityId: String!
+  entityUser: User
+  entityOrganization: Organization
+  entityTeam: Team
+  entityRepo: Repo
 }
 
 type QueryRoot {
@@ -86,7 +99,7 @@ type QueryRoot {
   organization(orgId: OrganizationId!): Organization!
   organizationByName(name: OrganizationName!): Organization
   repo(repoId: RepoId!): Repo!
-  lookupEntity(path: String!): EntityRef
+  lookupEntity(path: String!): Entity
   lookupRepo(path: String!): Repo
 }
 
@@ -98,27 +111,15 @@ type GitSignature {
 
 scalar OrganizationDisplayName
 
-type EntityRef {
-  userId: UserId
-  user: User
-  organizationId: OrganizationId
-  organization: Organization
-  teamId: TeamId
-  team: Team
-  repoId: RepoId
-  repo: Repo
-}
-
-type GitTree {
-  entries(wholeTree: Boolean = false): [GitTreeEntry!]!
-}
-
 scalar OrganizationId
 
-scalar OrganizationName
-
-type Team {
+type Team implements Entity {
   id: TeamId!
+  entityId: String!
+  entityUser: User
+  entityRepo: Repo
+  entityOrganization: Organization
+  entityTeam: Team
   name: TeamName!
   displayName: TeamDisplayName
   organizationId: OrganizationId!
@@ -127,8 +128,19 @@ type Team {
   repo(name: RepoName!): Repo
 }
 
-type Organization {
+scalar OrganizationName
+
+type GitTree {
+  entries(wholeTree: Boolean = false): [GitTreeEntry!]!
+}
+
+type Organization implements Entity {
   id: OrganizationId!
+  entityId: String!
+  entityUser: User
+  entityRepo: Repo
+  entityOrganization: Organization
+  entityTeam: Team
   name: OrganizationName!
   displayName: OrganizationDisplayName
   ownerId: UserId!
@@ -142,8 +154,13 @@ scalar RepoName
 
 scalar RepoId
 
-type User {
+type User implements Entity {
   id: UserId!
+  entityId: String!
+  entityUser: User
+  entityRepo: Repo
+  entityOrganization: Organization
+  entityTeam: Team
   username: Username!
   publicEmail: Email
   avatar: ImageAssetId

@@ -82,3 +82,4 @@ upsilon-xtask = { path = "dev/upsilon-xtask" }
 
 [patch.crates-io]
 procfs = { git = "https://github.com/eminence/procfs", rev = "faf30237720279af23bf2e9190499c3c35aa3955" }
+rocket_cors = { git = "https://github.com/lawliet89/rocket_cors.git", rev = "c17e8145baa4790319fdb6a473e465b960f55e7c" }

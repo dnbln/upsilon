@@ -67,7 +67,7 @@ impl Fairing for GraphQLApiConfigurator {
     }
 }
 
-#[rocket::get("/")]
+#[rocket::get("/graphiql")]
 fn graphiql() -> rocket::response::content::RawHtml<String> {
     juniper_rocket::graphiql_source("/graphql", None)
 }

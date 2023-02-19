@@ -15,30 +15,13 @@
   -->
 
 <script lang="ts" context="module">
-    import NavBar from '$lib/components/NavBar.svelte';
-    import {goto} from '$app/navigation';
+    import ErrorView from '$lib/components/ErrorView.svelte';
 </script>
 
 <script lang="ts">
-    export let data: import('./$houdini').PageData;
-    $: ({HomePage} = data)
+    export let data;
 
-
-    let viewer;
-
-    $: {
-        viewer = $HomePage.data.viewer;
-
-        if (viewer) {
-            goto('/dashboard');
-        }
-    }
+    let {status, message} = data;
 </script>
 
-<svelte:head>
-    <title>
-        Upsilon | Home
-    </title>
-</svelte:head>
-
-<NavBar />
+<ErrorView {status} {message} />

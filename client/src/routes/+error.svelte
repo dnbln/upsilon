@@ -14,43 +14,9 @@
   -    limitations under the License.
   -->
 
-<script>
+<script lang="ts" context="module">
     import { page } from '$app/stores';
+    import ErrorView from "$lib/components/ErrorView.svelte";
 </script>
 
-<div class="error-container">
-    <h1 class="error-status">{$page.status}</h1>
-    <span class="error-status-slash">/</span>
-    <p class="error-message">{$page.error.message}</p>
-</div>
-
-<style>
-    .error-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        width: 100%;
-        margin: 0;
-    }
-
-    .error-status {
-        padding: 0 10px;
-        color: orange;
-    }
-
-    .error-status-slash {
-        user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-user-select: none;
-        color: black;
-        font-size: 4rem;
-    }
-
-    .error-message {
-        padding: 0 15px;
-        font-size: 2em;
-    }
-</style>
+<ErrorView status={$page.error.code || $page.status} message={$page.error.message} />

@@ -19,7 +19,7 @@
 </script>
 
 <script lang="ts">
-    export let user: string | undefined;
+    export let viewer = null;
 </script>
 
 <nav class="nav-bar">
@@ -33,9 +33,9 @@
     </div>
 
     <div class="nav-bar-right">
-        {#if (user)}
+        {#if viewer}
         <div class="nav-bar-item">
-            <a href="/user/{user}">User profile</a>
+            <a href="/{viewer.username}">User profile</a>
         </div>
         {/if}
     </div>

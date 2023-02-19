@@ -22,7 +22,7 @@ use std::pin::Pin;
 
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
-use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
+use juniper::{graphql_interface, graphql_object, graphql_subscription, FieldError, FieldResult};
 use path_slash::PathBufExt;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
@@ -277,7 +277,7 @@ impl QueryRoot {
     async fn lookup_entity(
         context: &GraphQLContext,
         path: String,
-    ) -> FieldResult<Option<EntityRef>> {
+    ) -> FieldResult<Option<EntityValue>> {
         let path = EntityLookupPath::from_iter(path.split('/').collect::<Vec<_>>().into_iter())?;
 
         let resolved = match context
@@ -289,11 +289,11 @@ impl QueryRoot {
         };
 
         let entity_ref = match resolved {
-            ResolvedEntity::GlobalNamespace => EntityRef::GlobalNamespace,
-            ResolvedEntity::User(user) => EntityRef::User(user),
-            ResolvedEntity::Organization(org) => EntityRef::Organization(org),
-            ResolvedEntity::Team(org, team) => EntityRef::Team(org, team),
-            ResolvedEntity::Repo { repo, .. } => EntityRef::Repo(repo),
+            ResolvedEntity::GlobalNamespace => panic!("global namespace is not an entity"),
+            ResolvedEntity::User(user) => EntityValue::from(UserRef(user)),
+            ResolvedEntity::Organization(org) => EntityValue::from(OrganizationRef(org)),
+            ResolvedEntity::Team(org, team) => EntityValue::from(TeamRef(team)),
+            ResolvedEntity::Repo { repo, .. } => EntityValue::from(RepoRef(repo)),
         };
 
         Ok(Some(entity_ref))
@@ -314,74 +314,111 @@ impl QueryRoot {
     }
 }
 
-pub enum EntityRef {
-    GlobalNamespace,
-    User(User),
-    Organization(Organization),
-    Team(Organization, Team),
-    Repo(Repo),
-}
+#[graphql_interface(for = [UserRef, OrganizationRef, TeamRef, RepoRef])]
+trait Entity {
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String;
 
-#[graphql_object(Context = GraphQLContext)]
-impl EntityRef {
-    fn user_id(&self) -> Option<UserId> {
-        match self {
-            EntityRef::User(user) => Some(user.id),
-            _ => None,
-        }
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        None
     }
 
-    async fn user(&self) -> Option<UserRef> {
-        match self {
-            EntityRef::User(user) => Some(UserRef(user.clone())),
-            _ => None,
-        }
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        None
     }
 
-    fn organization_id(&self) -> Option<OrganizationId> {
-        match self {
-            EntityRef::Organization(org) => Some(org.id),
-            EntityRef::Team(org, _) => Some(org.id),
-            _ => None,
-        }
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        None
     }
 
-    async fn organization(&self) -> Option<OrganizationRef> {
-        match self {
-            EntityRef::Organization(org) => Some(OrganizationRef(org.clone())),
-            EntityRef::Team(org, _) => Some(OrganizationRef(org.clone())),
-            _ => None,
-        }
-    }
-
-    fn team_id(&self) -> Option<TeamId> {
-        match self {
-            EntityRef::Team(_, team) => Some(team.id),
-            _ => None,
-        }
-    }
-
-    async fn team(&self) -> Option<TeamRef> {
-        match self {
-            EntityRef::Team(_org, team) => Some(TeamRef(team.clone())),
-            _ => None,
-        }
-    }
-
-    fn repo_id(&self) -> Option<RepoId> {
-        match self {
-            EntityRef::Repo(repo) => Some(repo.id),
-            _ => None,
-        }
-    }
-
-    async fn repo(&self) -> Option<RepoRef> {
-        match self {
-            EntityRef::Repo(repo) => Some(RepoRef(repo.clone())),
-            _ => None,
-        }
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        None
     }
 }
+
+macro_rules! defer_entity_impl {
+    () => {
+        fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+            <Self as Entity>::_entity_id(self, ctx)
+        }
+
+        fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+            <Self as Entity>::entity_user(self, ctx)
+        }
+
+        fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+            <Self as Entity>::entity_repo(self, ctx)
+        }
+
+        fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+            <Self as Entity>::entity_organization(self, ctx)
+        }
+
+        fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+            <Self as Entity>::entity_team(self, ctx)
+        }
+    };
+}
+
+// #[graphql_object(Context = GraphQLContext)]
+// impl EntityRef {
+//     fn user_id(&self) -> Option<UserId> {
+//         match self {
+//             EntityRef::User(user) => Some(user.id),
+//             _ => None,
+//         }
+//     }
+//
+//     async fn user(&self) -> Option<UserRef> {
+//         match self {
+//             EntityRef::User(user) => Some(UserRef(user.clone())),
+//             _ => None,
+//         }
+//     }
+//
+//     fn organization_id(&self) -> Option<OrganizationId> {
+//         match self {
+//             EntityRef::Organization(org) => Some(org.id),
+//             EntityRef::Team(org, _) => Some(org.id),
+//             _ => None,
+//         }
+//     }
+//
+//     async fn organization(&self) -> Option<OrganizationRef> {
+//         match self {
+//             EntityRef::Organization(org) => Some(OrganizationRef(org.clone())),
+//             EntityRef::Team(org, _) => Some(OrganizationRef(org.clone())),
+//             _ => None,
+//         }
+//     }
+//
+//     fn team_id(&self) -> Option<TeamId> {
+//         match self {
+//             EntityRef::Team(_, team) => Some(team.id),
+//             _ => None,
+//         }
+//     }
+//
+//     async fn team(&self) -> Option<TeamRef> {
+//         match self {
+//             EntityRef::Team(_org, team) => Some(TeamRef(team.clone())),
+//             _ => None,
+//         }
+//     }
+//
+//     fn repo_id(&self) -> Option<RepoId> {
+//         match self {
+//             EntityRef::Repo(repo) => Some(repo.id),
+//             _ => None,
+//         }
+//     }
+//
+//     async fn repo(&self) -> Option<RepoRef> {
+//         match self {
+//             EntityRef::Repo(repo) => Some(RepoRef(repo.clone())),
+//             _ => None,
+//         }
+//     }
+// }
 
 pub struct MutationRoot;
 
@@ -914,10 +951,40 @@ impl SubscriptionRoot {
 
 pub struct UserRef(User);
 
-#[graphql_object(name = "User", context = GraphQLContext)]
+impl Entity for UserRef {
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        self.0.id.to_string()
+    }
+
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        Some(self)
+    }
+}
+
+#[graphql_object(name = "User", context = GraphQLContext, impl = EntityValue)]
 impl UserRef {
     fn id(&self) -> UserId {
         self.0.id
+    }
+
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        <Self as Entity>::_entity_id(self, ctx)
+    }
+
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        <Self as Entity>::entity_user(self, ctx)
+    }
+
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        <Self as Entity>::entity_repo(self, ctx)
+    }
+
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        <Self as Entity>::entity_organization(self, ctx)
+    }
+
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        <Self as Entity>::entity_team(self, ctx)
     }
 
     fn username(&self) -> &Username {
@@ -960,10 +1027,7 @@ impl UserRef {
 struct RepoRef(Repo);
 
 impl RepoRef {
-    async fn ns_path(
-        &self,
-        qm: DataQueryMaster<'_>,
-    ) -> Result<PathBuf, upsilon_data::CommonDataClientError> {
+    async fn ns_path(&self, qm: DataQueryMaster<'_>) -> Result<PathBuf, CommonDataClientError> {
         let res = match self.0.namespace.0 {
             NamespaceId::GlobalNamespace => {
                 let mut pb = PathBuf::new();
@@ -999,10 +1063,40 @@ impl RepoRef {
     }
 }
 
-#[graphql_object(name = "Repo", context = GraphQLContext)]
+impl Entity for RepoRef {
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        self.0.id.to_string()
+    }
+
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        Some(self)
+    }
+}
+
+#[graphql_object(name = "Repo", context = GraphQLContext, impl = EntityValue)]
 impl RepoRef {
     fn id(&self) -> RepoId {
         self.0.id
+    }
+
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        <Self as Entity>::_entity_id(self, ctx)
+    }
+
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        <Self as Entity>::entity_user(self, ctx)
+    }
+
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        <Self as Entity>::entity_repo(self, ctx)
+    }
+
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        <Self as Entity>::entity_organization(self, ctx)
+    }
+
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        <Self as Entity>::entity_team(self, ctx)
     }
 
     fn name(&self) -> &RepoName {
@@ -1034,10 +1128,40 @@ impl RepoRef {
 
 struct OrganizationRef(Organization);
 
-#[graphql_object(name = "Organization", context = GraphQLContext)]
+impl Entity for OrganizationRef {
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        self.0.id.to_string()
+    }
+
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        Some(self)
+    }
+}
+
+#[graphql_object(name = "Organization", context = GraphQLContext, impl = EntityValue)]
 impl OrganizationRef {
     fn id(&self) -> OrganizationId {
         self.0.id
+    }
+
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        <Self as Entity>::_entity_id(self, ctx)
+    }
+
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        <Self as Entity>::entity_user(self, ctx)
+    }
+
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        <Self as Entity>::entity_repo(self, ctx)
+    }
+
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        <Self as Entity>::entity_organization(self, ctx)
+    }
+
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        <Self as Entity>::entity_team(self, ctx)
     }
 
     fn name(&self) -> &OrganizationName {
@@ -1147,10 +1271,40 @@ impl OrganizationMemberRef {
 
 pub struct TeamRef(Team);
 
-#[graphql_object(name = "Team", context = GraphQLContext)]
+impl Entity for TeamRef {
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        self.0.id.to_string()
+    }
+
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        Some(self)
+    }
+}
+
+#[graphql_object(name = "Team", context = GraphQLContext, impl = EntityValue)]
 impl TeamRef {
     fn id(&self) -> TeamId {
         self.0.id
+    }
+
+    fn _entity_id(&self, ctx: &GraphQLContext) -> String {
+        <Self as Entity>::_entity_id(self, ctx)
+    }
+
+    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+        <Self as Entity>::entity_user(self, ctx)
+    }
+
+    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+        <Self as Entity>::entity_repo(self, ctx)
+    }
+
+    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+        <Self as Entity>::entity_organization(self, ctx)
+    }
+
+    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+        <Self as Entity>::entity_team(self, ctx)
     }
 
     fn name(&self) -> &TeamName {

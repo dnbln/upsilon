@@ -14,10 +14,14 @@
  *    limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
+import {goto} from "$app/navigation";
+import type {NavigationEvent} from "@sveltejs/kit";
 
-describe('sum test', () => {
-	it('adds 1 + 2 to equal 3', () => {
-		expect(1 + 2).toBe(3);
-	});
-});
+export function handleError({error, event}: { error: unknown; event: NavigationEvent }): void {
+    let {message, status} = error;
+
+    let m = message || 'Whoops!';
+    let s = status || 500;
+
+    goto('/error?status=' + encodeURIComponent(s) + '&message=' + encodeURIComponent(m));
+}

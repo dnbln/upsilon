@@ -1,0 +1,36 @@
+query EntityPage($entity: String!) {
+  viewer {
+    id
+    username
+    displayName
+  }
+
+  entity: lookupEntity(path: $entity) {
+    entityOrganization {
+      id
+      name
+      displayName
+      teams {
+        id
+        name
+        displayName
+        members {
+          user {
+            id
+            username
+            displayName
+          }
+        }
+      }
+    }
+    entityUser {
+      id
+      username
+      displayName
+    }
+    entityRepo {
+      id
+      name
+    }
+  }
+}

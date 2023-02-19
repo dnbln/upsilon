@@ -14,31 +14,14 @@
   -    limitations under the License.
   -->
 
-<script lang="ts" context="module">
-    import NavBar from '$lib/components/NavBar.svelte';
-    import {goto} from '$app/navigation';
-</script>
-
 <script lang="ts">
-    export let data: import('./$houdini').PageData;
-    $: ({HomePage} = data)
 
-
-    let viewer;
-
-    $: {
-        viewer = $HomePage.data.viewer;
-
-        if (viewer) {
-            goto('/dashboard');
-        }
-    }
 </script>
 
-<svelte:head>
-    <title>
-        Upsilon | Home
-    </title>
-</svelte:head>
+<div class="">
 
-<NavBar />
+</div>
+
+<style>
+
+</style>

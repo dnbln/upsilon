@@ -13,6 +13,7 @@ path-slash.workspace = true
 regex.workspace = true
 rocket.workspace = true
 rocket-basicauth = "2.1.1"
+rocket_cors = "0.6.0-alpha1"
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -27,4 +28,5 @@ upsilon-ssh.workspace = true
 upsilon-ssh-russh.workspace = true
 upsilon-vcs.workspace = true
 upsilon-vcs-permissions.workspace = true
+upsilon-web-interface.workspace = true
 

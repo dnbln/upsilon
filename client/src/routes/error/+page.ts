@@ -14,12 +14,12 @@
  *    limitations under the License.
  */
 
-import {error} from '@sveltejs/kit';
-
-export async function load({params, fetch}: { params: { entity: string }, fetch: any }) {
-    let entity = params.entity;
+export function load({url}) {
+    const status = url.searchParams.get('status');
+    const message = url.searchParams.get('message');
 
     return {
-        entity: params.entity,
-    };
+        status,
+        message,
+    }
 }

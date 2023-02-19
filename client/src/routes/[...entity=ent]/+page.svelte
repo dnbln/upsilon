@@ -15,19 +15,36 @@
   -->
 
 <script lang="ts" context="module">
-    import { setRelayEnvironment } from 'svelte-relay';
-    import env from '$lib/api/gql-environment';
-
-    setRelayEnvironment(env);
+    import NavBar from '$lib/components/NavBar.svelte';
+    import UserView from '$lib/components/UserView.svelte';
+    import {error} from '@sveltejs/kit';
 </script>
 
 <script lang="ts">
-    export let data: { entity: string };
-    const {entity} = data;
+    export let data: import('./$houdini').PageData;
+    $: ({EntityPage} = data)
+
+    let viewer;
+    let user;
+    let organization;
+    let team;
+    let repo;
+
+    $: {
+        viewer = $EntityPage.data.viewer;
+        user = $EntityPage.data.entity?.entityUser;
+        organization = $EntityPage.data.entity?.entityOrganization;
+        team = $EntityPage.data.entity?.entityTeam;
+        repo = $EntityPage.data.entity?.entityRepo;
+
+        if (!user && !organization && !team && !repo) {
+            throw {message: 'Not found', code: 404};
+        }
+    }
 </script>
 
-<svelte:head>
-    <title>{entity}</title>
-</svelte:head>
+<NavBar {viewer}/>
 
-<h1>Entity {entity}</h1>
+{#if user}
+    <UserView {user}/>
+{/if}

@@ -3334,6 +3334,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rocket_cors"
+version = "0.6.0-alpha1"
+source = "git+https://github.com/lawliet89/rocket_cors.git?rev=c17e8145baa4790319fdb6a473e465b960f55e7c#c17e8145baa4790319fdb6a473e465b960f55e7c"
+dependencies = [
+ "http",
+ "log",
+ "regex",
+ "rocket",
+ "serde",
+ "serde_derive",
+ "unicase",
+ "unicase_serde",
+ "url",
+]
+
+[[package]]
 name = "rocket_http"
 version = "0.5.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4366,6 +4382,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "unicase_serde"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ef53697679d874d69f3160af80bc28de12730a985d57bdf2b47456ccb8b11f1"
+dependencies = [
+ "serde",
+ "unicase",
+]
+
+[[package]]
 name = "unicode-bidi"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4768,6 +4794,7 @@ dependencies = [
  "regex",
  "rocket",
  "rocket-basicauth",
+ "rocket_cors",
  "serde",
  "thiserror",
  "tokio",
@@ -4781,6 +4808,7 @@ dependencies = [
  "upsilon-ssh-russh",
  "upsilon-vcs",
  "upsilon-vcs-permissions",
+ "upsilon-web-interface",
 ]
 
 [[package]]
@@ -4789,6 +4817,8 @@ version = "0.1.0"
 dependencies = [
  "rocket",
  "serde",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

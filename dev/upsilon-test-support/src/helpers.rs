@@ -53,6 +53,9 @@ vcs-errors:
   leak-hidden-repos: true
   verbose: true
 
+frontend:
+  enabled: false
+
 web:
   api:
     origin: "https://api.upsilon.dnbln.dev"
@@ -104,6 +107,9 @@ vcs:
   http-protocol:
     enable: true
     push-auth-required: true
+
+frontend:
+  enabled: false
 
 vcs-errors:
   leak-hidden-repos: true
@@ -157,6 +163,9 @@ git-ssh:
 vcs-errors:
   leak-hidden-repos: true
   verbose: true
+
+frontend:
+  enabled: false
 
 web:
   api:

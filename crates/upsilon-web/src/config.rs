@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Deserializer};
 use upsilon_core::config::{GqlDebugConfig, UsersConfig};
 use upsilon_ssh_russh::{CompleteRusshServerConfig, RusshServerConfig};
@@ -31,10 +33,49 @@ pub struct Config {
 
     pub users: UsersConfig,
 
+    pub frontend: FrontendConfig,
+
     #[serde(rename = "vcs-errors", default)]
     pub vcs_errors: VcsErrorsConfig,
 
     pub debug: DebugConfig,
+}
+
+#[derive(Debug)]
+pub enum FrontendConfig {
+    Enabled { frontend_root: PathBuf },
+    Disabled,
+}
+
+impl<'de> Deserialize<'de> for FrontendConfig {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        pub struct FrontendConfigTemp {
+            enabled: bool,
+            #[serde(default)]
+            root: Option<PathBuf>,
+        }
+
+        let config = FrontendConfigTemp::deserialize(deserializer)?;
+
+        match config {
+            FrontendConfigTemp {
+                enabled: true,
+                root: Some(frontend_root),
+            } => Ok(FrontendConfig::Enabled { frontend_root }),
+            FrontendConfigTemp {
+                enabled: true,
+                root: None,
+            } => Err(serde::de::Error::missing_field("root")),
+            FrontendConfigTemp {
+                enabled: false,
+                root: _,
+            } => Ok(FrontendConfig::Disabled),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]

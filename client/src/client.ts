@@ -14,10 +14,18 @@
  *    limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
+import { HoudiniClient, type RequestHandler } from '$houdini';
 
-describe('sum test', () => {
-	it('adds 1 + 2 to equal 3', () => {
-		expect(1 + 2).toBe(3);
-	});
-});
+export default new HoudiniClient({
+    url: 'http://localhost:8000/graphql',
+	
+    // uncomment this to configure the network call (for things like authentication)
+	// for more information, please visit here: https://www.houdinigraphql.com/guides/authentication
+    fetchParams({ session }) {
+        return {
+	        headers: {
+                Authentication: `Bearer ${session.token}`,
+            }
+        }
+    },
+})

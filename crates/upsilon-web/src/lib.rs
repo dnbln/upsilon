@@ -24,11 +24,13 @@ use std::path::PathBuf;
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};
+use rocket_cors::{AllowedHeaders, AllowedOrigins, Cors, CorsOptions};
 use upsilon_api::{GraphQLApiConfigurator, UshArgs};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
+use upsilon_web_interface::WebFairing;
 
-use crate::config::{DebugConfig, GitSshProtocol};
+use crate::config::{DebugConfig, FrontendConfig, GitSshProtocol};
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
 
 pub struct ConfigManager;
@@ -58,6 +60,7 @@ impl Fairing for ConfigManager {
             users,
             vcs_errors,
             debug,
+            frontend,
         } = app_config;
 
         match data_backend {
@@ -142,6 +145,37 @@ impl Fairing for ConfigManager {
         }
 
         rocket = rocket.attach(GraphQLApiConfigurator::new(UshArgs::new(ush_args)));
+
+        let cors = Cors::from_options(
+            &CorsOptions::default()
+                .allowed_headers(AllowedHeaders::some(&[
+                    "Authorization",
+                    "Accept",
+                    "Content-Type",
+                ]))
+                .allow_credentials(true)
+                .allowed_origins(AllowedOrigins::some_exact(&[
+                    "http://localhost:5173",
+                    "http://localhost:8000",
+                ])),
+        );
+
+        let cors = match cors {
+            Ok(cors) => cors,
+            Err(e) => {
+                error!("Failed to create CORS fairing: {}", e);
+                return Err(rocket);
+            }
+        };
+
+        rocket = rocket.attach(cors);
+
+        match frontend {
+            FrontendConfig::Enabled { frontend_root } => {
+                rocket = rocket.attach(WebFairing::new(frontend_root));
+            }
+            FrontendConfig::Disabled => {}
+        }
 
         Ok(rocket
             .manage(Cfg::new(vcs))

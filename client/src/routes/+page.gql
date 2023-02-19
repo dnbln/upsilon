@@ -1,0 +1,7 @@
+query HomePage {
+  viewer {
+    id
+    username
+    displayName
+  }
+}
