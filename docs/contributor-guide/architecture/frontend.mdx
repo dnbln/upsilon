@@ -1,0 +1,24 @@
+---
+title: Frontend
+sidebar_position: 6
+---
+
+import RepoLink from "@site/src/components/RepoLink";
+import CrateSourceLink from "@site/src/components/CrateSourceLink";
+
+The frontend is written with [SvelteKit](https://kit.svelte.dev), and built
+using the static adapter, so that it can be served by the backend.
+
+The frontend package is located in <RepoLink
+path="client" kind="tree"><code>/client</code></RepoLink>.
+
+It uses [the houdini graphql client](https://www.houdinigraphql.com/) to
+generate types and queries from the schema.
+
+## Server-side
+
+The frontend is built to be an SPA, so we have to serve the frontend
+statically, and then use the backend to serve the API.
+
+The code responsible for serving the frontend files lies in the <CrateSourceLink
+kind="crates" crate="upsilon-web-interface"/> crate.

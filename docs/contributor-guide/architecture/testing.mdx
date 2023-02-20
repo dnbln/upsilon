@@ -1,11 +1,14 @@
 ---
+title: Testing
 sidebar_position: 5
 ---
 
-# Testing
+import CrateSourceLink from '@site/src/components/CrateSourceLink';
 
-All integration tests go in `dev/upsilon-testsuite`, with
-`dev/upsilon-test-support` providing some utilities for them.
+All integration tests go in <CrateSourceLink kind="dev"
+crate="upsilon-testsuite"/>, with <CrateSourceLink kind="dev"
+crate="upsilon-test-support"/> providing some
+utilities for them.
 
 ## Running the tests
 
@@ -93,6 +96,12 @@ server and terminate any subprocesses it has spawned.
 All tests return a `TestResult<()>`, which is just
 a `Result<(), anyhow::Error>`. For the cleanup to work, tests should
 return `Err` if they fail, rather than `panic!`.
+
+## `cargo xtask test-quick`
+
+Use a quick test setup, powered by `cargo-difftests`, to run only the tests
+that are likely to have been affected by changes to the source code since
+the test was last run, and ignore the others.
 
 ## Cleanup: internals
 

@@ -81,7 +81,7 @@ struct CacheInMemoryConfigSizes {
 }
 
 fn default_cache_size() -> usize {
-    10
+    1024
 }
 
 impl From<CacheInMemoryConfigSizes> for upsilon_data_cache_inmemory::CacheInMemoryConfigSizes {
@@ -102,6 +102,7 @@ impl From<CacheInMemoryConfigSizes> for upsilon_data_cache_inmemory::CacheInMemo
 pub struct InMemoryDataBackendConfig {
     #[serde(flatten)]
     save_strategy: InMemoryConfigSaveStrategy,
+    #[serde(default)]
     cache: Option<CacheInMemoryConfigSizes>,
 }
 

@@ -1,0 +1,39 @@
+---
+title: "Configuration Reference"
+sidebar_position: 1
+toc_max_heading_level: 4
+---
+
+Reference for the configuration files.
+
+## Configuration files
+
+The configuration files are written in YAML.
+
+They are loaded in the following order:
+- from `UPSILON_CONFIG` (default: `upsilon.dev.yaml` in development builds,
+`upsilon.yaml` in production builds)
+- from `UPSILON_ROCKET_CONFIG` (default: `upsilon-rocket.yaml`)
+
+## Selecting a profile
+
+The `UPSILON_PROFILE` environment variable (default: `dev` in development
+builds, `release` in production builds), can be used to select which of those
+configuration files to use.
+
+If the `UPSILON_PROFILE` environment variable is set to `dev`, the configuration
+file that will be used is `upsilon.dev.yaml`, unless the `UPSILON_CONFIG`
+environment variable is also set, in which case that configuration will be
+used instead.
+
+If it is set to `release`, the configuration file that will be used is
+`upsilon.yaml`, unless the `UPSILON_CONFIG` environment variable is also
+set, in which case that configuration will be used instead.
+
+## Configuration file reference
+
+Files from `UPSILON_CONFIG`, (`upsilon.dev.yaml` or `upsilon.yaml` by default)
+should have the structure given by the JSON schema available here:
+
+https://github.com/dnbln/upsilon/blob/trunk/schemas/upsilon-config.schema.json
+

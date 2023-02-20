@@ -28,6 +28,7 @@ pub struct Config {
     pub vcs: UpsilonVcsConfig,
     #[serde(default, rename = "git-ssh")]
     pub git_ssh: Option<GitSshProtocol>,
+    pub debug: DebugConfig,
     #[serde(rename = "data-backend")]
     pub data_backend: DataBackendConfig,
 
@@ -37,8 +38,6 @@ pub struct Config {
 
     #[serde(rename = "vcs-errors", default)]
     pub vcs_errors: VcsErrorsConfig,
-
-    pub debug: DebugConfig,
 }
 
 #[derive(Debug)]
