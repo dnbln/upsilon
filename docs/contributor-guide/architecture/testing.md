@@ -1,0 +1,121 @@
+---
+sidebar_position: 5
+---
+
+# Testing
+
+All integration tests go in `dev/upsilon-testsuite`, with
+`dev/upsilon-test-support` providing some utilities for them.
+
+## Running the tests
+
+To run the tests, you can use the `test` xtask:
+
+```bash
+cargo xtask test
+# Or for short
+cargo xt
+```
+
+## Writing tests
+
+Integration tests are annotated with `#[upsilon_test]`, which handles most of
+the setup, and provides a `TestCx` to the test, which is used to interact with
+the webserver.
+
+## `#[git_daemon]`
+
+By default, the test server doesn't spawn a `git daemon`, but can be configured
+to do so by annotating the `TestCx` parameter with
+`#[cfg_setup(upsilon_basic_config_with_git_daemon)]`, or (recommended:)
+by annotating the whole test function with `#[git_daemon]`.
+
+## `#[git_ssh]`
+
+Similarly, for using git over the `ssh://` protocol, you can use
+`#[cfg_setup(upsilon_basic_config_with_ssh)]` or the (recommended) test
+attribute `#[git_ssh]`.
+
+Note that this does not work on windows, as `git-shell` is not available in
+`git-for-windows`, so `#[git_ssh]` also implies
+`#[test_attr(cfg_attr(windows, ignore))]`.
+
+## `#[offline]`
+
+This is an attribute that indicates that the test can work offline. It can
+receive an optional argument, to control this behavior.
+
+```rust
+#[upsilon_test] // will run in offline mode (default)
+async fn t1(cx: &mut TestCx) -> TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline] // will run in offline mode (explicit)
+async fn t2(cx: &mut TestCx) -> TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline(run)] // will run in offline mode (explicit)
+async fn t3(cx: &mut TestCx) -> TestResult {
+    // ...
+    Ok(())
+}
+
+#[upsilon_test]
+#[offline(ignore)] // will not run in offline mode (ignored)
+async fn t4(cx: &mut TestCx) -> TestResult {
+    // ...
+    Ok(())
+}
+```
+
+Tests that actually require to connect to some other server (over an internet
+connection) should use `#[offline(ignore)]` to make sure they are online when
+running.
+
+## `#[test_attr(...)]`
+
+`test_attr` is an attribute that can be used to annotate the actual test
+function. In practice, it can be used to ignore tests on certain platforms, if
+something the test requires is not available or not working properly on said
+platforms, or to ignore tests that require a network connection when running in
+offline mode, although those specific cases are already handled by other
+attributes (see `#[git_ssh]`, `#[offline]`).
+
+At the very end, `#[upsilon_test]` will also make sure to clean up the web
+server and terminate any subprocesses it has spawned.
+
+All tests return a `TestResult<()>`, which is just
+a `Result<(), anyhow::Error>`. For the cleanup to work, tests should
+return `Err` if they fail, rather than `panic!`.
+
+## Cleanup: internals
+
+The webserver is spawned in a separate process, under a
+`upsilon-gracefully-shutdown-host` process that acts as a middle-man, and
+listens via `ctrlc` to signals, or to the creation of a temporary file.
+
+### Windows
+
+The `upsilon-gracefully-shutdown-host` process is created with
+the `CREATE_NEW_PROCESS_GROUP` flag. When it receives an event
+(via `ctrlc`), or the temporary file is created, it generates a
+`CTRL_BREAK_EVENT` for itself, which is then propagated to all the child
+processes, thus shutting everything down.
+
+### Linux
+
+The `upsilon-gracefully-shutdown-host` process just waits for `SIGTERM`,
+`SIGINT` or similar signals via `ctrlc`, then walks the `procfs` to find all the
+descendants of the process, and sends `SIGTERM` to each of them.
+
+### Other platforms
+
+`procfs` is only available on Linux, so separate implementations are needed for
+other platforms. The `upsilon-gracefully-shutdown-host` binary just fails to
+compile on other platforms right now, making it impossible to run tests on them.

@@ -30,7 +30,7 @@ use upsilon_xtask::cmd::cargo_build_profiles_dir;
 use upsilon_xtask::difftests::{DiffTestsCommand, DirtyAlgo};
 use upsilon_xtask::pkg::Pkg;
 use upsilon_xtask::{
-    cargo_cmd, cmd_args, cmd_call, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
+    cargo_cmd, cmd_args, difftests, npm_cmd, ws_bin_path, ws_glob, ws_path, ws_root, XtaskResult
 };
 use ws_layout::WS_BIN_LAYOUT;
 use zip::write::{FileOptions, ZipWriter};
@@ -399,9 +399,6 @@ enum App {
     #[clap(name = "serve-docs")]
     #[clap(alias = "d")]
     ServeDocs,
-    #[clap(name = "publish-docs")]
-    #[clap(alias = "pd")]
-    PublishDocs,
     #[clap(name = "graphql-schema")]
     #[clap(alias = "gqls")]
     GraphQLSchema,
@@ -994,45 +991,43 @@ pub fn ukonf_ci_functions() -> UkonfFunctions {
     fns
 }
 
-fn gen_ci_file(from: &str, to: &str) -> XtaskResult<()> {
-    ukonf_to_yaml(PathBuf::from(from), Path::new(to), ukonf_ci_functions)
+fn gen_ci_file(from: PathBuf, to: &PathBuf) -> XtaskResult<()> {
+    ukonf_to_yaml(from, to, ukonf_ci_functions)
 }
 
 pub struct OutdatedReport {
-    from: String,
-    to: String,
+    from: PathBuf,
+    to: PathBuf,
     diff: upsilon_diff_util::DiffResult,
 }
 
-fn check_ci_file(from: &str, to: &str, reports: &mut Vec<OutdatedReport>) -> XtaskResult<()> {
-    let new = ukonf_to_yaml_string(PathBuf::from(from), ukonf_ci_functions)?;
+fn check_ci_file(from: PathBuf, to: PathBuf, reports: &mut Vec<OutdatedReport>) -> XtaskResult<()> {
+    let new = ukonf_to_yaml_string(from.clone(), ukonf_ci_functions)?;
 
-    let old = fs::read_to_string(to)?;
+    let old = fs::read_to_string(&to)?;
 
     if old == new {
         return Ok(());
     }
 
     let diff = upsilon_diff_util::build_diff(&old, &new);
-    reports.push(OutdatedReport {
-        from: from.to_string(),
-        to: to.to_string(),
-        diff,
-    });
+    reports.push(OutdatedReport { from, to, diff });
 
     Ok(())
 }
 
-const CI_FILES: &[(&str, &str)] = &[
-    (
-        ".ci/github-workflows/publish-docs.ukonf",
-        ".github/workflows/publish-docs.yaml",
-    ),
-    (
-        ".ci/github-workflows/test.ukonf",
-        ".github/workflows/test.yaml",
-    ),
-];
+fn list_ci_files() -> Vec<(PathBuf, PathBuf)> {
+    vec![
+        (
+            ws_path!(".ci" / "github-workflows" / "publish-docs.ukonf"),
+            ws_path!(".github" / "workflows" / "publish-docs.yaml"),
+        ),
+        (
+            ws_path!(".ci" / "github-workflows" / "test.ukonf"),
+            ws_path!(".github" / "workflows" / "test.yaml"),
+        ),
+    ]
+}
 
 fn rm(p: &Path) -> XtaskResult<()> {
     if !p.exists() {
@@ -1339,20 +1334,6 @@ fn main_impl() -> XtaskResult<()> {
             DOCS.serve()?;
         }
 
-        App::PublishDocs => {
-            DOCS.build()?;
-
-            #[cfg(windows)]
-            cmd_call!(
-                "./publish.bat",
-                @workdir = ws_path!("docs"),
-            )?;
-            #[cfg(not(windows))]
-            cmd_call!(
-                "./publish",
-                @workdir = ws_path!("docs"),
-            )?;
-        }
         App::GraphQLSchema => {
             cargo_cmd!(
                 "run",
@@ -1474,14 +1455,14 @@ fn main_impl() -> XtaskResult<()> {
             ukonf_to_yaml(from, &to, ukonf_normal_functions)?;
         }
         App::GenCiFiles => {
-            for (from, to) in CI_FILES {
-                gen_ci_file(from, to)?;
+            for (from, to) in list_ci_files() {
+                gen_ci_file(from, &to)?;
             }
         }
         App::CheckCiFilesUpToDate => {
             let mut reports = vec![];
 
-            for (from, to) in CI_FILES {
+            for (from, to) in list_ci_files() {
                 check_ci_file(from, to, &mut reports)?;
             }
 
@@ -1490,7 +1471,7 @@ fn main_impl() -> XtaskResult<()> {
 
                 for report in reports {
                     let OutdatedReport { from, to, diff } = report;
-                    eprintln!("  {from} -> {to}");
+                    eprintln!("  {from} -> {to}", from = from.display(), to = to.display());
                     eprintln!("====");
                     eprintln!("{diff}");
                     eprintln!("====");

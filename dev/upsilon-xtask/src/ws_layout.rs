@@ -174,5 +174,5 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref DOCS: upsilon_xtask::mdbook::Mdbook = upsilon_xtask::mdbook::Mdbook::new(upsilon_xtask::ws_path!("docs"));
+    pub static ref DOCS: upsilon_xtask::docusaurus::Docusaurus = upsilon_xtask::docusaurus::Docusaurus::new(upsilon_xtask::ws_path!("docs"));
 }

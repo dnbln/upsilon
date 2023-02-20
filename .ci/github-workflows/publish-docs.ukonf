@@ -14,6 +14,8 @@ env {
   CARGO_TERM_COLOR: 'always'
 }
 
+let build_dir: './docs/build'
+
 jobs {
   publish-docs {
     name: 'Publish docs'
@@ -32,11 +34,9 @@ jobs {
         run: 'rustup update nightly && rustup default nightly'
       }
       {
-        name: 'Install mdbook'
-        uses: 'peaceiris/actions-mdbook@v1'
-        with {
-          mdbook-version: 'latest'
-        }
+        name: 'Install dependencies'
+        run: 'npm i'
+        working-directory: './docs'
       }
       {
         name: 'Run xtask build-docs'
@@ -44,14 +44,14 @@ jobs {
       }
       {
         name: 'Add CNAME'
-        run: 'echo "upsilon-docs.dnbln.dev" > ./docs/book/CNAME'
+        run: concat('echo "upsilon-docs.dnbln.dev" > ', build_dir, '/CNAME')
       }
       {
         name: 'Deploy'
         uses: 'peaceiris/actions-gh-pages@v3'
         with {
           github_token: '${{ secrets.GITHUB_TOKEN }}'
-          publish_dir: './docs/book'
+          publish_dir: build_dir
         }
       }
     ]

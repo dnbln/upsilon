@@ -1,5 +1,5 @@
 /*
- *        Copyright (c) 2022-2023 Dinu Blanovschi
+ *        Copyright (c) 2023 Dinu Blanovschi
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,16 +14,36 @@
  *    limitations under the License.
  */
 
-pub extern crate glob;
+use std::path::PathBuf;
 
-pub mod cargo_ws;
-pub mod cmd;
-pub mod difftests;
-pub mod docusaurus;
-pub mod git_checks;
-pub mod mdbook;
-pub mod pkg;
-pub mod result;
-pub mod ws;
+use crate::{npm_cmd, XtaskResult};
 
-pub use result::XtaskResult;
+pub struct Docusaurus {
+    pub root: PathBuf,
+}
+
+impl Docusaurus {
+    pub fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    pub fn build(&self) -> XtaskResult<()> {
+        npm_cmd!(
+            "run",
+            "build",
+            @workdir = &self.root,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn serve(&self) -> XtaskResult<()> {
+        npm_cmd!(
+            "run",
+            "serve",
+            @workdir = &self.root,
+        )?;
+
+        Ok(())
+    }
+}
