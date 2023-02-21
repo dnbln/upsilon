@@ -60,14 +60,14 @@ pub trait PluginLoader {
     type Error: Debug + Into<PluginLoaderError>;
     type Holder: PluginHolder;
 
-    fn load_plugin(&self, name: &str, config: PluginConfig) -> Result<Self::Holder, Self::Error>;
+    fn load_plugin(&self, name: &str, config: &PluginConfig) -> Result<Self::Holder, Self::Error>;
 }
 
 pub trait PluginLoaderWrapper: Send {
     fn load_plugin(
         &self,
         name: &str,
-        config: PluginConfig,
+        config: &PluginConfig,
     ) -> Result<Box<dyn PluginHolder>, PluginLoaderError>;
 }
 
@@ -81,7 +81,7 @@ where
     fn load_plugin(
         &self,
         name: &str,
-        config: PluginConfig,
+        config: &PluginConfig,
     ) -> Result<Box<dyn PluginHolder>, PluginLoaderError> {
         let holder = self.load_plugin(name, config)?;
 
@@ -148,7 +148,7 @@ impl PluginLoader for StaticPluginLoader {
     type Error = StaticPluginLoaderError;
     type Holder = Box<dyn Plugin>;
 
-    fn load_plugin(&self, name: &str, config: PluginConfig) -> Result<Self::Holder, Self::Error> {
+    fn load_plugin(&self, name: &str, config: &PluginConfig) -> Result<Self::Holder, Self::Error> {
         let metadata = match self.known_plugins.get(name) {
             None => {
                 return Err(StaticPluginLoaderError::UnknownPlugin);
@@ -160,7 +160,7 @@ impl PluginLoader for StaticPluginLoader {
 
         let plugin_create = metadata.create;
 
-        let plugin = plugin_create(config)?;
+        let plugin = plugin_create(config.clone())?;
 
         Ok(plugin)
     }
@@ -213,7 +213,7 @@ impl PluginManager {
     pub async fn load_plugin(
         &mut self,
         name: &str,
-        config: PluginConfig,
+        config: &PluginConfig,
     ) -> Result<(), PluginLoaderError> {
         if self.finished_loading {
             return Err(PluginLoaderError::PluginLoadingFinished);

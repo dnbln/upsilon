@@ -71,20 +71,5 @@ async fn rocket() -> rocket::Rocket<rocket::Build> {
         )));
     }
 
-    let mut plugin_manager = PluginManager::new(Box::new(static_plugins()), rocket);
-
-    plugin_manager
-        .load_plugin(
-            "upsilon-debug-data-driver",
-            PluginConfig::new(json!({
-                "a": 1,
-                "b": 2,
-            })),
-        )
-        .await
-        .unwrap();
-
-    let rocket = plugin_manager.finish();
-
     rocket
 }

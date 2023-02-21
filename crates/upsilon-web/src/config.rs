@@ -22,6 +22,7 @@ use upsilon_ssh_russh::{CompleteRusshServerConfig, RusshServerConfig};
 use upsilon_vcs::UpsilonVcsConfig;
 
 use crate::data::DataBackendConfig;
+use crate::plugins::PluginsConfigMap;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -33,6 +34,7 @@ pub struct Config {
     pub data_backend: DataBackendConfig,
 
     pub users: UsersConfig,
+    pub plugins: Option<PluginsConfigMap>,
 
     pub frontend: FrontendConfig,
 
@@ -128,9 +130,6 @@ impl RusshServerConfigTemp {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct DebugConfig {
-    #[serde(default = "false_f")]
-    pub debug_data: bool,
-
     #[serde(default)]
     pub graphql: GqlDebugConfig,
 

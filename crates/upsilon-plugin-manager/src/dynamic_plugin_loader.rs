@@ -69,7 +69,7 @@ impl PluginLoader for DynamicPluginLoader {
     type Error = DynamicPluginLoaderError;
     type Holder = DynamicPluginHolder;
 
-    fn load_plugin(&self, name: &str, config: PluginConfig) -> Result<Self::Holder, Self::Error> {
+    fn load_plugin(&self, name: &str, config: &PluginConfig) -> Result<Self::Holder, Self::Error> {
         let plugin_lib_name = libloading::library_filename(name);
 
         let plugin_lib_path = self.plugin_dir.join(plugin_lib_name);
@@ -86,7 +86,7 @@ impl PluginLoader for DynamicPluginLoader {
 
         let create_fn = metadata.create;
 
-        let plugin = create_fn(config)?;
+        let plugin = create_fn(config.clone())?;
 
         Ok(DynamicPluginHolder {
             plugin,

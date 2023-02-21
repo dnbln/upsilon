@@ -16,8 +16,8 @@
 
 mod config;
 mod data;
-mod debug;
 mod git;
+mod plugins;
 
 use std::path::PathBuf;
 
@@ -32,6 +32,7 @@ use upsilon_web_interface::WebFairing;
 
 use crate::config::{DebugConfig, FrontendConfig, GitSshProtocol};
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
+use crate::plugins::PluginsFairing;
 
 pub struct ConfigManager;
 
@@ -61,6 +62,7 @@ impl Fairing for ConfigManager {
             vcs_errors,
             debug,
             frontend,
+            plugins,
         } = app_config;
 
         match data_backend {
@@ -113,14 +115,9 @@ impl Fairing for ConfigManager {
         };
 
         let DebugConfig {
-            debug_data,
             graphql,
             shutdown_endpoint,
         } = debug;
-
-        if debug_data {
-            rocket = rocket.attach(debug::DebugDataDriverFairing);
-        }
 
         if shutdown_endpoint {
             rocket = rocket.mount("/", rocket::routes![shutdown_endpoint]);
@@ -175,6 +172,10 @@ impl Fairing for ConfigManager {
                 rocket = rocket.attach(WebFairing::new(frontend_root));
             }
             FrontendConfig::Disabled => {}
+        }
+
+        if let Some(plugins) = plugins {
+            rocket = rocket.attach(PluginsFairing { plugins });
         }
 
         Ok(rocket

@@ -70,7 +70,7 @@ impl PluginMetadata {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct PluginConfig(Box<serde_json::Value>);
 
 impl PluginConfig {

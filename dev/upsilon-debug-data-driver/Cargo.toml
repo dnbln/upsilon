@@ -20,4 +20,6 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 
+upsilon-core.workspace = true
+upsilon-vcs.workspace = true
 upsilon-plugin-core.workspace = true

@@ -17,9 +17,10 @@
 use std::collections::HashMap;
 
 use clap::Parser;
-use log::info;
+use log::{debug, info};
 use serde::Deserialize;
 use serde_json::json;
+use upsilon_debug_data_driver::DebugDataDriverConfig;
 
 use crate::client::Client;
 
@@ -27,12 +28,6 @@ use crate::client::Client;
 struct App {
     #[clap(short, long, default_value_t = 8000)]
     port: u16,
-
-    #[clap(short, long)]
-    linux_repo_exists: bool,
-
-    #[clap(short, long)]
-    upsilon_repo_exists: bool,
 }
 
 mod any;
@@ -44,6 +39,8 @@ type DDDResult<T> = anyhow::Result<T>;
 async fn main() -> DDDResult<()> {
     pretty_env_logger::init();
     let app = App::parse();
+
+    let config = DebugDataDriverConfig::from_env()?;
 
     let mut client = Client::new(app.port);
 
@@ -59,24 +56,34 @@ async fn main() -> DDDResult<()> {
         token: String,
     }
 
-    info!("Creating user...");
+    info!("Creating users...");
 
-    let token = client
-        .gql_mutation::<CreateUserResponse>(
-            r#"
-mutation {
-    createUser(username: "dinu", password: "aaa", email: "git@dnbln.dev")
+    for (username, userinfo) in &config.users.users {
+        info!("Creating user {}", username.0);
+        let token = client
+            .gql_mutation_with_variables::<CreateUserResponse>(
+                r#"
+mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
+    createUser(username: $username, password: $password, email: $email)
 }
 "#,
-        )
-        .await?
-        .create_user;
+                HashMap::from([
+                    ("username", json!(&username.0)),
+                    ("password", json!(&userinfo.password)),
+                    ("email", json!(&userinfo.email)),
+                ]),
+            )
+            .await?
+            .create_user;
 
-    info!("Created user");
+        info!("Created user {}", username.0);
 
-    client.set_token(token.token.clone());
+        client.set_token(token.token.clone());
 
-    println!("token: {}", token.token);
+        println!("{}: token: {}", username.0, token.token);
+    }
+
+    info!("Created users");
 
     #[derive(Deserialize)]
     struct GlobalMirrorId {
@@ -95,142 +102,86 @@ mutation {
         id: String,
     }
 
-    let repo_id = if app.upsilon_repo_exists {
-        info!("Upsilon repo already exists, initializing...");
+    info!("Creating repos...");
 
-        let repo_id = client
-            .gql_mutation::<SilentInitGlobal>(
-                r#"
-mutation {
-    _debug__silentInitGlobal(name: "upsilon") {
+    for (repo_name, repo_config) in &config.repos {
+        match &repo_config.setup_mirror_from {
+            Some(setup_from) => {
+                if repo_config.exists {
+                    info!("Repo {} already exists, initializing...", repo_name.0);
+
+                    let repo_id = client
+                        .gql_mutation_with_variables::<SilentInitGlobal>(
+                            r#"
+mutation ($name: String!) {
+    _debug__silentInitGlobal(name: $name) {
         id
     }
 }
 "#,
-            )
-            .await?
-            .silent_init_global
-            .id;
+                            HashMap::from([("name", json!(&repo_name.0))]),
+                        )
+                        .await?
+                        .silent_init_global
+                        .id;
 
-        info!("Initialized");
+                    info!("Initialized repo {}", repo_name.0);
 
-        repo_id
-    } else {
-        info!("Creating github mirror...");
+                    println!("{}: repo_id: {repo_id}", repo_name.0);
+                } else {
+                    info!("Creating repo {} from {setup_from}...", repo_name.0);
 
-        let repo_id = client
-            .gql_mutation::<GlobalMirrorId>(
-                r#"
-mutation {
-    _debug__globalMirror(name:"upsilon", url:"https://github.com/dnbln/upsilon") {
+                    let repo_id = client
+                        .gql_mutation_with_variables::<GlobalMirrorId>(
+                            r#"
+mutation ($name: String!, $url: String!) {
+    _debug__globalMirror(name: $name, url: $url) {
         id
     }
 }
 "#,
-            )
-            .await?
-            .global_mirror
-            .id;
+                            HashMap::from([
+                                ("name", json!(&repo_name.0)),
+                                ("url", json!(&setup_from)),
+                            ]),
+                        )
+                        .await?
+                        .global_mirror
+                        .id;
 
-        info!("Created github mirror");
+                    info!("Created repo {}", repo_name.0);
 
-        repo_id
-    };
-
-    println!("repo_id: {repo_id}");
-
-    if app.linux_repo_exists {
-        info!("Initializing linux repo...");
-
-        let linux_repo_id = client
-            .gql_mutation::<SilentInitGlobal>(
-                r#"
-mutation {
-    _debug__silentInitGlobal(name: "linux") {
-        id
-    }
-}
-"#,
-            )
-            .await?
-            .silent_init_global
-            .id;
-
-        info!("Initialized linux repo");
-
-        println!("linux_repo_id: {linux_repo_id}");
-    }
-
-    info!("Testing cache ...");
-
-    #[derive(Deserialize)]
-    struct UserByUsernameResponse {
-        #[serde(rename = "userByUsername")]
-        user_by_username: IdHolder,
-    }
-
-    // load user by username in the cache, with the first query
-    let id = client
-        .gql_query::<UserByUsernameResponse>(
-            r#"
-query {
-    userByUsername(username: "dinu") {
-        id
-    }
-}
-"#,
-        )
-        .await?
-        .user_by_username
-        .id;
-
-    // query the user again, this time it should be in the cache
-    client
-        .gql_query_with_variables::<any::Any>(
-            r#"
-query($id: UserId!) {
-    user(userId: $id) {
-        id
-    }
-}
-"#,
-            HashMap::from([("id", json!(id))]),
-        )
-        .await?;
-
-    info!("Successfully tried out cache");
-
-    info!("Querying some git state ...");
-
-    client
-        .gql_query_with_variables::<any::Any>(
-            r#"
-query($repoId: RepoId!){
-    repo(repoId: $repoId) {
-        id
-        name
-        git {
-            commit(sha:"138f92b30c111f9e91005bc60b528fc76ab20692") {
-                sha
-                message
+                    println!("{}: repo_id: {repo_id}", repo_name.0);
+                }
             }
+            None => {
+                if repo_config.exists {
+                    info!("Repo {} exists, initializing...", repo_name.0);
 
-            branch(name: "trunk") {
-                name
-                commit {
-                    sha
-                    message
+                    let repo_id = client
+                        .gql_mutation_with_variables::<SilentInitGlobal>(
+                            r#"
+mutation ($name: String!) {
+    _debug__silentInitGlobal(name: $name) {
+        id
+    }
+}
+"#,
+                            HashMap::from([("name", json!(&repo_name.0))]),
+                        )
+                        .await?
+                        .silent_init_global
+                        .id;
+
+                    info!("Initialized repo {}", repo_name.0);
+
+                    println!("{}: repo_id: {repo_id}", repo_name.0);
                 }
             }
         }
     }
-}
-"#,
-            HashMap::from([("repoId", json!(repo_id))]),
-        )
-        .await?;
 
-    info!("Successfully queried some git state");
+    info!("Created repos");
 
     Ok(())
 }

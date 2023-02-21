@@ -28,6 +28,10 @@
     },
     "users": {
       "$ref": "#/definitions/users-config"
+    },
+    "plugins": {
+      "type": "object",
+      "description": "Configuration for plugins"
     }
   },
   "required": [
@@ -352,11 +356,6 @@
       "type": "object",
       "description": "Debug options",
       "properties": {
-        "debug-data": {
-          "type": "boolean",
-          "description": "Enable debug data",
-          "default": false
-        },
         "graphql": {
           "type": "object",
           "description": "GraphQL debug options",

@@ -4540,7 +4540,9 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "upsilon-core",
  "upsilon-plugin-core",
+ "upsilon-vcs",
 ]
 
 [[package]]
