@@ -1,0 +1,45 @@
+---
+title: "The cargo-difftests family"
+sidebar_position: 4
+---
+
+import CrateSourceLink from "@site/src/components/CrateSourceLink"
+
+export let Difftests =
+    <CrateSourceLink crate="cargo-difftests" kind="dev"/>;
+export let DifftestsCore =
+    <CrateSourceLink crate="cargo-difftests-core" kind="dev"/>;
+export let DifftestsTestclient =
+    <CrateSourceLink crate="cargo-difftests-testclient" kind="dev"/>;
+
+<>{Difftests}, {DifftestsCore} and {DifftestsTestclient}.</>
+
+## `cargo-difftests-core`
+
+<>Source: {DifftestsCore}.</>
+
+Some common types and declarations used by both `cargo-difftests` and
+`cargo-difftests-testclient`.
+
+## `cargo-difftests-testclient`
+
+<>Source: {DifftestsTestclient}.</>
+
+A small library that initializes a directory for every test with
+some information about the test, along with setting up the process to use it
+as the output for the profiling files, to be able to check and rerun it
+later if necessary.
+
+## `cargo-difftests`
+
+<>Source: {Difftests}.</>
+
+The analyzer program. It is a cargo plugin that will print out verdicts for
+all the difftests that it discovers (from the directories passed to
+`cargo-difftests-testclient`), and the caller can then use that to decide
+which tests need to be rerun.
+
+For more information on how to use this, run `cargo difftests --help`.
+
+This plugin is invoked by `cargo xtask` during the `test-quick` xtask to
+decide which integration tests need to be rerun.

@@ -1,0 +1,54 @@
+---
+title: "upsilon-xtask"
+sidebar_position: 2
+---
+
+import CrateSourceLink from '@site/src/components/CrateSourceLink';
+
+Cargo workflows, to automate some tasks, are written in Rust.
+The <CrateSourceLink kind="dev" crate="upsilon-xtask"/> crate is the entry point
+for these workflows.
+
+## Logging
+
+To enable logging, set the `UXTASK_LOG` environment variable to
+`debug`/`info`/`warn`/`error`.
+
+## Workflows
+
+There are various workflows in the `upsilon-xtask` crate, but of them the
+most important are:
+
+### `run-dev`
+
+Runs the backend development server.
+
+### `frontend-run-dev`
+
+Runs the frontend development server.
+
+### `test`
+
+Runs the tests.
+
+### `build-docs`
+
+Builds the docs.
+
+### `serve-docs`
+
+Runs a local dev server to serve the docs.
+
+### `lint`
+
+Runs the linter.
+
+### `fmt`
+
+Runs the formatter.
+
+### `gen-ci-files`
+
+Generates the CI files.
+
+They are generated from the `.ci` directory.

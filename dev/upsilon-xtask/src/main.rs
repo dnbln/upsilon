@@ -293,44 +293,76 @@ impl Args for TestGroups {
     }
 }
 
+#[derive(Args, Debug)]
+struct BuildDevArgs {
+    /// Whether to dump the GraphQL API responses
+    /// from `upsilon-debug-data-driver`, if used.
+    #[clap(long)]
+    dgql: bool,
+    /// Whether to enable verbose logging.
+    #[clap(short, long)]
+    verbose: bool,
+    /// The profile to use.
+    #[clap(long)]
+    profile: Option<String>,
+}
+
+impl BuildDevArgs {
+    fn new_default(verbose: bool) -> Self {
+        Self {
+            dgql: false,
+            verbose,
+            profile: None,
+        }
+    }
+
+    fn with_profile(self, profile: impl Into<String>) -> Self {
+        Self {
+            profile: Some(profile.into()),
+            ..self
+        }
+    }
+}
+
+/// Cargo workflows
 #[derive(Parser, Debug)]
 enum App {
+    /// Formats the codebase.
     #[clap(name = "fmt")]
     Fmt,
+    /// Checks the codebase for formatting errors.
     #[clap(name = "fmt-check")]
     FmtCheck,
+    /// Performs some git checks.
     #[clap(name = "git-checks")]
     #[clap(alias = "gchk")]
     GitChecks {
         #[clap(short, long)]
         checkout: bool,
     },
+    /// Runs the dev backend server.
     #[clap(name = "run-dev")]
     #[clap(alias = "run")]
     #[clap(alias = "r")]
     RunDev {
-        #[clap(long)]
-        dgql: bool,
-        #[clap(short, long)]
-        verbose: bool,
-        #[clap(long)]
-        profile: Option<String>,
+        #[clap(flatten)]
+        build_dev_args: BuildDevArgs,
     },
+    /// Builds the dev backend server
+    /// and all required helper executables.
     #[clap(name = "build-dev")]
     #[clap(alias = "build")]
     #[clap(alias = "b")]
     BuildDev {
-        #[clap(long)]
-        dgql: bool,
-        #[clap(short, long)]
-        verbose: bool,
-        #[clap(long)]
-        profile: Option<String>,
+        #[clap(flatten)]
+        build_dev_args: BuildDevArgs,
     },
+    /// Runs the dev frontend server.
     #[clap(name = "frontend-run-dev")]
     #[clap(alias = "frun")]
     #[clap(alias = "fr")]
     FrontendRunDev,
+    /// Runs the tests.
     #[clap(name = "test")]
     #[clap(alias = "t")]
     Test {
@@ -358,6 +390,9 @@ enum App {
 
         test_filters: Vec<String>,
     },
+    /// Similar to `test`, but runs only the tests
+    /// that are (likely) affected by the changes since the
+    /// tests were last run.
     #[clap(name = "test-quick")]
     #[clap(alias = "tq")]
     #[clap(alias = "qt")]
@@ -383,59 +418,83 @@ enum App {
         #[clap(long, default_value = "difftests")]
         profile: String,
     },
+    /// Runs the given `upsilon-test-support` examples.
     #[clap(name = "test-support-examples")]
     #[clap(alias = "tse")]
     TestSupportExamples {
+        /// The examples to run.
         examples: Vec<String>,
+        /// The profile to use.
         profile: Option<String>,
     },
+    /// Packs for release.
     #[clap(name = "pack-release")]
+    #[clap(alias = "dist")]
     PackRelease,
+    /// Installs some aliases.
     #[clap(name = "install-aliases")]
     InstallAliases,
+    /// Builds the docs.
     #[clap(name = "build-docs")]
     #[clap(alias = "bd")]
     BuildDocs,
+    /// Serves the docs.
     #[clap(name = "serve-docs")]
     #[clap(alias = "d")]
     ServeDocs,
+    /// Builds the GraphQL schema.
     #[clap(name = "graphql-schema")]
     #[clap(alias = "gqls")]
     GraphQLSchema,
+    /// Checks whether the GraphQL schema is up-to-date.
     #[clap(name = "graphql-schema-check")]
     #[clap(alias = "gqlschk")]
     GraphQLSchemaCheck,
+    /// Checks that the dependencies in `Cargo.toml` files are ordered.
     #[clap(name = "check-cargo-dep-order")]
     #[clap(alias = "ccdo")]
     CheckCargoTomlDepOrder,
+    /// Checks that the dependencies in `Cargo.toml` workspace members
+    /// are not redeclared from the `workspace.dependencies`.
     #[clap(name = "check-cargo-dep-from-workspace")]
     #[clap(alias = "ccdw")]
     CheckCargoDepFromWorkspace,
+    /// Lints the workspace.
     #[clap(name = "lint")]
     #[clap(alias = "l")]
     #[clap(alias = "check")]
     #[clap(alias = "clippy")]
     Lint,
+    /// Prints the lint arguments.
     #[clap(name = "lint-args")]
     LintArgs,
+    /// Compiles the given ukonf file to YAML.
     #[clap(name = "ukonf-to-yaml")]
     UkonfToYaml { from: PathBuf, to: PathBuf },
+    /// Generates the CI files.
     #[clap(name = "gen-ci-files")]
     GenCiFiles,
+    /// Checks that the CI files are up-to-date.
     #[clap(name = "check-ci-files-up-to-date")]
     CheckCiFilesUpToDate,
+    /// Cleans the profiling data obtained while building with a
+    /// `-C instrument-coverage` profile.
     #[clap(name = "clean-instrumentation-files")]
     CleanInstrumentationFiles,
 
+    /// Installs the `cargo-binutils` package.
+    /// This is required for `cargo-difftests` (and `xtask test-quick`) to work.
     #[clap(name = "install-binutils")]
     InstallBinutils,
 
+    /// Helpers for `cargo-difftests`.
     #[clap(name = "difftests")]
     Difftests {
         #[clap(subcommand)]
         command: DiffTestsCommand,
     },
 
+    /// Publishes the `cargo-difftests*` crates to crates.io.
     #[clap(name = "publish-difftests-crates")]
     PublishDifftestsCrates,
 }
@@ -1079,17 +1138,23 @@ fn main_impl() -> XtaskResult<()> {
             }
         }
         App::BuildDev {
-            dgql,
-            verbose,
-            profile,
+            build_dev_args:
+                BuildDevArgs {
+                    dgql,
+                    verbose,
+                    profile,
+                },
         } => {
             let profile = profile.as_deref();
             build_dev(dgql, verbose, profile)?;
         }
         App::RunDev {
-            dgql,
-            verbose,
-            profile,
+            build_dev_args:
+                BuildDevArgs {
+                    dgql,
+                    verbose,
+                    profile,
+                },
         } => {
             let profile = profile.as_deref();
             build_dev(dgql, verbose, profile)?;

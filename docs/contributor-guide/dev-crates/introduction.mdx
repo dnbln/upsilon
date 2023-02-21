@@ -1,0 +1,28 @@
+---
+title: "Introduction to dev crates"
+sidebar_position: 1
+---
+
+Aside from very few exceptions, all the code in the `crates` subtree is meant
+specifically for production. The `dev` subtree is meant for code that is
+only to be used in development, and is not meant to be used in production.
+
+As such, crates from `crates` subtree will not know about crates
+from the `dev` subtree. However, there are exceptions.
+
+## Exceptions
+
+### `upsilon-web` knows about `upsilon-debug-data-driver`
+
+In the presence of the `debug.data: true` configuration option, the
+`upsilon-web` crate will use the `upsilon-debug-data-driver` binary to
+generate some debug data right after launch.
+
+### `upsilon-web` and `upsilon-api` know about `upsilon-shell`
+
+This is a bit special, as everything they know are the options that
+`upsilon-shell` accepts on the command line. This is to be able to
+reconfigure the shell with the same options as the web server, allowing it
+to use all the features of the web server.
+
+See [`upsilon-shell`](./upsilon-shell) for more information.

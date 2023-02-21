@@ -196,12 +196,6 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
-
-[[package]]
-name = "base64"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
@@ -780,14 +774,7 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e859cd57d0710d9e06c381b550c06e76992472a8c6d527aecd2fc673dcc231fb"
 dependencies = [
- "aes-gcm",
- "base64 0.20.0",
- "hkdf",
- "hmac",
  "percent-encoding",
- "rand 0.8.5",
- "sha2 0.10.6",
- "subtle",
  "time 0.3.17",
  "version_check",
 ]
@@ -1793,15 +1780,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
 
 [[package]]
-name = "hkdf"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
-dependencies = [
- "hmac",
-]
-
-[[package]]
 name = "hmac"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2215,6 +2193,16 @@ dependencies = [
  "libz-sys",
  "openssl-sys",
  "pkg-config",
+]
+
+[[package]]
+name = "libloading"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
+dependencies = [
+ "cfg-if",
+ "winapi",
 ]
 
 [[package]]
@@ -3270,8 +3258,7 @@ dependencies = [
 [[package]]
 name = "rocket"
 version = "0.5.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98ead083fce4a405feb349cf09abdf64471c6077f14e0ce59364aa90d4b99317"
+source = "git+https://github.com/dnbln/Rocket?rev=f6ec20987fbb52fbd8475d0d558ce87e82a99a7e#f6ec20987fbb52fbd8475d0d558ce87e82a99a7e"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3320,8 +3307,7 @@ dependencies = [
 [[package]]
 name = "rocket_codegen"
 version = "0.5.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6aeb6bb9c61e9cd2c00d70ea267bf36f76a4cc615e5908b349c2f9d93999b47"
+source = "git+https://github.com/dnbln/Rocket?rev=f6ec20987fbb52fbd8475d0d558ce87e82a99a7e#f6ec20987fbb52fbd8475d0d558ce87e82a99a7e"
 dependencies = [
  "devise",
  "glob",
@@ -3352,8 +3338,7 @@ dependencies = [
 [[package]]
 name = "rocket_http"
 version = "0.5.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ded65d127954de3c12471630bf4b81a2792f065984461e65b91d0fdaafc17a2"
+source = "git+https://github.com/dnbln/Rocket?rev=f6ec20987fbb52fbd8475d0d558ce87e82a99a7e#f6ec20987fbb52fbd8475d0d558ce87e82a99a7e"
 dependencies = [
  "cookie",
  "either",
@@ -4551,9 +4536,11 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "reqwest",
+ "rocket",
  "serde",
  "serde_json",
  "tokio",
+ "upsilon-plugin-core",
 ]
 
 [[package]]
@@ -4641,6 +4628,36 @@ dependencies = [
  "upsilon-core",
  "upsilon-id",
  "upsilon-stdx",
+]
+
+[[package]]
+name = "upsilon-plugin-core"
+version = "0.1.0"
+dependencies = [
+ "rocket",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "upsilon-models",
+]
+
+[[package]]
+name = "upsilon-plugin-manager"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "rocket",
+ "thiserror",
+ "tokio",
+ "upsilon-plugin-core",
+]
+
+[[package]]
+name = "upsilon-plugins-static"
+version = "0.1.0"
+dependencies = [
+ "upsilon-debug-data-driver",
+ "upsilon-plugin-manager",
 ]
 
 [[package]]
@@ -4804,6 +4821,9 @@ dependencies = [
  "upsilon-data-cache-inmemory",
  "upsilon-data-inmemory",
  "upsilon-id",
+ "upsilon-plugin-core",
+ "upsilon-plugin-manager",
+ "upsilon-plugins-static",
  "upsilon-ssh",
  "upsilon-ssh-russh",
  "upsilon-vcs",

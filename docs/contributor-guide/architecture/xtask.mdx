@@ -1,0 +1,27 @@
+---
+title: cargo xtask
+sidebar_position: 6
+---
+
+import CrateSourceLink from '@site/src/components/CrateSourceLink';
+
+There are some more complex dependencies between the building and running steps
+that cargo doesn't know about.
+
+Running the project requires the build of the following artifacts:
+
+- `upsilon-git-protocol-accesshook`
+- `upsilon-git-hooks`
+- `upsilon-web`
+- `upsilon`
+
+As such, there's a custom wrapper that takes care of invoking cargo properly to
+build everything we need from the workspace in the right order, following the
+[cargo xtask workflows example](https://github.com/matklad/cargo-xtask).
+
+The source code for all the xtasks is present in the <CrateSourceLink
+kind="dev" crate="upsilon-xtask"/> crate, but it has expanded to a lot more
+than just building and running the project.
+
+See [xtask @ dev-crates](../dev-crates/upsilon-xtask) for
+more information.

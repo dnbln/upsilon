@@ -61,12 +61,16 @@ upsilon-data = { path = "crates/upsilon-data" }
 upsilon-data-cache-inmemory = { path = "crates/upsilon-data-cache-inmemory" }
 upsilon-data-inmemory = { path = "crates/upsilon-data-inmemory" }
 upsilon-data-pg = { path = "crates/upsilon-data-pg" }
+upsilon-debug-data-driver = { path = "dev/upsilon-debug-data-driver" }
 upsilon-diff-util = { path = "dev/upsilon-diff-util" }
 upsilon-git-hooks = { path = "crates/upsilon-git-hooks" }
 upsilon-gracefully-shutdown = { path = "dev/upsilon-gracefully-shutdown" }
 upsilon-gracefully-shutdown-host = { path = "dev/upsilon-gracefully-shutdown-host" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-json-diff = { path = "dev/upsilon-json-diff" }
+upsilon-plugin-core = { path = "crates/upsilon-plugin-core" }
+upsilon-plugin-manager = { path = "crates/upsilon-plugin-manager" }
+upsilon-plugins-static = { path = "crates/upsilon-plugins-static" }
 upsilon-models = { path = "crates/upsilon-models" }
 upsilon-procx = { path = "crates/upsilon-procx" }
 upsilon-ssh = { path = "crates/upsilon-ssh" }
@@ -83,3 +87,6 @@ upsilon-xtask = { path = "dev/upsilon-xtask" }
 [patch.crates-io]
 procfs = { git = "https://github.com/eminence/procfs", rev = "faf30237720279af23bf2e9190499c3c35aa3955" }
 rocket_cors = { git = "https://github.com/lawliet89/rocket_cors.git", rev = "c17e8145baa4790319fdb6a473e465b960f55e7c" }
+rocket = { git = "https://github.com/dnbln/Rocket", rev = "f6ec20987fbb52fbd8475d0d558ce87e82a99a7e" }
+rocket_http = { git = "https://github.com/dnbln/Rocket", rev = "f6ec20987fbb52fbd8475d0d558ce87e82a99a7e" }
+rocket_codegen = { git = "https://github.com/dnbln/Rocket", rev = "f6ec20987fbb52fbd8475d0d558ce87e82a99a7e" }

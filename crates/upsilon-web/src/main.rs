@@ -20,6 +20,10 @@ extern crate rocket;
 use figment::providers::{Env, Format, Yaml};
 use figment::{Figment, Profile};
 use rocket::config::Ident;
+use rocket::serde::json::serde_json::json;
+use upsilon_plugin_core::PluginConfig;
+use upsilon_plugin_manager::PluginManager;
+use upsilon_plugins_static::static_plugins;
 
 const DEV_PROFILE: Profile = Profile::const_new("dev");
 const RELEASE_PROFILE: Profile = Profile::const_new("release");
@@ -31,7 +35,7 @@ const DEFAULT_PROFILE: Profile = DEV_PROFILE;
 const DEFAULT_PROFILE: Profile = RELEASE_PROFILE;
 
 #[launch]
-fn rocket() -> rocket::Rocket<rocket::Build> {
+async fn rocket() -> rocket::Rocket<rocket::Build> {
     let profile = Profile::from_env_or("UPSILON_PROFILE", DEFAULT_PROFILE);
 
     let default_rocket_config = match &profile {
@@ -66,6 +70,21 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
             &portfile,
         )));
     }
+
+    let mut plugin_manager = PluginManager::new(Box::new(static_plugins()), rocket);
+
+    plugin_manager
+        .load_plugin(
+            "upsilon-debug-data-driver",
+            PluginConfig::new(json!({
+                "a": 1,
+                "b": 2,
+            })),
+        )
+        .await
+        .unwrap();
+
+    let rocket = plugin_manager.finish();
 
     rocket
 }

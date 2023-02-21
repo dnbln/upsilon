@@ -1,0 +1,27 @@
+---
+title: upsilon-shell
+sidebar_position: 3
+---
+
+import CrateSourceLink from '@site/src/components/CrateSourceLink';
+
+<CrateSourceLink crate="upsilon-shell" kind="dev"/> is a small shell-like
+program that can be used to automate tasks.
+
+To run it:
+
+```bash
+cargo run -p upsilon-shell -- --hostname localhost --http-port 8000 --https
+```
+
+The `--https` flag is optional, and it will make the shell use HTTPS instead of
+HTTP.
+
+When running the debug version of the backend, the shell will ask the server
+for its configuration via the `ushCliArgs` graphql query, which are later used
+to reinitialize the shell with the correct configuration.
+
+In release mode, the shell will do the same thing, but the backend will reply
+with a non-existent arg, forcing the shell to exit. This can be overridden with
+the `--no-reconfigure` flag, which will make the shell only use the flags that
+were passed on the command line.
