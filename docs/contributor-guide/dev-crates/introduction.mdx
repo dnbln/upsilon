@@ -12,11 +12,10 @@ from the `dev` subtree. However, there are exceptions.
 
 ## Exceptions
 
-### `upsilon-web` knows about `upsilon-debug-data-driver`
+### `upsilon-static-plugins` depends on some `dev` crates
 
-In the presence of the `debug.data: true` configuration option, the
-`upsilon-web` crate will use the `upsilon-debug-data-driver` binary to
-generate some debug data right after launch.
+This allows the use of `dev` crates as plugins, and `upsilon-static-plugins`
+is the only crate that is allowed to do this.
 
 ### `upsilon-web` and `upsilon-api` know about `upsilon-shell`
 
