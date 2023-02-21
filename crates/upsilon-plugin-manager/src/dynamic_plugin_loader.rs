@@ -20,7 +20,7 @@ use libloading::{Library, Symbol};
 use upsilon_plugin_core::{Plugin, PluginConfig, PluginMetadata};
 
 use crate::{
-    check_version, ApiVersionMismatchError, PluginHolder, PluginLoader, PluginLoaderError
+    check_version, ApiVersionMismatchError, PluginHolder, PluginLoader, PluginManagerError
 };
 
 pub struct DynamicPluginLoader {
@@ -39,17 +39,17 @@ pub enum DynamicPluginLoaderError {
     PluginError(#[from] upsilon_plugin_core::PluginError),
 }
 
-impl From<DynamicPluginLoaderError> for PluginLoaderError {
+impl From<DynamicPluginLoaderError> for PluginManagerError {
     fn from(value: DynamicPluginLoaderError) -> Self {
         match value {
             DynamicPluginLoaderError::LoadingLibraryError(e) => {
-                PluginLoaderError::LoadingLibraryError(e)
+                PluginManagerError::LoadingLibraryError(e)
             }
-            DynamicPluginLoaderError::UnknownPlugin => PluginLoaderError::UnknownPlugin,
+            DynamicPluginLoaderError::UnknownPlugin => PluginManagerError::UnknownPlugin,
             DynamicPluginLoaderError::PluginApiVersionMismatch(e) => {
-                PluginLoaderError::PluginApiVersionMismatch(e)
+                PluginManagerError::PluginApiVersionMismatch(e)
             }
-            DynamicPluginLoaderError::PluginError(e) => PluginLoaderError::PluginError(e),
+            DynamicPluginLoaderError::PluginError(e) => PluginManagerError::PluginError(e),
         }
     }
 }

@@ -3867,6 +3867,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "solvent"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14a50198e546f29eb0a4f977763c8277ec2184b801923c3be71eeaec05471f16"
+
+[[package]]
 name = "spin"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4638,7 +4644,7 @@ version = "0.1.0"
 dependencies = [
  "rocket",
  "serde",
- "serde_json",
+ "serde_yaml",
  "thiserror",
  "upsilon-models",
 ]
@@ -4649,6 +4655,10 @@ version = "0.1.0"
 dependencies = [
  "libloading",
  "rocket",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "solvent",
  "thiserror",
  "tokio",
  "upsilon-plugin-core",

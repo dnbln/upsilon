@@ -17,18 +17,14 @@
 use std::collections::HashMap;
 
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{Build, error, Rocket};
+use rocket::{error, Build, Rocket};
 use upsilon_plugin_core::PluginConfig;
-use upsilon_plugin_manager::PluginManager;
+use upsilon_plugin_manager::{PluginData, PluginManager, PluginName, PluginRegistry};
 use upsilon_plugins_static::static_plugins;
 
 pub struct PluginsFairing {
     pub plugins: PluginsConfigMap,
 }
-
-#[derive(serde::Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(transparent)]
-struct PluginName(String);
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(transparent)]
@@ -48,23 +44,26 @@ impl Fairing for PluginsFairing {
     async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
         let mut plugin_manager = PluginManager::new(Box::new(static_plugins()), rocket);
 
-        for (plugin_name, plugin_config) in &self.plugins.plugins {
-            let r = plugin_manager
-                .load_plugin(&plugin_name.0, plugin_config)
-                .await;
-
-            match r {
-                Ok(()) => {}
-                Err(e) => {
-                    error!("Failed to load plugin '{}': {}", plugin_name.0, e);
-                    let rocket = plugin_manager.finish();
-                    return Err(rocket);
-                }
-            }
-        }
+        let r = plugin_manager
+            .load_plugins(
+                &PluginRegistry::new(HashMap::from([(
+                    PluginName("upsilon-debug-data-driver".to_string()),
+                    PluginData {
+                        dependencies: vec![],
+                    },
+                )])),
+                &self.plugins.plugins,
+            )
+            .await;
 
         let rocket = plugin_manager.finish();
 
-        Ok(rocket)
+        match r {
+            Ok(()) => Ok(rocket),
+            Err(e) => {
+                error!("Failed to load plugins: {e}");
+                Err(rocket)
+            }
+        }
     }
 }

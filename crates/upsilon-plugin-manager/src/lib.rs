@@ -17,12 +17,15 @@
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt;
 use std::fmt::Debug;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use rocket::fairing::Fairing;
-use rocket::{Build, error, Rocket, Route};
+use rocket::{error, Build, Rocket, Route};
+use tokio::fs;
 use tokio::sync::Mutex;
 use upsilon_plugin_core::{
     Plugin, PluginApiVersion, PluginConfig, PluginMetadata, CURRENT_PLUGIN_API_VERSION
@@ -39,9 +42,11 @@ impl PluginHolder for Box<dyn Plugin> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum PluginLoaderError {
+pub enum PluginManagerError {
     #[error("loading library error: {0}")]
     LoadingLibraryError(#[from] libloading::Error),
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("Unknown plugin")]
     UnknownPlugin,
     #[error("Plugin API version mismatch")]
@@ -52,12 +57,18 @@ pub enum PluginLoaderError {
     PluginAlreadyLoaded,
     #[error("Plugin loading finished, cannot load other plugins")]
     PluginLoadingFinished,
+    #[error("Serde yaml error: {0}")]
+    SerdeYamlError(#[from] serde_yaml::Error),
+    #[error("Solvent error: {0}")]
+    SolventError(#[from] solvent::SolventError),
+    #[error("Load plugin error({0}): {1}")]
+    LoadPluginError(PluginName, #[source] Box<PluginManagerError>),
     #[error("Other error: {0}")]
     OtherError(#[from] Box<dyn std::error::Error>),
 }
 
 pub trait PluginLoader {
-    type Error: Debug + Into<PluginLoaderError>;
+    type Error: Debug + Into<PluginManagerError>;
     type Holder: PluginHolder;
 
     fn load_plugin(&self, name: &str, config: &PluginConfig) -> Result<Self::Holder, Self::Error>;
@@ -68,21 +79,21 @@ pub trait PluginLoaderWrapper: Send {
         &self,
         name: &str,
         config: &PluginConfig,
-    ) -> Result<Box<dyn PluginHolder>, PluginLoaderError>;
+    ) -> Result<Box<dyn PluginHolder>, PluginManagerError>;
 }
 
 impl<Error, Holder, T> PluginLoaderWrapper for T
 where
     T: PluginLoader<Error = Error, Holder = Holder> + Send,
     Error: Debug,
-    PluginLoaderError: From<Error>,
+    PluginManagerError: From<Error>,
     Holder: PluginHolder + 'static,
 {
     fn load_plugin(
         &self,
         name: &str,
         config: &PluginConfig,
-    ) -> Result<Box<dyn PluginHolder>, PluginLoaderError> {
+    ) -> Result<Box<dyn PluginHolder>, PluginManagerError> {
         let holder = self.load_plugin(name, config)?;
 
         Ok(Box::new(holder))
@@ -121,7 +132,7 @@ pub enum StaticPluginLoaderError {
     PluginError(#[from] upsilon_plugin_core::PluginError),
 }
 
-impl From<StaticPluginLoaderError> for PluginLoaderError {
+impl From<StaticPluginLoaderError> for PluginManagerError {
     fn from(value: StaticPluginLoaderError) -> Self {
         match value {
             StaticPluginLoaderError::UnknownPlugin => Self::UnknownPlugin,
@@ -178,21 +189,85 @@ pub struct PluginManager {
     rocket: Option<Rocket<Build>>,
 }
 
-pub struct PluginRegistryMutator {
-    plugin_name: String,
+pub struct PluginLoadApiImpl {
+    plugin_name: PluginName,
     rocket: Arc<Mutex<Option<Rocket<Build>>>>,
 }
 
 #[rocket::async_trait]
-impl<'a> upsilon_plugin_core::PluginRegistryMutator<'a> for PluginRegistryMutator {
+impl<'a> upsilon_plugin_core::PluginLoadApi<'a> for PluginLoadApiImpl {
     async fn _register_fairing(&mut self, fairing: Arc<dyn Fairing>) {
         let mut lock = self.rocket.lock().await;
-
-        error!("Registering fairing for plugin {}", self.plugin_name);
 
         let r = lock.take().unwrap();
         let r = r.attach(fairing);
         *lock = Some(r);
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct PluginName(pub String);
+
+impl fmt::Display for PluginName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Hash)]
+pub struct PluginData {
+    pub dependencies: Vec<PluginName>,
+}
+
+pub struct PluginRegistry {
+    plugins: HashMap<PluginName, PluginData>,
+}
+
+impl PluginRegistry {
+    pub fn new(plugins: HashMap<PluginName, PluginData>) -> Self {
+        Self { plugins }
+    }
+
+    pub fn load_from_str(s: &str) -> Result<Self, PluginManagerError> {
+        let plugins: HashMap<PluginName, PluginData> = serde_yaml::from_str(&s)?;
+
+        Ok(Self::new(plugins))
+    }
+
+    pub async fn load_from_file(f: &Path) -> Result<Self, PluginManagerError> {
+        let s = fs::read_to_string(f).await?;
+        Self::load_from_str(&s)
+    }
+
+    pub async fn resolve_plugins_to_load(
+        &self,
+        plugins: Vec<PluginName>,
+    ) -> Result<Vec<PluginName>, PluginManagerError> {
+        let mut depgraph = solvent::DepGraph::new();
+
+        for (name, data) in &self.plugins {
+            let deps = data.dependencies.clone();
+            depgraph.register_dependencies(name.clone(), deps);
+        }
+
+        let root = PluginName("__upsilon_plugin_root".to_string());
+
+        depgraph.register_dependencies(root.clone(), plugins);
+
+        let mut to_load = Vec::new();
+
+        for plugin in depgraph.dependencies_of(&root)? {
+            let plugin = plugin?;
+
+            if *plugin == root {
+                continue;
+            }
+
+            to_load.push(plugin.clone());
+        }
+
+        Ok(to_load)
     }
 }
 
@@ -210,34 +285,58 @@ impl PluginManager {
         self.rocket.take().unwrap()
     }
 
-    pub async fn load_plugin(
+    pub async fn load_plugins(
         &mut self,
-        name: &str,
-        config: &PluginConfig,
-    ) -> Result<(), PluginLoaderError> {
-        if self.finished_loading {
-            return Err(PluginLoaderError::PluginLoadingFinished);
+        registry: &PluginRegistry,
+        plugins: &HashMap<PluginName, PluginConfig>,
+    ) -> Result<(), PluginManagerError> {
+        let p = plugins.keys().cloned().collect::<Vec<_>>();
+
+        let plugins_to_load = registry.resolve_plugins_to_load(p).await?;
+
+        let default_config = PluginConfig::default_for_deps();
+
+        for plugin in plugins_to_load {
+            let config = plugins.get(&plugin).unwrap_or(&default_config);
+
+            let r = self.load_plugin(plugin.clone(), &config).await;
+
+            if let Err(e) = r {
+                return Err(PluginManagerError::LoadPluginError(plugin, Box::new(e)));
+            }
         }
 
-        let plugin = self.plugin_loader.load_plugin(name, config)?;
+        Ok(())
+    }
 
-        let plugin = match self.plugins.entry(name.to_string()) {
+    pub async fn load_plugin(
+        &mut self,
+        name: PluginName,
+        config: &PluginConfig,
+    ) -> Result<(), PluginManagerError> {
+        if self.finished_loading {
+            return Err(PluginManagerError::PluginLoadingFinished);
+        }
+
+        let plugin = self.plugin_loader.load_plugin(&name.0, config)?;
+
+        let plugin = match self.plugins.entry(name.0.clone()) {
             Entry::Occupied(_) => {
-                return Err(PluginLoaderError::PluginAlreadyLoaded);
+                return Err(PluginManagerError::PluginAlreadyLoaded);
             }
             Entry::Vacant(entry) => entry.insert(plugin),
         };
 
         let p = plugin.plugin();
 
-        let mut mutator = PluginRegistryMutator {
-            plugin_name: name.to_string(),
+        let mut mutator = PluginLoadApiImpl {
+            plugin_name: name,
             rocket: Arc::new(Mutex::new(self.rocket.take())),
         };
 
         let r = p.init(&mut mutator).await;
 
-        let PluginRegistryMutator { rocket, .. } = mutator;
+        let PluginLoadApiImpl { rocket, .. } = mutator;
 
         self.rocket = Some(Arc::try_unwrap(rocket).unwrap().into_inner().unwrap());
 

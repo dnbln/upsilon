@@ -71,22 +71,26 @@ impl PluginMetadata {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct PluginConfig(Box<serde_json::Value>);
+pub struct PluginConfig(Box<serde_yaml::Value>);
 
 impl PluginConfig {
-    pub fn new(v: serde_json::Value) -> Self {
+    pub fn new(v: serde_yaml::Value) -> Self {
         Self(Box::new(v))
     }
 
+    pub fn default_for_deps() -> Self {
+        Self::new(serde_yaml::Value::Null)
+    }
+
     pub fn deserialize<T: serde::de::DeserializeOwned>(self) -> Result<T, PluginError> {
-        Ok(serde_json::from_value(*self.0)?)
+        Ok(serde_yaml::from_value(*self.0)?)
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
     #[error("serde_json error: {0}")]
-    SerdeJson(#[from] serde_json::Error),
+    SerdeYaml(#[from] serde_yaml::Error),
     #[error("Plugin failed to initialize (other: {0})")]
     Other(#[from] Box<dyn std::error::Error + Send>),
 }
@@ -94,7 +98,7 @@ pub enum PluginError {
 pub trait Plugin: Send + 'static {
     fn init<'a, 'b, 'registry, 'fut>(
         &'a mut self,
-        mutator: &'b mut dyn PluginRegistryMutator<'registry>,
+        load: &'b mut dyn PluginLoadApi<'registry>,
     ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + 'fut>>
     where
         'a: 'fut,
@@ -103,11 +107,11 @@ pub trait Plugin: Send + 'static {
 }
 
 #[rocket::async_trait]
-pub trait PluginRegistryMutator<'registry>: Send + 'registry {
+pub trait PluginLoadApi<'registry>: Send + 'registry {
     async fn _register_fairing(&mut self, fairing: Arc<dyn Fairing>);
 }
 
-impl<'registry> dyn PluginRegistryMutator<'registry> + 'registry {
+impl<'registry> dyn PluginLoadApi<'registry> + 'registry {
     pub async fn register_fairing<F: Fairing>(&mut self, fairing: F) {
         self._register_fairing(Arc::new(fairing)).await;
     }
@@ -137,7 +141,7 @@ pub struct SamplePlugin {
 impl Plugin for SamplePlugin {
     fn init<'a, 'b, 'registry, 'fut>(
         &'a mut self,
-        mutator: &'b mut dyn PluginRegistryMutator<'registry>,
+        load: &'b mut dyn PluginLoadApi<'registry>,
     ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + 'fut>>
         where
             'a: 'fut,

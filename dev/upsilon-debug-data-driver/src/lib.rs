@@ -27,7 +27,7 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use upsilon_core::config::Cfg;
 use upsilon_plugin_core::{
-    Plugin, PluginConfig, PluginError, PluginMetadata, PluginRegistryMutator
+    Plugin, PluginConfig, PluginError, PluginMetadata, PluginLoadApi
 };
 
 #[cfg_attr(feature = "dynamic-plugins", no_mangle)]
@@ -100,7 +100,7 @@ pub struct DebugDataDriverPlugin {
 impl Plugin for DebugDataDriverPlugin {
     fn init<'a, 'b, 'registry, 'fut>(
         &'a mut self,
-        mutator: &'b mut dyn PluginRegistryMutator<'registry>,
+        load: &'b mut dyn PluginLoadApi<'registry>,
     ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + 'fut>>
     where
         'a: 'fut,
@@ -108,7 +108,7 @@ impl Plugin for DebugDataDriverPlugin {
         'b: 'fut,
     {
         let fut = async move {
-            mutator
+            load
                 .register_fairing(DebugDataDriverFairing {
                     config: self.config.clone(),
                 })

@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 rocket.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 
 upsilon-models.workspace = true
