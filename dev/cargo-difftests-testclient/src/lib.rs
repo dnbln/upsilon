@@ -80,6 +80,8 @@ impl DifftestsEnv {
 #[cfg(feature = "single-process")]
 impl Drop for DifftestsEnv {
     fn drop(&mut self) {
+        log::debug!("Writing profile data...");
+
         let r = unsafe { __llvm_profile_write_file() };
 
         if r != 0 {
