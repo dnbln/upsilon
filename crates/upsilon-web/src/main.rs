@@ -57,7 +57,5 @@ async fn rocket() -> rocket::Rocket<rocket::Build> {
         )
         .select(profile);
 
-    let mut rocket = rocket::custom(figment).attach(upsilon_web::ConfigManager);
-
-    rocket
+    rocket::custom(figment).attach(upsilon_web::ConfigManager)
 }

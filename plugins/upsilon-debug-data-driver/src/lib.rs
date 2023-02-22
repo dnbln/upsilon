@@ -17,15 +17,15 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::process::Stdio;
 
-use log::{error, info, trace};
-use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 use upsilon_core::config::Cfg;
+use upsilon_plugin_bin::{
+    BinConfig, BinConfigEnvName, PluginBin, PluginBinConfig, PluginLoadApiBinExt
+};
 use upsilon_plugin_core::{
     Plugin, PluginConfig, PluginError, PluginLoad, PluginLoadApi, PluginMetadata
 };
+use upsilon_vcs::UpsilonVcsConfig;
 
 #[cfg_attr(feature = "dynamic-plugins", no_mangle)]
 pub const __UPSILON_METADATA: PluginMetadata =
@@ -85,10 +85,7 @@ pub struct DebugDataDriverConfig {
 
 impl DebugDataDriverConfig {
     pub fn from_env() -> anyhow::Result<Self> {
-        let config = std::env::var(CONFIG_ENV_VAR)?;
-        let config = serde_json::from_str(&config)?;
-
-        Ok(config)
+        Ok(CONFIG_ENV_VAR.load_from_env()?)
     }
 }
 
@@ -109,31 +106,30 @@ impl Plugin for DebugDataDriverPlugin {
         let fut = async move {
             let config = self.config.clone();
 
-            load.register_liftoff_hook("Debug data driver", move |rocket| {
-                Box::pin(async move {
-                    let vcs_cfg = rocket
-                        .state::<Cfg<upsilon_vcs::UpsilonVcsConfig>>()
-                        .expect("Missing vcs config");
+            load.run_bin_on_liftoff(
+                PluginBin {
+                    name: "Debug data driver",
+                    bin: upsilon_core::alt_exe("upsilon-debug-data-driver"),
+                    plugin_bin_config: PluginBinConfig {
+                        pass_port_option: true,
+                    },
+                },
+                BinConfig {
+                    env_name: CONFIG_ENV_VAR,
+                    config,
+                },
+                |rocket, config| {
+                    Box::pin(async move {
+                        let vcs_cfg = rocket
+                            .state::<Cfg<UpsilonVcsConfig>>()
+                            .expect("VCS config not found");
 
-                    let mut config = config;
-
-                    for (repo_name, repo) in &mut config.repos {
-                        if upsilon_vcs::exists_global(vcs_cfg, &repo_name.0) {
-                            repo.exists = true;
+                        for (repo_name, repo) in &mut config.repos {
+                            repo.exists = upsilon_vcs::exists_global(vcs_cfg, &repo_name.0);
                         }
-                    }
-
-                    let port = rocket.config().port;
-
-                    tokio::spawn(async move {
-                        let result = debug_data_driver_task(port, &config).await;
-
-                        if let Err(e) = result {
-                            error!("Failed to run debug data driver: {e}");
-                        }
-                    });
-                })
-            })
+                    })
+                },
+            )
             .await;
 
             Ok::<_, PluginError>(())
@@ -143,73 +139,4 @@ impl Plugin for DebugDataDriverPlugin {
     }
 }
 
-const CONFIG_ENV_VAR: &str = "DDD_CONFIG";
-
-async fn debug_data_driver_task(
-    port: u16,
-    config: &DebugDataDriverConfig,
-) -> Result<(), std::io::Error> {
-    let debug_data_driver = upsilon_core::alt_exe("upsilon-debug-data-driver");
-
-    let mut cmd = Command::new(debug_data_driver);
-
-    cmd.arg("--port")
-        .arg(port.to_string())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .env("RUST_LOG", "INFO");
-
-    cmd.env(CONFIG_ENV_VAR, serde_json::to_string(config).unwrap());
-
-    let mut child = cmd.spawn()?;
-
-    trace!("Waiting for debug data driver");
-
-    let exit_status = child.wait().await?;
-
-    info!("Debug data driver exited with status: {}", exit_status);
-
-    let stdout_pipe = child.stdout.as_mut().expect("failed to get stdout pipe");
-    let stderr_pipe = child.stderr.as_mut().expect("failed to get stderr pipe");
-
-    use std::io::Write;
-
-    let mut stderr = std::io::stderr();
-    let guard = "=".repeat(30);
-
-    {
-        let mut stdout_str = String::new();
-
-        stdout_pipe.read_to_string(&mut stdout_str).await?;
-
-        if !stdout_str.is_empty() {
-            write!(
-                &mut stderr,
-                "Debug Data Driver stdout:\n{guard}\n{stdout_str}{guard}\n",
-            )?;
-        }
-    }
-
-    {
-        let mut stderr_str = String::new();
-        stderr_pipe.read_to_string(&mut stderr_str).await?;
-
-        if !stderr_str.is_empty() {
-            write!(
-                &mut stderr,
-                "Debug Data Driver stderr:\n{guard}\n{stderr_str}{guard}\n",
-            )?;
-        }
-    }
-
-    if !exit_status.success() {
-        error!(
-            "Debug data driver exited with non-zero status code: {}",
-            exit_status
-        );
-    } else {
-        info!("Debug data driver finished successfully");
-    }
-
-    Ok(())
-}
+const CONFIG_ENV_VAR: BinConfigEnvName = BinConfigEnvName::new("DDD_CONFIG");

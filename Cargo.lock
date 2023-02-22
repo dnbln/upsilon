@@ -4547,6 +4547,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "upsilon-core",
+ "upsilon-plugin-bin",
  "upsilon-plugin-core",
  "upsilon-vcs",
 ]
@@ -4636,6 +4637,17 @@ dependencies = [
  "upsilon-core",
  "upsilon-id",
  "upsilon-stdx",
+]
+
+[[package]]
+name = "upsilon-plugin-bin"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
+ "upsilon-plugin-core",
 ]
 
 [[package]]

@@ -69,6 +69,7 @@ upsilon-gracefully-shutdown = { path = "dev/upsilon-gracefully-shutdown" }
 upsilon-gracefully-shutdown-host = { path = "dev/upsilon-gracefully-shutdown-host" }
 upsilon-id = { path = "crates/upsilon-id" }
 upsilon-json-diff = { path = "dev/upsilon-json-diff" }
+upsilon-plugin-bin = { path = "crates/upsilon-plugin-bin" }
 upsilon-plugin-core = { path = "crates/upsilon-plugin-core" }
 upsilon-plugin-manager = { path = "crates/upsilon-plugin-manager" }
 upsilon-plugins-static = { path = "crates/upsilon-plugins-static" }

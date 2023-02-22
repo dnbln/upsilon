@@ -22,4 +22,5 @@ tokio.workspace = true
 
 upsilon-core.workspace = true
 upsilon-vcs.workspace = true
+upsilon-plugin-bin.workspace = true
 upsilon-plugin-core.workspace = true
