@@ -23,9 +23,9 @@ async-trait = "0.1.59"
 bitflags = "2.0.0-rc.1"
 cargo = "0.68.0"
 cargo-cranky = { path = "dev/cargo-cranky" }
-cargo-difftests = { path = "dev/cargo-difftests", version = "0.1.0" }
-cargo-difftests-core = { path = "dev/cargo-difftests-core", version = "0.1.0" }
-cargo-difftests-testclient = { path = "dev/cargo-difftests-testclient", version = "0.1.0" }
+cargo-difftests = { path = "dev/cargo-difftests", version = "0.1.1" }
+cargo-difftests-core = { path = "dev/cargo-difftests-core", version = "0.1.1" }
+cargo-difftests-testclient = { path = "dev/cargo-difftests-testclient", version = "0.1.1" }
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.26", features = ["derive"] }
 ctrlc = "3.2.0"
