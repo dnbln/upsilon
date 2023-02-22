@@ -66,6 +66,10 @@ pub struct DifftestsEnv {
     llvm_profile_file_value: OsString,
 }
 
+#[allow(non_upper_case_globals)]
+#[no_mangle]
+pub static __llvm_profile_runtime: libc::c_int = 0;
+
 impl DifftestsEnv {
     /// Returns an iterator over the environment variables that should be set
     /// for child processes.
