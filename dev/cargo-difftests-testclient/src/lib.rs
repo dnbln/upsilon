@@ -25,19 +25,11 @@ use cargo_difftests_core::CoreTestDesc;
 #[cfg(cargo_difftests)]
 extern "C" {
     fn __llvm_profile_set_filename(filename: *const std::ffi::c_char);
-    fn __llvm_profile_write_file() -> libc::c_int;
-    fn __llvm_profile_reset_counters();
 }
 
 // put a dummy for docs.rs
 #[cfg(all(not(cargo_difftests), docsrs))]
 unsafe fn __llvm_profile_set_filename(_: *const std::ffi::c_char) {}
-#[cfg(all(not(cargo_difftests), docsrs))]
-unsafe fn __llvm_profile_write_file() -> libc::c_int {
-    0
-}
-#[cfg(all(not(cargo_difftests), docsrs))]
-unsafe fn __llvm_profile_reset_counters() {}
 
 /// A description of a test.
 ///
@@ -66,10 +58,6 @@ pub struct DifftestsEnv {
     llvm_profile_file_value: OsString,
 }
 
-#[allow(non_upper_case_globals)]
-#[no_mangle]
-pub static __llvm_profile_runtime: libc::c_int = 0;
-
 impl DifftestsEnv {
     /// Returns an iterator over the environment variables that should be set
     /// for child processes.
@@ -78,26 +66,6 @@ impl DifftestsEnv {
             self.llvm_profile_file_name.as_os_str(),
             self.llvm_profile_file_value.as_os_str(),
         ))
-    }
-}
-
-#[cfg(feature = "single-process")]
-impl Drop for DifftestsEnv {
-    fn drop(&mut self) {
-        log::debug!("Writing profile data...");
-
-        let r = unsafe { __llvm_profile_write_file() };
-
-        if r != 0 {
-            log::error!("Failed to write profile data! (error code {r})");
-        }
-    }
-}
-
-pub fn pre_init_test() {
-    #[cfg(feature = "single-process")]
-    unsafe {
-        __llvm_profile_reset_counters();
     }
 }
 
