@@ -25,7 +25,7 @@ use log::info;
 use path_slash::PathExt;
 use toml_edit::{Item, Key, TableLike};
 use ukonf::value::UkonfValue;
-use ukonf::UkonfFunctions;
+use ukonf::{Scope, UkonfFnError, UkonfFunctions};
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
 use upsilon_xtask::difftests::{DiffTestsCommand, DirtyAlgo};
 use upsilon_xtask::pkg::Pkg;
@@ -1017,17 +1017,37 @@ fn ukonf_to_yaml(from: PathBuf, to: &Path, fns: fn() -> UkonfFunctions) -> Xtask
     Ok(())
 }
 
+fn ukonf_concat_strings(strings: &[UkonfValue]) -> Result<UkonfValue, UkonfFnError> {
+    let mut result = String::new();
+    for arg in strings {
+        result.push_str(arg.as_string().context("concat: expected string")?);
+    }
+    Ok(UkonfValue::Str(result))
+}
+
 pub fn add_concat(fns: &mut UkonfFunctions) {
-    fns.add_fn("concat", |args| {
-        let mut result = String::new();
-        for arg in args {
-            result.push_str(arg.as_string().unwrap());
+    fns.add_fn("concat", |_scope, args| ukonf_concat_strings(args));
+}
+
+pub fn add_parent_dir(fns: &mut UkonfFunctions) {
+    fns.add_fn("parent_dir", |_scope, args| {
+        if args.len() != 1 {
+            bail!("parent_dir: expected exactly one argument");
         }
-        Ok(UkonfValue::Str(result))
+
+        let path = args[0].as_string().context("parent_dir: expected string")?;
+        let path = Path::new(path);
+        let parent = path.parent().context("parent_dir: no parent")?;
+        Ok(UkonfValue::Str(
+            parent
+                .to_str()
+                .context("parent_dir: invalid utf-8")?
+                .to_string(),
+        ))
     });
 }
 
-const NORMAL_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[add_concat];
+const NORMAL_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[add_concat, add_parent_dir];
 
 pub fn ukonf_normal_functions() -> UkonfFunctions {
     let mut fns = UkonfFunctions::new();
@@ -1037,7 +1057,23 @@ pub fn ukonf_normal_functions() -> UkonfFunctions {
     fns
 }
 
-const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[];
+pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
+    fns.add_fn("xtask", |scope, args| {
+        if args.len() != 1 {
+            bail!("xtask: expected exactly one argument");
+        }
+
+        let xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
+            .context("xtask: xtask_artifact_path not found")?
+            .expect_string()?;
+
+        let xtask = args[0].as_string().context("xtask: expected string")?;
+
+        Ok(UkonfValue::Str(format!("{xtask_artifact_path} {xtask}")))
+    });
+}
+
+const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[ukonf_add_xtask];
 
 pub fn ukonf_ci_functions() -> UkonfFunctions {
     let mut fns = UkonfFunctions::new();

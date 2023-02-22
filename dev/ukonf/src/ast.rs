@@ -233,6 +233,7 @@ pub enum AstItem {
 
 pub struct AstDecl {
     pub let_kw: LetKw,
+    pub cx_kw: Option<CxKw>,
     pub name: Ident,
     pub colon: Colon,
     pub value: AstVal,
@@ -300,6 +301,7 @@ macro_rules! kw {
 
 kw!(Import, "import");
 kw!(LetKw, "let");
+kw!(CxKw, "cx");
 kw!(Null, "null");
 
 pub struct AstImport {
@@ -373,7 +375,7 @@ impl AstVal {
             Self::Bool(it) => it.span.clone(),
             Self::Arr(start, _, end) => start.0.join_with(&end.0),
             Self::Obj(start, _, end) => start.0.join_with(&end.0),
-            Self::FunctionCall(it) => it.name.0 .1.join_with(&it.close_paren.0),
+            Self::FunctionCall(it) => it.span(),
             Self::Dot(base, _, k) => base.0 .1.join_with(&k.span()),
         }
     }
@@ -528,4 +530,10 @@ pub struct AstFunctionCall {
     pub open_paren: OpenParen,
     pub args: Punctuated<AstVal, Comma>,
     pub close_paren: CloseParen,
+}
+
+impl AstFunctionCall {
+    pub fn span(&self) -> Span {
+        self.name.0 .1.join_with(&self.close_paren.0)
+    }
 }

@@ -17,8 +17,10 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
+use anyhow::format_err;
+
 use crate::ast::Span;
-use crate::UkonfRunError;
+use crate::{UkonfFnError, UkonfRunError};
 
 #[derive(Copy, Clone, Debug)]
 pub enum NumValue {
@@ -44,7 +46,21 @@ impl UkonfValue {
         }
     }
 
-    pub(crate) fn expect_string(self, span: &Span) -> Result<String, UkonfRunError> {
+    pub fn into_string(self) -> Result<String, Self> {
+        match self {
+            UkonfValue::Str(s) => Ok(s),
+            v => Err(v),
+        }
+    }
+
+    pub fn expect_string(self) -> Result<String, UkonfFnError> {
+        match self {
+            UkonfValue::Str(s) => Ok(s),
+            v => Err(format_err!("Expected string, got: {v:?}")),
+        }
+    }
+
+    pub(crate) fn _expect_string(self, span: &Span) -> Result<String, UkonfRunError> {
         match self {
             UkonfValue::Str(s) => Ok(s),
             v => Err(UkonfRunError::ExpectedString(v, span.clone())),

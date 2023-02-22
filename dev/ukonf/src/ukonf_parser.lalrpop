@@ -13,7 +13,7 @@ AstItem: AstItem = {
 };
 
 AstDecl: AstDecl = {
-    <let_kw: LetKw> <name: Ident> <colon: Colon> <value: AstVal> => AstDecl{ let_kw, name, colon, value },
+    <let_kw: LetKw> <cx_kw: CxKw?> <name: Ident> <colon: Colon> <value: AstVal> => AstDecl{ let_kw, cx_kw, name, colon, value },
 };
 
 KV: KV = {
@@ -32,6 +32,7 @@ SpannedInto<T, R>: R = {
 
 Import: Import = SpannedInto<"import", Import>;
 LetKw: LetKw = SpannedInto<"let", LetKw>;
+CxKw: CxKw = SpannedInto<"cx", CxKw>;
 Null: Null = SpannedInto<"null", Null>;
 
 

@@ -4344,6 +4344,7 @@ dependencies = [
 name = "ukonf"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "lalrpop",
  "lalrpop-util",
  "logos",
