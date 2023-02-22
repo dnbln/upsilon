@@ -1,6 +1,6 @@
 [package]
 name = "cargo-difftests-testclient"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "cargo-difftests: test client library"
 license = "Apache-2.0"
@@ -8,8 +8,14 @@ license = "Apache-2.0"
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 
+[features]
+default = []
+single-process = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cargo-difftests-core.workspace = true
+libc.workspace = true
+log.workspace = true
 serde_json.workspace = true

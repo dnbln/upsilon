@@ -471,7 +471,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-difftests"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cargo-difftests-core",
@@ -490,16 +490,18 @@ dependencies = [
 
 [[package]]
 name = "cargo-difftests-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cargo-difftests-testclient"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cargo-difftests-core",
+ "libc",
+ "log",
  "serde_json",
 ]
 
