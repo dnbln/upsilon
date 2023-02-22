@@ -644,10 +644,3 @@ fn env_var(name: &str) -> String {
 fn env_var_path(name: &str) -> PathBuf {
     PathBuf::from(env_var(name))
 }
-
-pub fn pre_init_test() {
-    #[cfg(difftests)]
-    {
-        cargo_difftests_testclient::pre_init_test();
-    }
-}

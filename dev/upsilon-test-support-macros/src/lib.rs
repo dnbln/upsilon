@@ -163,8 +163,6 @@ fn expand_upsilon_test(_attr: TokenStream, mut fun: syn::ItemFn) -> syn::Result<
         #vis async fn #name () {
             #guard
 
-            ::upsilon_test_support::pre_init_test();
-
             #body
         }
     };
