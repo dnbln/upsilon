@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-use std::ffi::{OsString};
+use std::ffi::OsString;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;

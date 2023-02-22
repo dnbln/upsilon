@@ -9,6 +9,7 @@ default-members = ["dev/cargo-guard"]
 [workspace.metadata.lints]
 unsafe_code = "deny"
 unused_imports = "deny"
+unused_must_use = "deny"
 
 clippy.uninlined_format_args = "deny"
 clippy.empty_structs_with_brackets = "warn"
