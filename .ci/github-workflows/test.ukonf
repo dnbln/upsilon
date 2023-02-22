@@ -77,22 +77,32 @@ let copy_xtask_to_artifact: {
   run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp target/debug/upsilon-xtask ', xtask_artifact_path)
 }
 
+let xtask_artifact_name: '${{ runner.os }}-xtask'
+
 let upload_xtask: {
     name: 'Upload xtask'
     uses: 'actions/upload-artifact@v3'
     with {
-        name: '${{ runner.os }}-xtask'
+        name: xtask_artifact_name
         path: xtask_artifact_path
     }
 }
+
+let download_xtask_dir: concat(parent_dir(xtask_artifact_path), '/downloaded-xtask')
+let downloaded_xtask_artifact: concat(download_xtask_dir, '/', xtask_artifact_name)
 
 let download_xtask: {
     name: 'Download xtask'
     uses: 'actions/download-artifact@v3'
     with {
         name: '${{ runner.os }}-xtask'
-        path: xtask_artifact_path
+        path: download_xtask_dir
     }
+}
+
+let copy_downloaded_xtask_to_artifact_path: {
+    name: 'Copy downloaded xtask to artifact path'
+    run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
 }
 
 let install_nextest: {
@@ -192,6 +202,7 @@ jobs {
       install_rust
       install_rustfmt
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       {
         name: 'Run fmt check'
         run: xtask('fmt-check')
@@ -224,6 +235,7 @@ jobs {
       install_lld
       install_rust
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       {
         name: 'Run gql schema check'
         run: xtask('graphql-schema-check')
@@ -241,6 +253,7 @@ jobs {
       install_lld
       install_rust
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       {
         name: 'Run ci files up to date check'
         run: xtask('check-ci-files-up-to-date')
@@ -280,6 +293,7 @@ jobs {
         """
       }
       compile_xtask
+      copy_xtask_to_artifact
       compile_binaries_and_tests
       run_tests
       run_doctests
@@ -310,6 +324,7 @@ jobs {
         """
       }
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       compile_binaries_and_tests
       run_tests
       run_doctests
@@ -340,6 +355,7 @@ jobs {
         """
       }
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       compile_binaries_and_tests_with_difftests
       run_tests_with_difftests
     ]
@@ -370,6 +386,7 @@ jobs {
         """
       }
       download_xtask
+      copy_downloaded_xtask_to_artifact_path
       compile_binaries_and_tests_with_difftests
       run_only_difftests
     ]
@@ -387,6 +404,7 @@ jobs {
         install_rust
         install_clippy
         download_xtask
+        copy_downloaded_xtask_to_artifact_path
         lint
     ]
   }

@@ -61,7 +61,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Run fmt check
       run: ci-artifacts/upsilon-xtask fmt-check
     - name: Git checks
@@ -90,7 +92,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Run gql schema check
       run: ci-artifacts/upsilon-xtask graphql-schema-check
   ci-files-up-to-date:
@@ -110,7 +114,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Run ci files up to date check
       run: ci-artifacts/upsilon-xtask check-ci-files-up-to-date
   test-win:
@@ -138,6 +144,8 @@ jobs:
       run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Copy xtask to artifact
+      run: mkdir -p ci-artifacts && cp target/debug/upsilon-xtask ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests
       run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
     - name: Run tests
@@ -169,7 +177,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests
       run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
     - name: Run tests
@@ -201,7 +211,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests (with difftests)
       run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
     - name: Run tests (with difftests)
@@ -238,7 +250,9 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests (with difftests)
       run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
     - name: Run tests (only difftests)
@@ -264,6 +278,8 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ci-artifacts/downloaded-xtask
+    - name: Copy downloaded xtask to artifact path
+      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/${{ runner.os }}-xtask ci-artifacts/upsilon-xtask
     - name: Lint
       run: ci-artifacts/upsilon-xtask lint
