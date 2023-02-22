@@ -300,6 +300,7 @@ macro_rules! kw {
 }
 
 kw!(Import, "import");
+kw!(AsKw, "as");
 kw!(LetKw, "let");
 kw!(CxKw, "cx");
 kw!(Null, "null");
@@ -307,15 +308,22 @@ kw!(Null, "null");
 pub struct AstImport {
     pub import_kw: Import,
     pub path: AstVal,
+    pub as_name: Option<(AsKw, Ident)>,
     pub semicolon: Semicolon,
     resolved_file_id: Rc<RefCell<Option<FileId>>>,
 }
 
 impl AstImport {
-    pub fn new(import_kw: Import, path: AstVal, semicolon: Semicolon) -> Self {
+    pub fn new(
+        import_kw: Import,
+        path: AstVal,
+        as_name: Option<(AsKw, Ident)>,
+        semicolon: Semicolon,
+    ) -> Self {
         Self {
             import_kw,
             path,
+            as_name,
             semicolon,
             resolved_file_id: Rc::new(RefCell::new(None)),
         }
@@ -323,6 +331,10 @@ impl AstImport {
 
     pub fn resolve_to(&self, file_id: FileId) {
         *self.resolved_file_id.borrow_mut() = Some(file_id);
+    }
+
+    pub(crate) fn resolved(&self) -> Option<FileId> {
+        self.resolved_file_id.borrow().clone()
     }
 }
 

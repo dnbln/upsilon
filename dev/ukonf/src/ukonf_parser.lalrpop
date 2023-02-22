@@ -31,6 +31,7 @@ SpannedInto<T, R>: R = {
 };
 
 Import: Import = SpannedInto<"import", Import>;
+AsKw: AsKw = SpannedInto<"as", AsKw>;
 LetKw: LetKw = SpannedInto<"let", LetKw>;
 CxKw: CxKw = SpannedInto<"cx", CxKw>;
 Null: Null = SpannedInto<"null", Null>;
@@ -49,7 +50,7 @@ Comma: Comma = SpannedInto<",", Comma>;
 Dot: Dot = SpannedInto<".", Dot>;
 
 AstImport: AstImport = {
-    <import_kw: Import> <path: AstVal> <semicolon: Semicolon> => AstImport::new(import_kw, path, semicolon),
+    <import_kw: Import> <path: AstVal> <as_name: (AsKw Ident)?> <semicolon: Semicolon> => AstImport::new(import_kw, path, as_name, semicolon),
 };
 
 Ident: Ident = {

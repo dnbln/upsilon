@@ -16,7 +16,7 @@
 
 use std::cell::{Ref, RefCell};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use lalrpop_util::lexer::Token;
@@ -71,6 +71,10 @@ impl Files {
 
     fn new_file_id(&self) -> FileId {
         FileId(self.files.len())
+    }
+
+    fn get_path(&self, id: FileId) -> &Path {
+        &self.files[id.0].path
     }
 }
 
@@ -194,13 +198,22 @@ impl UkonfRunner {
         Self { config, functions }
     }
 
-    fn find_file(&self, file: &str) -> Option<PathBuf> {
+    fn find_file(&self, f: &Path, file: &str) -> Option<PathBuf> {
         for dir in self.config.include_dirs.dirs.iter() {
             let p = dir.join(file);
             if p.is_file() {
                 return Some(p.canonicalize().unwrap());
             }
         }
+
+        if let Some(p) = f.parent() {
+            let p = p.join(file);
+
+            if p.is_file() {
+                return Some(p.canonicalize().unwrap());
+            }
+        }
+
         None
     }
 
@@ -228,7 +241,7 @@ impl UkonfRunner {
             let file_id = parser
                 .parse(|_file, e| e.to_string())
                 .map_err(|e| UkonfRunError::ParseError(e))?;
-            files.insert(file, file_id);
+            files.insert(file.clone(), file_id);
             if first_file_id.is_none() {
                 first_file_id = Some(file_id);
             }
@@ -244,7 +257,7 @@ impl UkonfRunner {
                 .filter_map(|it| match &it.path {
                     AstVal::Str(s) => {
                         let p = s.str_val();
-                        let p = match self.find_file(p.as_ref()) {
+                        let p = match self.find_file(&file, p.as_ref()) {
                             Some(path) => path,
                             None => {
                                 return Some(UkonfRunError::CannotFindImport(
@@ -265,9 +278,11 @@ impl UkonfRunner {
         }
 
         for file in files.values() {
-            self.config
-                .files
-                .borrow()
+            let files_ref = self.config.files.borrow();
+
+            let file_path = files_ref.get_path(*file);
+
+            files_ref
                 .get_ast(*file)
                 .unwrap()
                 .imports
@@ -277,7 +292,7 @@ impl UkonfRunner {
                         AstVal::Str(s) => s.str_val(),
                         _ => unreachable!(),
                     };
-                    let file_id = files[&self.find_file(path.as_ref()).unwrap()];
+                    let file_id = files[&self.find_file(file_path, path.as_ref()).unwrap()];
                     it.resolve_to(file_id);
                 });
         }
@@ -442,15 +457,30 @@ impl UkonfRunner {
         let files = self.config.files.borrow();
         let ast = files.get_ast(file_id).unwrap();
 
-        self.run_scope(
-            &files,
-            file_id,
-            &Rc::new(RefCell::new(Scope {
-                parent: None,
-                vars: BTreeMap::new(),
-            })),
-            &ast.items,
-        )
+        let scope = Rc::new(RefCell::new(Scope {
+            parent: None,
+            vars: BTreeMap::new(),
+        }));
+
+        let mut import_id = 0;
+        for import in &ast.imports {
+            let file_id = import.resolved().unwrap();
+
+            let obj = self.run_file(file_id)?;
+
+            let id = import.as_name.as_ref().map_or_else(
+                || format!("import_{import_id}"),
+                |(_, name)| name.0 .0.clone(),
+            );
+            import_id += 1;
+
+            scope
+                .borrow_mut()
+                .vars
+                .insert(id, (CxKind::Local, UkonfValue::Object(obj)));
+        }
+
+        self.run_scope(&files, file_id, &scope, &ast.items)
     }
 
     pub fn run(&self, file: PathBuf) -> Result<UkonfObject, UkonfRunError> {

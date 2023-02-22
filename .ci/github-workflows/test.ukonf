@@ -1,5 +1,5 @@
-let nightly: 'nightly'
-let cx xtask_artifact_path: 'ci-artifacts/upsilon-xtask'
+let nightly: 'nightly-2023-02-03'
+let cx xtask_artifact_path: './ci-artifacts/upsilon-xtask'
 
 name: 'Test'
 
@@ -83,29 +83,29 @@ let copy_xtask_to_artifact_win: {
 }
 
 let upload_xtask: {
-    name: 'Upload xtask'
-    uses: 'actions/upload-artifact@v3'
-    with {
-        name: '${{ runner.os }}-xtask'
-        path: xtask_artifact_path
-    }
+  name: 'Upload xtask'
+  uses: 'actions/upload-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: xtask_artifact_path
+  }
 }
 
 let download_xtask_dir: concat(parent_dir(xtask_artifact_path), '/downloaded-xtask')
 let downloaded_xtask_artifact: concat(download_xtask_dir, '/upsilon-xtask')
 
 let download_xtask: {
-    name: 'Download xtask'
-    uses: 'actions/download-artifact@v3'
-    with {
-        name: '${{ runner.os }}-xtask'
-        path: download_xtask_dir
-    }
+  name: 'Download xtask'
+  uses: 'actions/download-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: download_xtask_dir
+  }
 }
 
 let copy_downloaded_xtask_to_artifact_path: {
-    name: 'Copy downloaded xtask to artifact path'
-    run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
+  name: 'Copy downloaded xtask to artifact path'
+  run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
 }
 
 let install_nextest: {
@@ -398,14 +398,14 @@ jobs {
     needs: compile_xtask_job_linux_key
 
     steps [
-        checkout
-        install_lld
-        install_openssl
-        install_rust
-        install_clippy
-        download_xtask
-        copy_downloaded_xtask_to_artifact_path
-        lint
+      checkout
+      install_lld
+      install_openssl
+      install_rust
+      install_clippy
+      download_xtask
+      copy_downloaded_xtask_to_artifact_path
+      lint
     ]
   }
 }

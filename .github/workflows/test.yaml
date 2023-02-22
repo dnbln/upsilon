@@ -32,16 +32,16 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir -p ci-artifacts && cp target/debug/upsilon-xtask ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp target/debug/upsilon-xtask ./ci-artifacts/upsilon-xtask
     - name: Upload xtask
       uses: actions/upload-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/upsilon-xtask
+        path: ./ci-artifacts/upsilon-xtask
   style-checks:
     name: Style checks
     runs-on: ubuntu-latest
@@ -54,26 +54,26 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install rustfmt
       run: rustup component add rustfmt
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/downloaded-xtask
+        path: ./ci-artifacts/downloaded-xtask
     - name: Copy downloaded xtask to artifact path
-      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/upsilon-xtask ci-artifacts/upsilon-xtask && chmod +x ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run fmt check
-      run: ci-artifacts/upsilon-xtask fmt-check
+      run: ./ci-artifacts/upsilon-xtask fmt-check
     - name: Git checks
-      run: ci-artifacts/upsilon-xtask git-checks --checkout
+      run: ./ci-artifacts/upsilon-xtask git-checks --checkout
       if: success() || failure()
     - name: Check Cargo.toml dependencies order
-      run: ci-artifacts/upsilon-xtask check-cargo-dep-order
+      run: ./ci-artifacts/upsilon-xtask check-cargo-dep-order
       if: success() || failure()
     - name: Check Cargo.toml dependencies from workspace.dependencies
-      run: ci-artifacts/upsilon-xtask check-cargo-dep-from-workspace
+      run: ./ci-artifacts/upsilon-xtask check-cargo-dep-from-workspace
       if: success() || failure()
   gql-schema-up-to-date:
     name: GraphQL schema is up-to-date
@@ -87,16 +87,16 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/downloaded-xtask
+        path: ./ci-artifacts/downloaded-xtask
     - name: Copy downloaded xtask to artifact path
-      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/upsilon-xtask ci-artifacts/upsilon-xtask && chmod +x ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run gql schema check
-      run: ci-artifacts/upsilon-xtask graphql-schema-check
+      run: ./ci-artifacts/upsilon-xtask graphql-schema-check
   ci-files-up-to-date:
     name: CI files are up-to-date
     runs-on: ubuntu-latest
@@ -109,16 +109,16 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/downloaded-xtask
+        path: ./ci-artifacts/downloaded-xtask
     - name: Copy downloaded xtask to artifact path
-      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/upsilon-xtask ci-artifacts/upsilon-xtask && chmod +x ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run ci files up to date check
-      run: ci-artifacts/upsilon-xtask check-ci-files-up-to-date
+      run: ./ci-artifacts/upsilon-xtask check-ci-files-up-to-date
   test-win:
     name: Test (Windows)
     runs-on: windows-latest
@@ -134,7 +134,7 @@ jobs:
     - name: Cleanup vcpkg build trees
       run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -145,13 +145,13 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir ci-artifacts && copy target\\debug\\upsilon-xtask.exe ci-artifacts/upsilon-xtask
+      run: mkdir ./ci-artifacts && copy target\\debug\\upsilon-xtask.exe ./ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
     - name: Run tests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --doc --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest
@@ -165,7 +165,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -175,13 +175,13 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir -p ci-artifacts && cp target/debug/upsilon-xtask ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp target/debug/upsilon-xtask ./ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
     - name: Run tests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile ci
     - name: Run doctests
-      run: ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --doc --profile ci
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux-with-difftests:
     name: Test (Linux with difftests)
     runs-on: ubuntu-latest
@@ -195,7 +195,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -205,11 +205,11 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir -p ci-artifacts && cp target/debug/upsilon-xtask ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp target/debug/upsilon-xtask ./ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests (with difftests)
-      run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
     - name: Run tests (with difftests)
-      run: ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile difftests
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile difftests
   test-linux-only-difftests:
     name: Test (Linux only difftests)
     runs-on: ubuntu-latest
@@ -230,7 +230,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -240,11 +240,11 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir -p ci-artifacts && cp target/debug/upsilon-xtask ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp target/debug/upsilon-xtask ./ci-artifacts/upsilon-xtask
     - name: Compile binaries and tests (with difftests)
-      run: ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
+      run: ./ci-artifacts/upsilon-xtask test --verbose --no-run --profile difftests
     - name: Run tests (only difftests)
-      run: ci-artifacts/upsilon-xtask test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ${{ steps.get-old-commit.outputs.OLD_COMMIT }}
+      run: ./ci-artifacts/upsilon-xtask test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ${{ steps.get-old-commit.outputs.OLD_COMMIT }}
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -259,15 +259,15 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly --no-self-update && rustup default nightly
+      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install clippy
       run: rustup component add clippy
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
         name: ${{ runner.os }}-xtask
-        path: ci-artifacts/downloaded-xtask
+        path: ./ci-artifacts/downloaded-xtask
     - name: Copy downloaded xtask to artifact path
-      run: mkdir -p ci-artifacts && cp ci-artifacts/downloaded-xtask/upsilon-xtask ci-artifacts/upsilon-xtask && chmod +x ci-artifacts/upsilon-xtask
+      run: mkdir -p ./ci-artifacts && cp ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Lint
-      run: ci-artifacts/upsilon-xtask lint
+      run: ./ci-artifacts/upsilon-xtask lint
