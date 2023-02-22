@@ -77,19 +77,17 @@ let copy_xtask_to_artifact: {
   run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp target/debug/upsilon-xtask ', xtask_artifact_path)
 }
 
-let xtask_artifact_name: '${{ runner.os }}-xtask'
-
 let upload_xtask: {
     name: 'Upload xtask'
     uses: 'actions/upload-artifact@v3'
     with {
-        name: xtask_artifact_name
+        name: '${{ runner.os }}-xtask'
         path: xtask_artifact_path
     }
 }
 
 let download_xtask_dir: concat(parent_dir(xtask_artifact_path), '/downloaded-xtask')
-let downloaded_xtask_artifact: concat(download_xtask_dir, '/', xtask_artifact_name)
+let downloaded_xtask_artifact: concat(download_xtask_dir, '/upsilon-xtask')
 
 let download_xtask: {
     name: 'Download xtask'
@@ -102,7 +100,7 @@ let download_xtask: {
 
 let copy_downloaded_xtask_to_artifact_path: {
     name: 'Copy downloaded xtask to artifact path'
-    run: concat('ls -R ', download_xtask_dir, ' && mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
+    run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
 }
 
 let install_nextest: {
