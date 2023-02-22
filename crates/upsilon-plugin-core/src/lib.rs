@@ -21,6 +21,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use rocket::fairing::Fairing;
+use rocket::{Orbit, Rocket};
 use serde::Deserialize;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -105,11 +106,31 @@ pub trait Plugin: Send + 'static {
 #[rocket::async_trait]
 pub trait PluginLoadApi<'registry>: Send + 'registry {
     async fn _register_fairing(&mut self, fairing: Arc<dyn Fairing>);
+    async fn _register_liftoff_hook(&mut self, name: String, hook: BoxedLiftoffHook);
 }
+
+pub type BoxedLiftoffHook = Box<
+    dyn for<'a> FnOnce(&'a Rocket<Orbit>) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+        + Send
+        + 'static,
+>;
 
 impl<'registry> dyn PluginLoadApi<'registry> + 'registry {
     pub async fn register_fairing<F: Fairing>(&mut self, fairing: F) {
         self._register_fairing(Arc::new(fairing)).await;
+    }
+
+    pub async fn register_liftoff_hook<
+        F: for<'a> FnOnce(&'a Rocket<Orbit>) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+            + Send
+            + 'static,
+    >(
+        &mut self,
+        name: impl Into<String>,
+        hook: F,
+    ) {
+        self._register_liftoff_hook(name.into(), Box::new(hook))
+            .await;
     }
 }
 

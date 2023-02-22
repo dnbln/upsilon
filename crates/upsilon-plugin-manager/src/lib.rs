@@ -21,12 +21,12 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::sync::Arc;
 
-use rocket::fairing::Fairing;
-use rocket::{error, Build, Rocket};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::{error, info, Build, Orbit, Rocket};
 use tokio::fs;
 use tokio::sync::Mutex;
 use upsilon_plugin_core::{
-    Plugin, PluginApiVersion, PluginConfig, PluginLoad, PluginMetadata, CURRENT_PLUGIN_API_VERSION
+    BoxedLiftoffHook, Plugin, PluginApiVersion, PluginConfig, PluginLoad, PluginMetadata, CURRENT_PLUGIN_API_VERSION
 };
 
 pub trait PluginHolder: Send + 'static {
@@ -62,7 +62,7 @@ pub enum PluginManagerError {
     #[error("Load plugin error({0}): {1}")]
     LoadPluginError(PluginName, #[source] Box<PluginManagerError>),
     #[error("Other error: {0}")]
-    OtherError(#[from] Box<dyn std::error::Error>),
+    OtherError(#[from] Box<dyn std::error::Error + Send>),
 }
 
 pub trait PluginLoader {
@@ -183,11 +183,20 @@ pub struct PluginManager {
     plugins: HashMap<String, Box<dyn PluginHolder>>,
     finished_loading: bool,
     rocket: Option<Rocket<Build>>,
+
+    liftoff_hooks: Arc<Mutex<Vec<(RegisteredHookInfo, BoxedLiftoffHook)>>>,
+}
+
+#[derive(Debug)]
+pub struct RegisteredHookInfo {
+    pub plugin: PluginName,
+    pub name: String,
 }
 
 pub struct PluginLoadApiImpl {
     plugin_name: PluginName,
     rocket: Arc<Mutex<Option<Rocket<Build>>>>,
+    liftoff_hooks: Arc<Mutex<Vec<(RegisteredHookInfo, BoxedLiftoffHook)>>>,
 }
 
 #[rocket::async_trait]
@@ -198,6 +207,19 @@ impl<'a> upsilon_plugin_core::PluginLoadApi<'a> for PluginLoadApiImpl {
         let r = lock.take().unwrap();
         let r = r.attach(fairing);
         *lock = Some(r);
+    }
+
+    async fn _register_liftoff_hook(&mut self, name: String, hook: BoxedLiftoffHook) {
+        let hook_info = RegisteredHookInfo {
+            plugin: self.plugin_name.clone(),
+            name,
+        };
+
+        println!("Registering liftoff hook: {hook_info:?}");
+
+        let mut lock = self.liftoff_hooks.lock().await;
+
+        lock.push((hook_info, hook));
     }
 }
 
@@ -274,11 +296,22 @@ impl PluginManager {
             plugins: HashMap::new(),
             finished_loading: false,
             rocket: Some(rocket),
+            liftoff_hooks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub fn finish(&mut self) -> Rocket<Build> {
-        self.rocket.take().unwrap()
+    pub async fn finish(mut self) -> Rocket<Build> {
+        let mut rocket = self.rocket.take().unwrap();
+
+        let hook_runner = PluginHookRunner {
+            liftoff_hooks: self.liftoff_hooks.clone(),
+        };
+
+        if hook_runner.attach().await {
+            rocket = rocket.attach(hook_runner);
+        }
+
+        rocket
     }
 
     pub async fn load_plugins(
@@ -328,6 +361,7 @@ impl PluginManager {
         let mut mutator = PluginLoadApiImpl {
             plugin_name: name,
             rocket: Arc::new(Mutex::new(self.rocket.take())),
+            liftoff_hooks: self.liftoff_hooks.clone(),
         };
 
         let r = p.init(&mut mutator).await;
@@ -343,5 +377,43 @@ impl PluginManager {
 
     pub fn get_plugin(&mut self, name: &str) -> Option<&mut dyn Plugin> {
         self.plugins.get_mut(name).map(|p| p.plugin())
+    }
+}
+
+pub struct PluginHookRunner {
+    liftoff_hooks: Arc<Mutex<Vec<(RegisteredHookInfo, BoxedLiftoffHook)>>>,
+}
+
+impl PluginHookRunner {
+    async fn attach(&self) -> bool {
+        let liftoff = !self.liftoff_hooks.lock().await.is_empty();
+
+        liftoff
+    }
+}
+
+#[rocket::async_trait]
+impl Fairing for PluginHookRunner {
+    fn info(&self) -> Info {
+        Info {
+            name: "Plugin Hook Runner",
+            kind: Kind::Ignite | Kind::Liftoff,
+        }
+    }
+
+    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
+        let mut hooks = self.liftoff_hooks.lock().await;
+
+        for (hook_info, hook) in hooks.drain(..) {
+            info!(
+                "Running liftoff hook for plugin '{}' ({})",
+                hook_info.plugin, hook_info.name
+            );
+            hook(rocket).await;
+            info!(
+                "Finished running liftoff hook for plugin '{}' ({})",
+                hook_info.plugin, hook_info.name
+            );
+        }
     }
 }

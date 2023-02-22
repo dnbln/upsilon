@@ -50,7 +50,7 @@ impl Fairing for PluginsFairing {
             .load_plugins(&registry, &self.plugins.plugins)
             .await;
 
-        let rocket = plugin_manager.finish();
+        let rocket = plugin_manager.finish().await;
 
         match r {
             Ok(()) => Ok(rocket),
