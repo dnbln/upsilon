@@ -19,8 +19,6 @@ mod data;
 mod git;
 mod plugins;
 
-use std::path::PathBuf;
-
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};

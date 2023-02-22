@@ -26,10 +26,7 @@ use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned};
 use crate::value::{UkonfObject, UkonfValue};
 
 lalrpop_mod!(
-    #[allow(
-        clippy::all,
-        clippy::uninlined_format_args,
-    )]
+    #[allow(clippy::all, clippy::uninlined_format_args)]
     ukonf_parser
 );
 

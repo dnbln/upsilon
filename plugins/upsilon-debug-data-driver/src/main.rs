@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 
 use clap::Parser;
-use log::{debug, info};
+use log::info;
 use serde::Deserialize;
 use serde_json::json;
 use upsilon_debug_data_driver::DebugDataDriverConfig;

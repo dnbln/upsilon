@@ -20,10 +20,6 @@ extern crate rocket;
 use figment::providers::{Env, Format, Yaml};
 use figment::{Figment, Profile};
 use rocket::config::Ident;
-use rocket::serde::json::serde_json::json;
-use upsilon_plugin_core::PluginConfig;
-use upsilon_plugin_manager::PluginManager;
-use upsilon_plugins_static::static_plugins;
 
 const DEV_PROFILE: Profile = Profile::const_new("dev");
 const RELEASE_PROFILE: Profile = Profile::const_new("release");

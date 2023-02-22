@@ -14,7 +14,6 @@
  *    limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -23,7 +22,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::fs::NamedFile;
 use rocket::http::uri::error::PathError;
 use rocket::http::Status;
-use rocket::request::{FromRequest, FromSegments, Outcome};
+use rocket::request::{FromRequest, Outcome};
 use rocket::{async_trait, get, routes, Build, Request, Rocket, State};
 
 pub struct WebFairing {

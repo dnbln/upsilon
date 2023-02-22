@@ -14,7 +14,6 @@
  *    limitations under the License.
  */
 
-use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;

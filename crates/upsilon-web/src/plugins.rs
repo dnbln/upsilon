@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{error, Build, Rocket};
 use upsilon_plugin_core::PluginConfig;
-use upsilon_plugin_manager::{PluginData, PluginManager, PluginName, PluginRegistry};
+use upsilon_plugin_manager::{PluginManager, PluginName};
 use upsilon_plugins_static::static_plugins;
 
 pub struct PluginsFairing {

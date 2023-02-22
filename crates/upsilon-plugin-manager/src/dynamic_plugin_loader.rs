@@ -74,6 +74,7 @@ impl PluginLoader for DynamicPluginLoader {
 
         let plugin_lib_path = self.plugin_dir.join(plugin_lib_name);
 
+        #[allow(unsafe_code)]
         let plugin_lib = unsafe { Library::new(plugin_lib_path)? };
         let plugin_lib = Arc::new(plugin_lib);
 

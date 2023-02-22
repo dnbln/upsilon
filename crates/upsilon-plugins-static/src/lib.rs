@@ -19,14 +19,12 @@ use std::collections::HashMap;
 use upsilon_plugin_manager::{PluginData, PluginName, PluginRegistry, StaticPluginLoader};
 
 pub fn static_plugins() -> (PluginRegistry, StaticPluginLoader) {
-    let registry = PluginRegistry::new(HashMap::from([
-        // (
-        //     PluginName("upsilon-debug-data-driver".to_string()),
-        //     PluginData {
-        //         dependencies: vec![],
-        //     },
-        // )
-    ]));
+    let registry = PluginRegistry::new(HashMap::from([(
+        PluginName("upsilon-debug-data-driver".to_string()),
+        PluginData {
+            dependencies: vec![],
+        },
+    )]));
 
     macro_rules! crate_plugin {
         ($krate:ident) => {
