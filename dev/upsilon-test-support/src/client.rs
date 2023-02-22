@@ -116,11 +116,11 @@ impl Client {
 }
 
 #[derive(Deserialize)]
-#[serde(from = "serde_json::Value")]
+#[serde(from = "serde::de::IgnoredAny")]
 pub struct Anything;
 
-impl From<serde_json::Value> for Anything {
-    fn from(_value: serde_json::Value) -> Self {
+impl From<serde::de::IgnoredAny> for Anything {
+    fn from(_value: serde::de::IgnoredAny) -> Self {
         Self
     }
 }

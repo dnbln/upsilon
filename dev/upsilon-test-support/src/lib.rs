@@ -261,7 +261,7 @@ impl TestCx {
                 "UPSILON_VCS_GIT-PROTOCOL_PORT",
                 config.git_daemon_port.to_string(),
             )
-            .env("UPSILON_PORTFILE", &portfile_path)
+            .env("UPSILON_PLUGINS_PORTFILE-WRITER_PORTFILE", &portfile_path)
             .env("UPSILON_CONFIG", &config_path)
             .env("UPSILON_DEBUG_GRAPHQL_ENABLED", "true")
             .env("UPSILON_DEBUG_SHUTDOWN-ENDPOINT", "true")

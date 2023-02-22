@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+pub extern crate rocket;
+
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -46,22 +48,16 @@ pub struct PluginMetadata {
     pub name: &'static str,
     pub version: &'static str,
     plugin_api_version: u32,
-    pub create: fn(PluginConfig) -> Result<Box<dyn Plugin>, PluginError>,
 }
 
 pub const CURRENT_PLUGIN_API_VERSION: PluginApiVersion = PluginApiVersion::V0Alpha1;
 
 impl PluginMetadata {
-    pub fn new(
-        name: &'static str,
-        version: &'static str,
-        create: fn(PluginConfig) -> Result<Box<dyn Plugin>, PluginError>,
-    ) -> Self {
+    pub const fn new(name: &'static str, version: &'static str) -> Self {
         Self {
             name,
             version,
             plugin_api_version: CURRENT_PLUGIN_API_VERSION as u32,
-            create,
         }
     }
 
@@ -117,11 +113,16 @@ impl<'registry> dyn PluginLoadApi<'registry> + 'registry {
     }
 }
 
+pub type PluginLoad = fn(PluginConfig) -> Result<Box<dyn Plugin>, PluginError>;
+
 /*
 #[cfg_attr(feature = "dynamic-plugins", no_mangle)]
-pub fn __upsilon_plugin() -> PluginMetadata {
-    PluginMetadata::new("upsilon-sample", "0.0.1", load_sample)
-}
+pub const __UPSILON_METADATA: PluginMetadata =
+    PluginMetadata::new("sample", "0.0.1");
+
+#[cfg_attr(feature = "dynamic-plugins", no_mangle)]
+pub const __UPSILON_PLUGIN: PluginLoad = load_sample;
+
 
 fn load_sample(config: PluginConfig) -> Result<Box<dyn Plugin>, PluginError> {
     let config = config.deserialize::<SamplePluginConfig>()?;
@@ -142,7 +143,7 @@ impl Plugin for SamplePlugin {
     fn init<'a, 'b, 'registry, 'fut>(
         &'a mut self,
         load: &'b mut dyn PluginLoadApi<'registry>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + 'fut>>
+    ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + 'fut>>
         where
             'a: 'fut,
             'registry: 'b,

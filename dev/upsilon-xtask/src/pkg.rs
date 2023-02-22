@@ -22,6 +22,7 @@ use crate::{cargo_cmd, cmd_args, ws_path, ws_root, XtaskResult};
 pub enum PkgKind {
     LocalCrates,
     LocalDev,
+    LocalPlugins,
     CratesIo,
 }
 
@@ -43,6 +44,13 @@ impl Pkg {
         Self {
             name: name.into(),
             kind: PkgKind::LocalCrates,
+        }
+    }
+
+    pub fn plugin_pkg(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            kind: PkgKind::LocalPlugins,
         }
     }
 
@@ -70,7 +78,9 @@ impl Pkg {
     #[track_caller]
     pub fn build_args(&self) -> Vec<OsString> {
         match self.kind {
-            PkgKind::LocalCrates | PkgKind::LocalDev => vec!["-p".into(), self.name.clone().into()],
+            PkgKind::LocalCrates | PkgKind::LocalDev | PkgKind::LocalPlugins => {
+                vec!["-p".into(), self.name.clone().into()]
+            }
             PkgKind::CratesIo => {
                 panic!("Cannot build crates.io package: {}", self.name.as_str())
             }
@@ -80,7 +90,9 @@ impl Pkg {
     #[track_caller]
     pub fn run_args(&self) -> Vec<OsString> {
         match self.kind {
-            PkgKind::LocalCrates | PkgKind::LocalDev => vec!["-p".into(), self.name.clone().into()],
+            PkgKind::LocalCrates | PkgKind::LocalDev | PkgKind::LocalPlugins => {
+                vec!["-p".into(), self.name.clone().into()]
+            }
             PkgKind::CratesIo => {
                 panic!("Cannot run crates.io package: {}", self.name.as_str())
             }
@@ -96,6 +108,10 @@ impl Pkg {
             PkgKind::LocalDev => vec![
                 "--path".into(),
                 ws_path!("dev" / (self.name.as_str())).into(),
+            ],
+            PkgKind::LocalPlugins => vec![
+                "--path".into(),
+                ws_path!("plugins" / (self.name.as_str())).into(),
             ],
             PkgKind::CratesIo => vec![self.name.clone().into()],
         }

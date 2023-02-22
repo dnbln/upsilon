@@ -1161,9 +1161,7 @@ fn main_impl() -> XtaskResult<()> {
 
             cargo_cmd!(
                 "run",
-                ...WS_BIN_LAYOUT.upsilon_main.run_args(),
-                "--",
-                "web",
+                ...WS_BIN_LAYOUT.upsilon_web_main.run_args(),
                 @workdir = ws_path!("testenv"),
             )?;
         }

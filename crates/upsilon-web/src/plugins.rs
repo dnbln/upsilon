@@ -42,18 +42,12 @@ impl Fairing for PluginsFairing {
     }
 
     async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
-        let mut plugin_manager = PluginManager::new(Box::new(static_plugins()), rocket);
+        let (registry, loader) = static_plugins();
+
+        let mut plugin_manager = PluginManager::new(Box::new(loader), rocket);
 
         let r = plugin_manager
-            .load_plugins(
-                &PluginRegistry::new(HashMap::from([(
-                    PluginName("upsilon-debug-data-driver".to_string()),
-                    PluginData {
-                        dependencies: vec![],
-                    },
-                )])),
-                &self.plugins.plugins,
-            )
+            .load_plugins(&registry, &self.plugins.plugins)
             .await;
 
         let rocket = plugin_manager.finish();

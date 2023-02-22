@@ -21,6 +21,14 @@ use upsilon_xtask::cargo_ws::{cargo_config, cargo_ws};
 use upsilon_xtask::pkg::PkgKind;
 use upsilon_xtask::{ws_path, XtaskResult};
 
+fn one_of(v: &[bool]) -> bool {
+    let Some(pos) = v.iter().position(|it| *it) else {
+        return false;
+    };
+
+    v[pos + 1..].iter().all(|it| !*it)
+}
+
 pub fn gen_ws_layout(to: &Path) -> XtaskResult<()> {
     let cargo_config = cargo_config()?;
     let ws = cargo_ws(&cargo_config)?;
@@ -35,12 +43,14 @@ pub fn gen_ws_layout(to: &Path) -> XtaskResult<()> {
         let parent = path.parent().unwrap();
         let is_dev = parent.ends_with("dev");
         let is_crates = parent.ends_with("crates");
+        let is_plugins = parent.ends_with("plugins");
 
-        assert!(is_dev ^ is_crates);
+        assert!(one_of(&[is_dev, is_crates, is_plugins]));
 
-        let kind = match (is_dev, is_crates) {
-            (true, false) => PkgKind::LocalDev,
-            (false, true) => PkgKind::LocalCrates,
+        let kind = match (is_dev, is_crates, is_plugins) {
+            (true, false, false) => PkgKind::LocalDev,
+            (false, true, false) => PkgKind::LocalCrates,
+            (false, false, true) => PkgKind::LocalPlugins,
             _ => unreachable!(),
         };
 
@@ -91,7 +101,8 @@ lazy_static::lazy_static! {
         let pkg_initializer = match kind {
             PkgKind::LocalDev => "dev_pkg",
             PkgKind::LocalCrates => "local_crates",
-            _ => unreachable!(),
+            PkgKind::LocalPlugins => "plugin_pkg",
+            PkgKind::CratesIo => unreachable!(),
         };
 
         ws_pkg_layout.push_str(&format!(

@@ -197,27 +197,6 @@ impl Fairing for ConfigManager {
     }
 }
 
-pub struct PortFileWriter(pub PathBuf);
-
-#[async_trait]
-impl Fairing for PortFileWriter {
-    fn info(&self) -> Info {
-        Info {
-            name: "Port file writer fairing",
-            kind: Kind::Liftoff,
-        }
-    }
-
-    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
-        let port = rocket.config().port;
-        let portfile = &self.0;
-
-        if let Err(e) = tokio::fs::write(portfile, port.to_string()).await {
-            error!("Failed to write port file: {}", e);
-        }
-    }
-}
-
 #[rocket::post("/api/shutdown")]
 async fn shutdown_endpoint(shutdown: Shutdown) {
     shutdown.notify();

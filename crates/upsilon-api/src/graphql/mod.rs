@@ -23,7 +23,9 @@ use std::pin::Pin;
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
 use juniper::marker::IsOutputType;
-use juniper::{graphql_interface, graphql_object, graphql_subscription, FieldError, FieldResult, GraphQLType, GraphQLValue, GraphQLValueAsync, Object, ScalarValue, DefaultScalarValue};
+use juniper::{
+    graphql_interface, graphql_object, graphql_subscription, DefaultScalarValue, FieldError, FieldResult, GraphQLType, GraphQLValue, GraphQLValueAsync, Object, ScalarValue
+};
 use path_slash::PathBufExt;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};

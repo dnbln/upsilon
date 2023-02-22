@@ -20,15 +20,14 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::path::Path;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use rocket::fairing::Fairing;
-use rocket::{error, Build, Rocket, Route};
+use rocket::{error, Build, Rocket};
 use tokio::fs;
 use tokio::sync::Mutex;
 use upsilon_plugin_core::{
-    Plugin, PluginApiVersion, PluginConfig, PluginMetadata, CURRENT_PLUGIN_API_VERSION
+    Plugin, PluginApiVersion, PluginConfig, PluginLoad, PluginMetadata, CURRENT_PLUGIN_API_VERSION
 };
 
 pub trait PluginHolder: Send + 'static {
@@ -101,14 +100,14 @@ where
 }
 
 pub struct StaticPluginLoader {
-    known_plugins: HashMap<&'static str, PluginMetadata>,
+    known_plugins: HashMap<&'static str, (PluginMetadata, PluginLoad)>,
 }
 
 impl StaticPluginLoader {
-    pub fn new<I: IntoIterator<Item = PluginMetadata>>(known_plugins: I) -> Self {
+    pub fn new<I: IntoIterator<Item = (PluginMetadata, PluginLoad)>>(known_plugins: I) -> Self {
         let known_plugins = known_plugins
             .into_iter()
-            .map(|plugin| (plugin.name, plugin))
+            .map(|(metadata, load)| (metadata.name, (metadata, load)))
             .collect::<HashMap<_, _>>();
 
         Self { known_plugins }
@@ -160,18 +159,16 @@ impl PluginLoader for StaticPluginLoader {
     type Holder = Box<dyn Plugin>;
 
     fn load_plugin(&self, name: &str, config: &PluginConfig) -> Result<Self::Holder, Self::Error> {
-        let metadata = match self.known_plugins.get(name) {
+        let (metadata, plugin_load) = match self.known_plugins.get(name) {
             None => {
                 return Err(StaticPluginLoaderError::UnknownPlugin);
             }
-            Some(metadata) => metadata,
+            Some(plugin) => plugin,
         };
 
         check_version(metadata)?;
 
-        let plugin_create = metadata.create;
-
-        let plugin = plugin_create(config.clone())?;
+        let plugin = plugin_load(config.clone())?;
 
         Ok(plugin)
     }

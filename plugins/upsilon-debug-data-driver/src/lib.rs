@@ -16,10 +16,8 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
-use std::sync::Arc;
 
 use log::{error, info, trace};
 use rocket::fairing::{Fairing, Info, Kind};
@@ -27,13 +25,15 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use upsilon_core::config::Cfg;
 use upsilon_plugin_core::{
-    Plugin, PluginConfig, PluginError, PluginMetadata, PluginLoadApi
+    Plugin, PluginConfig, PluginError, PluginLoad, PluginLoadApi, PluginMetadata
 };
 
 #[cfg_attr(feature = "dynamic-plugins", no_mangle)]
-pub fn __upsilon_plugin() -> PluginMetadata {
-    PluginMetadata::new("upsilon-debug-data-driver", "0.0.1", load_debug_data_driver)
-}
+pub const __UPSILON_METADATA: PluginMetadata =
+    PluginMetadata::new("upsilon-debug-data-driver", "0.0.1");
+
+#[cfg_attr(feature = "dynamic-plugins", no_mangle)]
+pub const __UPSILON_PLUGIN: PluginLoad = load_debug_data_driver;
 
 fn load_debug_data_driver(config: PluginConfig) -> Result<Box<dyn Plugin>, PluginError> {
     let config = config.deserialize::<DebugDataDriverConfig>()?;
@@ -108,11 +108,10 @@ impl Plugin for DebugDataDriverPlugin {
         'b: 'fut,
     {
         let fut = async move {
-            load
-                .register_fairing(DebugDataDriverFairing {
-                    config: self.config.clone(),
-                })
-                .await;
+            load.register_fairing(DebugDataDriverFairing {
+                config: self.config.clone(),
+            })
+            .await;
 
             Ok::<_, PluginError>(())
         };

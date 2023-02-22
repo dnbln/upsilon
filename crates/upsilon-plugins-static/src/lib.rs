@@ -14,8 +14,30 @@
  *    limitations under the License.
  */
 
-use upsilon_plugin_manager::StaticPluginLoader;
+use std::collections::HashMap;
 
-pub fn static_plugins() -> StaticPluginLoader {
-    StaticPluginLoader::new([upsilon_debug_data_driver::__upsilon_plugin()])
+use upsilon_plugin_manager::{PluginData, PluginName, PluginRegistry, StaticPluginLoader};
+
+pub fn static_plugins() -> (PluginRegistry, StaticPluginLoader) {
+    let registry = PluginRegistry::new(HashMap::from([
+        // (
+        //     PluginName("upsilon-debug-data-driver".to_string()),
+        //     PluginData {
+        //         dependencies: vec![],
+        //     },
+        // )
+    ]));
+
+    macro_rules! crate_plugin {
+        ($krate:ident) => {
+            ($krate::__UPSILON_METADATA, $krate::__UPSILON_PLUGIN)
+        };
+    }
+
+    let loader = StaticPluginLoader::new([
+        crate_plugin!(upsilon_debug_data_driver),
+        crate_plugin!(upsilon_portfile_writer),
+    ]);
+
+    (registry, loader)
 }

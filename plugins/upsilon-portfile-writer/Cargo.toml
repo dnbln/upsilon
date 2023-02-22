@@ -1,11 +1,13 @@
 [package]
-name = "upsilon-plugins-static"
+name = "upsilon-portfile-writer"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-upsilon-debug-data-driver.workspace = true
-upsilon-plugin-manager.workspace = true
-upsilon-portfile-writer.workspace = true
+log.workspace = true
+serde.workspace = true
+tokio.workspace = true
+
+upsilon-plugin-core.workspace = true

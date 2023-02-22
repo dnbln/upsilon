@@ -4670,6 +4670,17 @@ version = "0.1.0"
 dependencies = [
  "upsilon-debug-data-driver",
  "upsilon-plugin-manager",
+ "upsilon-portfile-writer",
+]
+
+[[package]]
+name = "upsilon-portfile-writer"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "tokio",
+ "upsilon-plugin-core",
 ]
 
 [[package]]

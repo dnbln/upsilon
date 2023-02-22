@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use libloading::{Library, Symbol};
-use upsilon_plugin_core::{Plugin, PluginConfig, PluginMetadata};
+use upsilon_plugin_core::{Plugin, PluginConfig, PluginLoad, PluginMetadata};
 
 use crate::{
     check_version, ApiVersionMismatchError, PluginHolder, PluginLoader, PluginManagerError
@@ -77,16 +77,19 @@ impl PluginLoader for DynamicPluginLoader {
         let plugin_lib = unsafe { Library::new(plugin_lib_path)? };
         let plugin_lib = Arc::new(plugin_lib);
 
-        let symbol: Symbol<extern "C" fn() -> PluginMetadata> =
-            unsafe { plugin_lib.get(b"__upsilon_plugin")? };
+        #[allow(unsafe_code)]
+        let symbol_metadata: Symbol<PluginMetadata> =
+            unsafe { plugin_lib.get(b"__UPSILON_METADATA")? };
 
-        let metadata = symbol();
+        #[allow(unsafe_code)]
+        let symbol_plugin_load: Symbol<PluginLoad> =
+            unsafe { plugin_lib.get(b"__UPSILON_PLUGIN")? };
 
-        check_version(&metadata)?;
+        let metadata = &*symbol_metadata;
 
-        let create_fn = metadata.create;
+        check_version(metadata)?;
 
-        let plugin = create_fn(config.clone())?;
+        let plugin = symbol_plugin_load(config.clone())?;
 
         Ok(DynamicPluginHolder {
             plugin,
