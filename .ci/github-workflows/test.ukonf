@@ -102,7 +102,7 @@ let download_xtask: {
 
 let copy_downloaded_xtask_to_artifact_path: {
     name: 'Copy downloaded xtask to artifact path'
-    run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
+    run: concat('ls -R ', download_xtask_dir, ' && mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
 }
 
 let install_nextest: {
