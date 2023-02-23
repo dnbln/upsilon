@@ -1231,6 +1231,7 @@ fn clean_unneeded_instrumentation_files() -> XtaskResult<()> {
 fn main_impl() -> XtaskResult<()> {
     pretty_env_logger::init_custom_env("UXTASK_LOG");
 
+
     let app: App = App::parse();
 
     match app {

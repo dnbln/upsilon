@@ -24,6 +24,8 @@ jobs:
   compile-xtask-linux:
     name: Compile xtask (Linux)
     runs-on: ubuntu-latest
+    env:
+      UXTASK_USE_GLOBAL_CARGO: '1'
     steps:
     - name: Checkout
       uses: actions/checkout@v3

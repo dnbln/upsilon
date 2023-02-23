@@ -213,6 +213,9 @@ let gql_schema_check compiler xtask: {
 let compile_xtask_job_linux: {
   name: 'Compile xtask (Linux)'
   runs-on: 'ubuntu-latest'
+  env: {
+    UXTASK_USE_GLOBAL_CARGO: '1'
+  }
   steps [
     checkout
     install_lld

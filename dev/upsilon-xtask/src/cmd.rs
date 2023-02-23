@@ -14,10 +14,13 @@
  *    limitations under the License.
  */
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::string::FromUtf8Error;
 use std::{fmt, io};
+
+use log::info;
 
 #[macro_export]
 macro_rules! cmd_args_process {
@@ -396,7 +399,13 @@ macro_rules! npm_cmd {
 }
 
 pub fn cargo_path() -> PathBuf {
-    PathBuf::from(env!("CARGO"))
+    match option_env!("UXTASK_USE_GLOBAL_CARGO") {
+        Some(_) => {
+            info!("UXTASK_USE_GLOBAL_CARGO is set, using global cargo");
+            PathBuf::from("cargo")
+        }
+        None => PathBuf::from(env!("CARGO")),
+    }
 }
 
 #[cfg(not(windows))]
