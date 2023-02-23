@@ -42,6 +42,7 @@ impl Fairing for PluginsFairing {
     }
 
     async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
+        #[cfg(feature = "static-plugins")]
         let (registry, loader) = static_plugins();
 
         let mut plugin_manager = PluginManager::new(Box::new(loader), rocket);

@@ -17,6 +17,7 @@
 mod config;
 mod data;
 mod git;
+#[cfg(feature = "plugins")]
 mod plugins;
 
 use config::Config;
@@ -30,7 +31,6 @@ use upsilon_web_interface::WebFairing;
 
 use crate::config::{DebugConfig, FrontendConfig, GitSshProtocol};
 use crate::data::{DataBackendConfig, InMemoryDataBackendFairing, PostgresDataBackendFairing};
-use crate::plugins::PluginsFairing;
 
 pub struct ConfigManager;
 
@@ -172,8 +172,9 @@ impl Fairing for ConfigManager {
             FrontendConfig::Disabled => {}
         }
 
+        #[cfg(feature = "plugins")]
         if let Some(plugins) = plugins {
-            rocket = rocket.attach(PluginsFairing { plugins });
+            rocket = rocket.attach(crate::plugins::PluginsFairing { plugins });
         }
 
         Ok(rocket

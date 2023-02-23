@@ -215,8 +215,6 @@ impl<'a> upsilon_plugin_core::PluginLoadApi<'a> for PluginLoadApiImpl {
             name,
         };
 
-        println!("Registering liftoff hook: {hook_info:?}");
-
         let mut lock = self.liftoff_hooks.lock().await;
 
         lock.push((hook_info, hook));

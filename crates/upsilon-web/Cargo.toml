@@ -5,6 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["static-plugins"]
+static-plugins = ["upsilon-plugins-static", "plugins"]
+plugins = []
+
 [dependencies]
 figment = { version = "0.10.8", features = ["yaml"] }
 futures.workspace = true
@@ -26,7 +31,7 @@ upsilon-id.workspace = true
 upsilon-data-cache-inmemory.workspace = true
 upsilon-plugin-core.workspace = true
 upsilon-plugin-manager.workspace = true
-upsilon-plugins-static.workspace = true
+upsilon-plugins-static = { workspace = true, optional = true }
 upsilon-ssh.workspace = true
 upsilon-ssh-russh.workspace = true
 upsilon-vcs.workspace = true
