@@ -14,7 +14,6 @@
  *    limitations under the License.
  */
 
-use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::string::FromUtf8Error;

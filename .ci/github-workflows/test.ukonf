@@ -279,8 +279,25 @@ jobs {
     ]
   }
 
+  lint {
+    name: 'Lint'
+    runs-on: 'ubuntu-latest'
+    needs: compile_xtask_job_linux_key
+
+    steps [
+      checkout
+      install_lld
+      install_openssl
+      install_rust
+      install_clippy
+      download_xtask
+      copy_downloaded_xtask_to_artifact_path
+      lint
+    ]
+  }
+
   test-win {
-    let cx xtask_is_win: true
+    let cx xtask_cargo_run: true
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
 
@@ -312,7 +329,6 @@ jobs {
         """
       }
       compile_xtask
-      copy_xtask_to_artifact_win
       compile_binaries_and_tests
       run_tests
       run_doctests
@@ -320,6 +336,7 @@ jobs {
   }
 
   test-linux {
+    let cx xtask_cargo_run: true
     name: 'Test (Linux)'
     runs-on: 'ubuntu-latest'
 
@@ -342,7 +359,6 @@ jobs {
         """
       }
       compile_xtask
-      copy_xtask_to_artifact
       compile_binaries_and_tests
       run_tests
       run_doctests
@@ -350,6 +366,7 @@ jobs {
   }
 
   test-linux-with-difftests {
+    let cx xtask_cargo_run: true
     name: 'Test (Linux with difftests)'
     runs-on: 'ubuntu-latest'
 
@@ -372,13 +389,13 @@ jobs {
         """
       }
       compile_xtask
-      copy_xtask_to_artifact
       compile_binaries_and_tests_with_difftests
       run_tests_with_difftests
     ]
   }
 
   test-linux-only-difftests {
+    let cx xtask_cargo_run: true
     name: 'Test (Linux only difftests)'
     runs-on: 'ubuntu-latest'
 
@@ -402,26 +419,8 @@ jobs {
         """
       }
       compile_xtask
-      copy_xtask_to_artifact
       compile_binaries_and_tests_with_difftests
       run_only_difftests
-    ]
-  }
-
-  lint {
-    name: 'Lint'
-    runs-on: 'ubuntu-latest'
-    needs: compile_xtask_job_linux_key
-
-    steps [
-      checkout
-      install_lld
-      install_openssl
-      install_rust
-      install_clippy
-      download_xtask
-      copy_downloaded_xtask_to_artifact_path
-      lint
     ]
   }
 }

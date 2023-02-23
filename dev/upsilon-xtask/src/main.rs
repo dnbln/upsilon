@@ -1085,7 +1085,29 @@ pub fn ukonf_add_win_path(fns: &mut UkonfFunctions) {
     });
 }
 
-pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<String, UkonfFnError> {
+enum UkonfXtaskPath {
+    Artifact(String),
+    CargoRun,
+}
+
+impl UkonfXtaskPath {
+    fn run(&self) -> &str {
+        match self {
+            UkonfXtaskPath::Artifact(path) => path,
+            UkonfXtaskPath::CargoRun => "cargo xtask",
+        }
+    }
+}
+
+fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<UkonfXtaskPath, UkonfFnError> {
+    let xtask_cargo_run = Scope::resolve_cx(scope, "xtask_cargo_run")
+        .transpose()?
+        .map_or(Ok(false), |v| v.expect_bool())?;
+
+    if xtask_cargo_run {
+        return Ok(UkonfXtaskPath::CargoRun);
+    }
+
     let mut xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
         .context("xtask_path: xtask_artifact_path not found")??
         .expect_string()?;
@@ -1104,7 +1126,7 @@ pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<String, UkonfFnErr
         );
     }
 
-    Ok(xtask_artifact_path)
+    Ok(UkonfXtaskPath::Artifact(xtask_artifact_path))
 }
 
 pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
@@ -1125,10 +1147,11 @@ pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
 
         let r = run.as_mut_object().context("xtask: expected object")?;
 
-        let xtask_artifact_path = ukonf_xtask_path(scope)?;
+        let xtask_path = ukonf_xtask_path(scope)?;
 
         *run = UkonfValue::Str(format!(
-            "{xtask_artifact_path} {}",
+            "{} {}",
+            xtask_path.run(),
             r.get("xtask")
                 .context("xtask: expected xtask property")?
                 .as_string()
@@ -1222,7 +1245,6 @@ fn clean_unneeded_instrumentation_files() -> XtaskResult<()> {
 
 fn main_impl() -> XtaskResult<()> {
     pretty_env_logger::init_custom_env("UXTASK_LOG");
-
 
     let app: App = App::parse();
 
