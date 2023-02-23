@@ -24,7 +24,7 @@ use std::rc::Rc;
 use anyhow::{bail, format_err, Context};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
-use path_slash::{PathBufExt, PathExt};
+use path_slash::PathBufExt;
 use toml_edit::{Item, Key, TableLike};
 use ukonf::value::{UkonfObject, UkonfValue};
 use ukonf::{Scope, UkonfFnError, UkonfFunctions};
