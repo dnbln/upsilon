@@ -145,13 +145,13 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
-      run: mkdir ./ci-artifacts && copy target\\debug\\upsilon-xtask.exe ./ci-artifacts/upsilon-xtask
+      run: mkdir .\ci-artifacts && copy .\target\debug\upsilon-xtask.exe .\ci-artifacts\upsilon-xtask
     - name: Compile binaries and tests
-      run: ./ci-artifacts/upsilon-xtask test --verbose --no-run --profile ci
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-run --profile ci
     - name: Run tests
-      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --profile ci
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-fail-fast --profile ci
     - name: Run doctests
-      run: ./ci-artifacts/upsilon-xtask test --verbose --no-fail-fast --doc --profile ci
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-fail-fast --doc --profile ci
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest

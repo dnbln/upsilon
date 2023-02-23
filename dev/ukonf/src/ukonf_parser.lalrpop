@@ -13,7 +13,7 @@ AstItem: AstItem = {
 };
 
 AstDecl: AstDecl = {
-    <let_kw: LetKw> <cx_kw: CxKw?> <name: Ident> <colon: Colon> <value: AstVal> => AstDecl{ let_kw, cx_kw, name, colon, value },
+    <let_kw: LetKw> <cx_kw: CxKw?> <name: Ident> <compiler: (CompilerKw Ident)?> <colon: Colon> <value: AstVal> => AstDecl{ let_kw, cx_kw, name, compiler, colon, value },
 };
 
 KV: KV = {
@@ -34,6 +34,7 @@ Import: Import = SpannedInto<"import", Import>;
 AsKw: AsKw = SpannedInto<"as", AsKw>;
 LetKw: LetKw = SpannedInto<"let", LetKw>;
 CxKw: CxKw = SpannedInto<"cx", CxKw>;
+CompilerKw: CompilerKw = SpannedInto<"compiler", CompilerKw>;
 Null: Null = SpannedInto<"null", Null>;
 
 

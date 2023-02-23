@@ -46,6 +46,13 @@ impl UkonfValue {
         }
     }
 
+    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+        match self {
+            UkonfValue::Str(s) => Some(s),
+            _ => None,
+        }
+    }
+
     pub fn into_string(self) -> Result<String, Self> {
         match self {
             UkonfValue::Str(s) => Ok(s),
@@ -57,6 +64,20 @@ impl UkonfValue {
         match self {
             UkonfValue::Str(s) => Ok(s),
             v => Err(format_err!("Expected string, got: {v:?}")),
+        }
+    }
+
+    pub fn clone_to_string(&self) -> Result<String, UkonfFnError> {
+        match self {
+            UkonfValue::Str(s) => Ok(s.clone()),
+            v => Err(format_err!("Expected string, got: {v:?}")),
+        }
+    }
+
+    pub fn expect_bool(self) -> Result<bool, UkonfFnError> {
+        match self {
+            UkonfValue::Bool(b) => Ok(b),
+            v => Err(format_err!("Expected bool, got: {v:?}")),
         }
     }
 
@@ -107,6 +128,36 @@ impl UkonfValue {
     }
 }
 
+impl From<String> for UkonfValue {
+    fn from(s: String) -> Self {
+        Self::Str(s)
+    }
+}
+
+impl From<&str> for UkonfValue {
+    fn from(s: &str) -> Self {
+        Self::Str(s.to_string())
+    }
+}
+
+impl From<bool> for UkonfValue {
+    fn from(b: bool) -> Self {
+        Self::Bool(b)
+    }
+}
+
+impl From<Vec<UkonfValue>> for UkonfValue {
+    fn from(v: Vec<UkonfValue>) -> Self {
+        Self::Array(v)
+    }
+}
+
+impl From<UkonfObject> for UkonfValue {
+    fn from(o: UkonfObject) -> Self {
+        Self::Object(o)
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct UkonfObject {
     map: Vec<UkonfValue>,
@@ -124,6 +175,11 @@ impl UkonfObject {
     pub fn insert(&mut self, key: String, value: UkonfValue) {
         self.key_map.insert(key, self.map.len());
         self.map.push(value);
+    }
+
+    pub fn with(mut self, key: impl Into<String>, value: impl Into<UkonfValue>) -> Self {
+        self.insert(key.into(), value.into());
+        self
     }
 
     pub fn get(&self, key: &str) -> Option<&UkonfValue> {

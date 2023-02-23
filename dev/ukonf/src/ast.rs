@@ -235,6 +235,7 @@ pub struct AstDecl {
     pub let_kw: LetKw,
     pub cx_kw: Option<CxKw>,
     pub name: Ident,
+    pub compiler: Option<(CompilerKw, Ident)>,
     pub colon: Colon,
     pub value: AstVal,
 }
@@ -303,6 +304,7 @@ kw!(Import, "import");
 kw!(AsKw, "as");
 kw!(LetKw, "let");
 kw!(CxKw, "cx");
+kw!(CompilerKw, "compiler");
 kw!(Null, "null");
 
 pub struct AstImport {

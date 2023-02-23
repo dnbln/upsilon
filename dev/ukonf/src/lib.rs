@@ -160,6 +160,7 @@ pub struct UkonfFunctions {
         String,
         fn(&Rc<RefCell<Scope>>, &[UkonfValue]) -> Result<UkonfValue, UkonfFnError>,
     >,
+    compiler_functions: BTreeMap<String, UkonfContextualValueCompiler>,
 }
 
 pub type UkonfFnError = anyhow::Error;
@@ -184,6 +185,16 @@ impl UkonfFunctions {
         f: fn(&Rc<RefCell<Scope>>, &[UkonfValue]) -> Result<UkonfValue, UkonfFnError>,
     ) -> &mut Self {
         self.functions.insert(name.into(), f);
+        self
+    }
+
+    pub fn add_compiler_fn(
+        &mut self,
+        name: impl Into<String>,
+        f: fn(&Rc<RefCell<Scope>>, UkonfValue) -> Result<UkonfValue, UkonfFnError>,
+    ) -> &mut Self {
+        self.compiler_functions
+            .insert(name.into(), UkonfContextualValueCompiler { f });
         self
     }
 }
@@ -311,9 +322,11 @@ impl UkonfRunner {
             AstVal::Null(_) => UkonfValue::Null,
             AstVal::Ident(ident) => {
                 let name = &ident.0 .0;
-                Scope::resolve(scope, name).ok_or_else(|| {
-                    UkonfRunError::UndefinedVariable(name.clone(), ident.0 .1.clone())
-                })?
+                Scope::resolve(scope, name)
+                    .ok_or_else(|| {
+                        UkonfRunError::UndefinedVariable(name.clone(), ident.0 .1.clone())
+                    })?
+                    .fn_error(&ident.0 .1)?
             }
             AstVal::Str(s) => UkonfValue::Str(s.str_val().into_owned()),
             AstVal::Num(NumLit::Int(Spanned(v, _))) => UkonfValue::Num(value::NumValue::Int(*v)),
@@ -351,16 +364,12 @@ impl UkonfRunner {
                     .map(|it| self.run_value(files, file_id, scope, it))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let r = f(scope, &args);
-
-                match r {
-                    Ok(v) => v,
-                    Err(e) => return Err(UkonfRunError::FnError(e, call.span())),
-                }
+                f(scope, &args).fn_error(&call.span())?
             }
             AstVal::Dot(base, _, k) => {
                 let base_value = Scope::resolve(scope, &base.0 .0)
-                    .ok_or_else(|| UkonfRunError::UndefinedVariable(base.0 .0.clone(), k.span()))?;
+                    .ok_or_else(|| UkonfRunError::UndefinedVariable(base.0 .0.clone(), k.span()))?
+                    .fn_error(&base.0 .1)?;
                 let (name, indirections) = k.key().lower();
                 let mut name = name.to_string();
                 let span = k.span();
@@ -396,10 +405,27 @@ impl UkonfRunner {
                         None => CxKind::Local,
                     };
 
+                    let compiler = match &decl.compiler {
+                        Some((_, compiler)) => {
+                            let compiler_fn = self.functions.compiler_functions.get(&compiler.0 .0);
+
+                            match compiler_fn {
+                                Some(c) => Some(*c),
+                                None => {
+                                    return Err(UkonfRunError::UnknownFunction(
+                                        compiler.0 .0.clone(),
+                                        compiler.0 .1.clone(),
+                                    ))
+                                }
+                            }
+                        }
+                        None => None,
+                    };
+
                     scope
                         .borrow_mut()
                         .vars
-                        .insert(decl.name.0 .0.clone(), (cx_kind, value));
+                        .insert(decl.name.0 .0.clone(), (cx_kind, value, compiler));
                 }
                 AstItem::DocPatch(patch) => {
                     let mut t = &mut result;
@@ -477,7 +503,7 @@ impl UkonfRunner {
             scope
                 .borrow_mut()
                 .vars
-                .insert(id, (CxKind::Local, UkonfValue::Object(obj)));
+                .insert(id, (CxKind::Local, UkonfValue::Object(obj), None));
         }
 
         self.run_scope(&files, file_id, &scope, &ast.items)
@@ -498,7 +524,12 @@ impl UkonfRunner {
 
 pub struct Scope {
     parent: Option<Rc<RefCell<Scope>>>,
-    vars: BTreeMap<String, (CxKind, UkonfValue)>,
+    vars: BTreeMap<String, (CxKind, UkonfValue, Option<UkonfContextualValueCompiler>)>,
+}
+
+#[derive(Copy, Clone)]
+pub struct UkonfContextualValueCompiler {
+    f: fn(&Rc<RefCell<Scope>>, UkonfValue) -> Result<UkonfValue, UkonfFnError>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -508,14 +539,23 @@ enum CxKind {
 }
 
 impl Scope {
-    fn resolve(scope: &Rc<RefCell<Self>>, name: &str) -> Option<UkonfValue> {
-        Scope::resolve_one(Rc::clone(scope), name).map(|((_, v), _)| v)
+    fn resolve(scope: &Rc<RefCell<Self>>, name: &str) -> Option<Result<UkonfValue, UkonfFnError>> {
+        Scope::resolve_one(Rc::clone(scope), name).map(|((_, v, c), _)| match c {
+            Some(c) => (c.f)(scope, v),
+            None => Ok(v),
+        })
     }
 
-    pub fn resolve_cx(scope: &Rc<RefCell<Self>>, name: &str) -> Option<UkonfValue> {
-        Scope::resolve_one(Rc::clone(scope), name).and_then(|((k, v), _)| {
+    pub fn resolve_cx(
+        scope: &Rc<RefCell<Self>>,
+        name: &str,
+    ) -> Option<Result<UkonfValue, UkonfFnError>> {
+        Scope::resolve_one(Rc::clone(scope), name).and_then(|((k, v, c), _)| {
             if let CxKind::Cx = k {
-                Some(v)
+                Some(match c {
+                    Some(compiler) => (compiler.f)(scope, v),
+                    None => Ok(v),
+                })
             } else {
                 None
             }
@@ -525,7 +565,10 @@ impl Scope {
     fn resolve_one<'a>(
         scope: Rc<RefCell<Self>>,
         name: &str,
-    ) -> Option<((CxKind, UkonfValue), Rc<RefCell<Self>>)> {
+    ) -> Option<(
+        (CxKind, UkonfValue, Option<UkonfContextualValueCompiler>),
+        Rc<RefCell<Self>>,
+    )> {
         let v = scope.borrow().vars.get(name).cloned();
         match v {
             Some(val) => Some((val, scope)),
@@ -545,7 +588,8 @@ impl Scope {
     ) -> Result<UkonfValue, UkonfRunError> {
         if indirections == 1 {
             return Scope::resolve(scope, name)
-                .ok_or_else(|| UkonfRunError::UndefinedVariable(name.to_string(), span.clone()));
+                .ok_or_else(|| UkonfRunError::UndefinedVariable(name.to_string(), span.clone()))?
+                .fn_error(span);
         }
 
         let mut name = name.to_string();
@@ -567,14 +611,15 @@ impl Scope {
         let mut resolver_scope = R::Ref(scope);
 
         for _ in 1..indirections {
-            let ((_, v), scope) = Scope::resolve_one(Rc::clone(resolver_scope.as_ref()), &name)
+            let ((_, v, _), scope) = Scope::resolve_one(Rc::clone(resolver_scope.as_ref()), &name)
                 .ok_or_else(|| UkonfRunError::UndefinedVariable(name, span.clone()))?;
             name = v._expect_string(span)?;
             resolver_scope = R::Owned(scope);
         }
 
         Scope::resolve(resolver_scope.as_ref(), &name)
-            .ok_or_else(|| UkonfRunError::UndefinedVariable(name, span.clone()))
+            .ok_or_else(|| UkonfRunError::UndefinedVariable(name, span.clone()))?
+            .fn_error(span)
     }
 }
 
@@ -602,3 +647,13 @@ pub mod value;
 
 #[cfg(test)]
 mod tests;
+
+trait FnError<T> {
+    fn fn_error(self, span: &Span) -> Result<T, UkonfRunError>;
+}
+
+impl<T> FnError<T> for Result<T, UkonfFnError> {
+    fn fn_error(self, span: &Span) -> Result<T, UkonfRunError> {
+        self.map_err(|e| UkonfRunError::FnError(e, span.clone()))
+    }
+}

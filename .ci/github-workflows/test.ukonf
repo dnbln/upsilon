@@ -79,7 +79,7 @@ let copy_xtask_to_artifact: {
 
 let copy_xtask_to_artifact_win: {
   name: 'Copy xtask to artifact'
-  run: concat('mkdir ', parent_dir(xtask_artifact_path), ' && copy target\\debug\\upsilon-xtask.exe ', xtask_artifact_path)
+  run: concat('mkdir ', win_path(parent_dir(xtask_artifact_path)), ' && copy .\target\debug\upsilon-xtask.exe ', win_path(xtask_artifact_path))
 }
 
 let upload_xtask: {
@@ -113,22 +113,22 @@ let install_nextest: {
   uses: 'taiki-e/install-action@nextest'
 }
 
-let compile_binaries_and_tests: {
+let compile_binaries_and_tests compiler xtask: {
   name: 'Compile binaries and tests'
   run: xtask('test --verbose --no-run --profile ci')
 }
 
-let run_tests: {
+let run_tests compiler xtask: {
   name: 'Run tests'
   run: xtask('test --verbose --no-fail-fast --profile ci')
 }
 
-let compile_binaries_and_tests_with_difftests: {
+let compile_binaries_and_tests_with_difftests compiler xtask: {
   name: 'Compile binaries and tests (with difftests)'
   run: xtask('test --verbose --no-run --profile difftests')
 }
 
-let run_tests_with_difftests: {
+let run_tests_with_difftests compiler xtask: {
   name: 'Run tests (with difftests)'
   run: xtask('test --verbose --no-fail-fast --profile difftests')
 }
@@ -154,7 +154,7 @@ let get_old_commit: {
   }
 }
 
-let run_only_difftests: {
+let run_only_difftests compiler xtask: {
   name: 'Run tests (only difftests)'
   run: xtask(concat(
     'test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ',
@@ -162,7 +162,7 @@ let run_only_difftests: {
   ))
 }
 
-let run_doctests: {
+let run_doctests compiler xtask: {
   name: 'Run doctests'
   run: xtask('test --verbose --no-fail-fast --doc --profile ci')
 }
@@ -172,9 +172,42 @@ let install_clippy: {
   run: 'rustup component add clippy'
 }
 
-let lint: {
+let lint compiler xtask: {
   name: 'Lint'
   run: xtask('lint')
+}
+
+let check_ci_files_up_to_date compiler xtask: {
+  name: 'Run ci files up to date check'
+  run: xtask('check-ci-files-up-to-date')
+}
+
+let fmt_check compiler xtask: {
+  name: 'Run fmt check'
+  run: xtask('fmt-check')
+}
+
+let git_checks compiler xtask: {
+  name: 'Git checks'
+  run: xtask('git-checks --checkout')
+  if: 'success() || failure()'
+}
+
+let check_cargo_dep_order compiler xtask: {
+  name: 'Check Cargo.toml dependencies order'
+  run: xtask('check-cargo-dep-order')
+  if: 'success() || failure()'
+}
+
+let check_cargo_dep_from_workspace compiler xtask: {
+  name: 'Check Cargo.toml dependencies from workspace.dependencies'
+  run: xtask('check-cargo-dep-from-workspace')
+  if: 'success() || failure()'
+}
+
+let gql_schema_check compiler xtask: {
+  name: 'Run gql schema check'
+  run: xtask('graphql-schema-check')
 }
 
 let compile_xtask_job_linux: {
@@ -206,25 +239,10 @@ jobs {
       install_rustfmt
       download_xtask
       copy_downloaded_xtask_to_artifact_path
-      {
-        name: 'Run fmt check'
-        run: xtask('fmt-check')
-      }
-      {
-        name: 'Git checks'
-        run: xtask('git-checks --checkout')
-        if: 'success() || failure()'
-      }
-      {
-        name: 'Check Cargo.toml dependencies order'
-        run: xtask('check-cargo-dep-order')
-        if: 'success() || failure()'
-      }
-      {
-        name: 'Check Cargo.toml dependencies from workspace.dependencies'
-        run: xtask('check-cargo-dep-from-workspace')
-        if: 'success() || failure()'
-      }
+      fmt_check
+      git_checks
+      check_cargo_dep_order
+      check_cargo_dep_from_workspace
     ]
   }
 
@@ -239,10 +257,7 @@ jobs {
       install_rust
       download_xtask
       copy_downloaded_xtask_to_artifact_path
-      {
-        name: 'Run gql schema check'
-        run: xtask('graphql-schema-check')
-      }
+      gql_schema_check
     ]
   }
 
@@ -257,14 +272,12 @@ jobs {
       install_rust
       download_xtask
       copy_downloaded_xtask_to_artifact_path
-      {
-        name: 'Run ci files up to date check'
-        run: xtask('check-ci-files-up-to-date')
-      }
+      check_ci_files_up_to_date
     ]
   }
 
   test-win {
+    let cx xtask_is_win: true
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
 

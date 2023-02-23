@@ -14,17 +14,19 @@
  *    limitations under the License.
  */
 
+use std::cell::RefCell;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use anyhow::{bail, format_err, Context};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
-use path_slash::PathExt;
+use path_slash::{PathBufExt, PathExt};
 use toml_edit::{Item, Key, TableLike};
-use ukonf::value::UkonfValue;
+use ukonf::value::{UkonfObject, UkonfValue};
 use ukonf::{Scope, UkonfFnError, UkonfFunctions};
 use upsilon_xtask::cmd::cargo_build_profiles_dir;
 use upsilon_xtask::difftests::{DiffTestsCommand, DirtyAlgo};
@@ -1057,23 +1059,87 @@ pub fn ukonf_normal_functions() -> UkonfFunctions {
     fns
 }
 
+pub fn convert_path_to_win(path: &str) -> PathBuf {
+    PathBuf::from_slash(path)
+}
+
+pub fn ukonf_add_win_path(fns: &mut UkonfFunctions) {
+    fns.add_fn("win_path", |_scope, args| {
+        if args.len() != 1 {
+            bail!("win_path: expected exactly one argument");
+        }
+
+        let path = args[0].clone_to_string()?;
+
+        let path = convert_path_to_win(&path);
+
+        Ok(UkonfValue::Str(
+            path.to_str()
+                .context("win_path: invalid utf-8")?
+                .to_string(),
+        ))
+    });
+}
+
+pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<PathBuf, UkonfFnError> {
+    let xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
+        .context("xtask_path: xtask_artifact_path not found")??
+        .expect_string()?;
+
+    let xtask_is_win = Scope::resolve_cx(scope, "xtask_is_win")
+        .transpose()?
+        .map_or(Ok(false), |v| v.expect_bool())?;
+
+    let mut xtask_artifact_path = PathBuf::from(xtask_artifact_path);
+
+    if xtask_is_win {
+        xtask_artifact_path = convert_path_to_win(
+            xtask_artifact_path
+                .to_str()
+                .context("xtask_path: invalid utf-8 for xtask_artifact_path")?,
+        );
+        xtask_artifact_path.set_extension("exe");
+    }
+
+    Ok(xtask_artifact_path)
+}
+
 pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
     fns.add_fn("xtask", |scope, args| {
         if args.len() != 1 {
             bail!("xtask: expected exactly one argument");
         }
 
-        let xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
-            .context("xtask: xtask_artifact_path not found")?
-            .expect_string()?;
-
         let xtask = args[0].as_string().context("xtask: expected string")?;
 
-        Ok(UkonfValue::Str(format!("{xtask_artifact_path} {xtask}")))
+        Ok(UkonfValue::Object(
+            UkonfObject::new().with("xtask", &**xtask),
+        ))
+    })
+    .add_compiler_fn("xtask", |scope, mut xtask_v| {
+        let xtask_obj = xtask_v.as_mut_object().context("xtask: expected object")?;
+        let run = xtask_obj.get_mut("run").context("xtask: expected run")?;
+
+        let r = run.as_mut_object().context("xtask: expected object")?;
+
+        let xtask_artifact_path = ukonf_xtask_path(scope)?;
+
+        *run = UkonfValue::Str(format!(
+            "{} {}",
+            xtask_artifact_path
+                .to_str()
+                .context("xtask: invalid utf-8")?,
+            r.get("xtask")
+                .context("xtask: expected xtask property")?
+                .as_string()
+                .context("xtask: expected string")?
+        ));
+
+        Ok(xtask_v)
     });
 }
 
-const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[ukonf_add_xtask];
+const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[ukonf_add_xtask, ukonf_add_win_path];
 
 pub fn ukonf_ci_functions() -> UkonfFunctions {
     let mut fns = UkonfFunctions::new();
