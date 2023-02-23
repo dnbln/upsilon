@@ -1059,8 +1059,24 @@ pub fn ukonf_normal_functions() -> UkonfFunctions {
     fns
 }
 
-pub fn convert_path_to_win(path: &str) -> PathBuf {
-    PathBuf::from_slash(path)
+pub fn convert_path_to_win(path: &str) -> String {
+    #[cfg(not(windows))]
+    {
+        let mut result = String::new();
+        for c in path.to_str().unwrap().chars() {
+            if c == '/' {
+                result.push('\\');
+            } else {
+                result.push(c);
+            }
+        }
+        result
+    }
+
+    #[cfg(windows)]
+    {
+        PathBuf::from_slash(path).to_str().unwrap().to_string()
+    }
 }
 
 pub fn ukonf_add_win_path(fns: &mut UkonfFunctions) {
@@ -1073,16 +1089,12 @@ pub fn ukonf_add_win_path(fns: &mut UkonfFunctions) {
 
         let path = convert_path_to_win(&path);
 
-        Ok(UkonfValue::Str(
-            path.to_str()
-                .context("win_path: invalid utf-8")?
-                .to_string(),
-        ))
+        Ok(UkonfValue::Str(path))
     });
 }
 
-pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<PathBuf, UkonfFnError> {
-    let xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
+pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<String, UkonfFnError> {
+    let mut xtask_artifact_path = Scope::resolve_cx(scope, "xtask_artifact_path")
         .context("xtask_path: xtask_artifact_path not found")??
         .expect_string()?;
 
@@ -1090,15 +1102,14 @@ pub fn ukonf_xtask_path(scope: &Rc<RefCell<Scope>>) -> Result<PathBuf, UkonfFnEr
         .transpose()?
         .map_or(Ok(false), |v| v.expect_bool())?;
 
-    let mut xtask_artifact_path = PathBuf::from(xtask_artifact_path);
-
     if xtask_is_win {
+        let mut p = PathBuf::from(xtask_artifact_path);
+        p.set_extension("exe");
+
         xtask_artifact_path = convert_path_to_win(
-            xtask_artifact_path
-                .to_str()
+            p.to_str()
                 .context("xtask_path: invalid utf-8 for xtask_artifact_path")?,
         );
-        xtask_artifact_path.set_extension("exe");
     }
 
     Ok(xtask_artifact_path)
@@ -1125,10 +1136,7 @@ pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
         let xtask_artifact_path = ukonf_xtask_path(scope)?;
 
         *run = UkonfValue::Str(format!(
-            "{} {}",
-            xtask_artifact_path
-                .to_str()
-                .context("xtask: invalid utf-8")?,
+            "{xtask_artifact_path} {}",
             r.get("xtask")
                 .context("xtask: expected xtask property")?
                 .as_string()
