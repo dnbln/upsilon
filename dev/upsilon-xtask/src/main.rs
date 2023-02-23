@@ -1062,15 +1062,7 @@ pub fn ukonf_normal_functions() -> UkonfFunctions {
 pub fn convert_path_to_win(path: &str) -> String {
     #[cfg(not(windows))]
     {
-        let mut result = String::new();
-        for c in path.to_str().unwrap().chars() {
-            if c == '/' {
-                result.push('\\');
-            } else {
-                result.push(c);
-            }
-        }
-        result
+        path.replace('/', "\\")
     }
 
     #[cfg(windows)]
