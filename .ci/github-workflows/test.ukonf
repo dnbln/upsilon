@@ -231,6 +231,7 @@ let compile_xtask_job_linux_key: 'compile-xtask-linux'
 
 let openssl_cache_key: 'build-openssl-win'
 let openssl_triple: 'x64-windows-static-md'
+let openssl_artifacts_name: 'openssl-artifacts'
 
 let compile_openssl_job_win: {
   let restore_build_openssl_id: 'restore_build_openssl'
@@ -250,10 +251,7 @@ let compile_openssl_job_win: {
         OPENSSL_TRIPLE: openssl_triple
       }
       with {
-        path: """
-          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\lib
-          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\include
-        """
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}'
         key: openssl_cache_key
       }
     }
@@ -269,13 +267,22 @@ let compile_openssl_job_win: {
         OPENSSL_TRIPLE: openssl_triple
       }
       with {
-        path: """
-          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\lib
-          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\include
-        """
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}'
         key: openssl_cache_key
       }
       if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+    }
+    {
+      name: 'Upload openssl artifacts'
+      uses: 'actions/upload-artifact@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        name: openssl_artifacts_name
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\*'
+        if-no-files-found: 'error'
+      }
     }
   ]
 }
@@ -354,7 +361,6 @@ jobs {
 
   test-win {
     let cx xtask_cargo_run: true
-    let restore_build_openssl_id: 'restore_build_openssl'
 
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
@@ -368,27 +374,19 @@ jobs {
       }
       {
         name: 'Restore built openssl'
-        id: restore_build_openssl_id
-        uses: 'actions/cache/restore@v3'
-        env {
-          OPENSSL_TRIPLE: openssl_triple
-        }
+        uses: 'actions/download-artifact@v3'
         with {
-          path: """
-            target\openssl\lib
-            target\openssl\include
-          """
-          key: openssl_cache_key
+          path: 'target\openssl'
+          name: openssl_artifacts_name
         }
       }
       {
-        name: 'Fail if openssl is not found'
-        run: 'exit 1'
-        if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+        name: 'List downloaded openssl directory structure'
+        run: 'ls -R target\openssl'
       }
       {
         name: 'Set up openssl env'
-        run: 'echo "OPENSSL_DIR=target\\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
+        run: 'echo "OPENSSL_DIR=target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
       install_rust
       install_nextest
