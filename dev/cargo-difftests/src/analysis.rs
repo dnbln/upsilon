@@ -500,12 +500,17 @@ pub enum AnalysisResult {
 /// ```
 /// # use std::path::Path;
 /// # use cargo_difftests::analysis::file_is_from_cargo_registry;
+/// # use home::cargo_home;
 ///
-/// assert!(file_is_from_cargo_registry(Path::new(concat!(env!("CARGO_HOME"), "/registry/src/github.com-1ecc6299db9ec823/serde-1.0.130/src/ser/impls.rs"))));
+/// assert!(file_is_from_cargo_registry(&cargo_home()?.join("registry/src/github.com-1ecc6299db9ec823/serde-1.0.130/src/ser/impls.rs")));
 /// assert!(!file_is_from_cargo_registry(Path::new("src/main.rs")));
+///
+/// # Ok::<(), std::io::Error>(())
 /// ```
 pub fn file_is_from_cargo_registry(f: &Path) -> bool {
-    f.starts_with(concat!(env!("CARGO_HOME"), "/registry"))
+    let Ok(p) = home::cargo_home() else {return false;};
+    let registry = p.join("registry");
+    f.starts_with(&registry)
 }
 
 /// Returns a [`BTreeSet`] of the files that were touched by the test (have an execution_count > 0),

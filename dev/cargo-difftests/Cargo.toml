@@ -13,6 +13,7 @@ cargo-difftests-core.workspace = true
 chrono.workspace = true
 clap.workspace = true
 git2.workspace = true
+home = "0.5.4"
 log.workspace = true
 path-absolutize.workspace = true
 path-slash.workspace = true

@@ -220,8 +220,8 @@ impl<'pkg> BinTarget<'pkg> {
 
 #[derive(Copy, Clone, ValueEnum, PartialEq, Eq, Debug)]
 pub enum Profile {
-    #[clap(name = "debug")]
-    Debug,
+    #[clap(name = "dev")]
+    Dev,
     #[clap(name = "release")]
     Release,
     #[clap(name = "difftests")]
@@ -235,7 +235,7 @@ impl FromStr for Profile {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "debug" => Ok(Profile::Debug),
+            "debug" | "dev" => Ok(Profile::Dev),
             "release" => Ok(Profile::Release),
             "difftests" => Ok(Profile::Difftests),
             "ci" => Ok(Profile::Ci),
@@ -253,7 +253,7 @@ impl fmt::Display for Profile {
 impl Profile {
     pub fn name(&self) -> &'static str {
         match self {
-            Profile::Debug => "dev",
+            Profile::Dev => "dev",
             Profile::Release => "release",
             Profile::Difftests => "difftests",
             Profile::Ci => "ci",
@@ -262,7 +262,7 @@ impl Profile {
 
     pub fn target_dir(&self) -> PathBuf {
         match self {
-            Profile::Debug => ws_path!("target" / "debug"),
+            Profile::Dev => ws_path!("target" / "debug"),
             Profile::Release => ws_path!("target" / "release"),
             Profile::Difftests => ws_path!("target" / "difftests"),
             Profile::Ci => ws_path!("target" / "ci"),

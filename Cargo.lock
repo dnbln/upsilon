@@ -478,6 +478,7 @@ dependencies = [
  "chrono",
  "clap 4.1.4",
  "git2",
+ "home",
  "log",
  "path-absolutize",
  "path-slash",

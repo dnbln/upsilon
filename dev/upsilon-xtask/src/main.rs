@@ -308,7 +308,7 @@ struct BuildDevArgs {
     #[clap(short, long)]
     verbose: bool,
     /// The profile to use.
-    #[clap(long, default_value_t = Profile::Debug)]
+    #[clap(long, default_value_t = Profile::Dev)]
     profile: Profile,
 }
 
@@ -317,7 +317,7 @@ impl BuildDevArgs {
         Self {
             dgql: false,
             verbose,
-            profile: Profile::Debug,
+            profile: Profile::Dev,
         }
     }
 
@@ -405,7 +405,7 @@ enum App {
         no_capture: bool,
         #[clap(long)]
         clean_profiles_between_steps: bool,
-        #[clap(long)]
+        #[clap(long, default_value_t = Profile::Dev)]
         profile: Profile,
 
         #[clap(long)]
@@ -458,7 +458,7 @@ enum App {
         /// The examples to run.
         examples: Vec<String>,
         /// The profile to use.
-        #[clap(long, default_value_t = Profile::Debug)]
+        #[clap(long, default_value_t = Profile::Dev)]
         profile: Profile,
     },
     /// Packs for release.
