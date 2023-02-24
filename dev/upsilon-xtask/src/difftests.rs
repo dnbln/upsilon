@@ -14,13 +14,16 @@
  *    limitations under the License.
  */
 
+use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
 use cargo_difftests::{AnalysisVerdict, AnalyzeAllSingleTest};
 use clap::{Parser, ValueEnum};
+use upsilon_xtask::pkg::Profile;
 
-use crate::{ws_bin_path, ws_path, XtaskResult};
+use crate::ws_layout::WS_BIN_LAYOUT;
+use crate::{ws_path, XtaskResult};
 
 #[derive(Parser, Debug)]
 pub enum DiffTestsCommand {
@@ -30,6 +33,8 @@ pub enum DiffTestsCommand {
         algo: DirtyAlgo,
         #[clap(long)]
         commit: Option<git2::Oid>,
+        #[clap(long, default_value_t = Profile::Difftests)]
+        profile: Profile,
     },
 }
 
@@ -84,21 +89,25 @@ fn index_root() -> PathBuf {
     ws_path!("tests" / "difftests-index-root")
 }
 
+fn other_bins(profile: Profile) -> Vec<PathBuf> {
+    vec![
+        WS_BIN_LAYOUT.upsilon_web_main.path_in_profile(profile),
+        WS_BIN_LAYOUT
+            .upsilon_gracefully_shutdown_host_main
+            .path_in_profile(profile),
+    ]
+}
+
 fn analyze_all(
     algo: DirtyAlgo,
     commit: Option<git2::Oid>,
+    profile: Profile,
 ) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
     let output = difftests_cmd_output!(
         "analyze-all",
         "--dir",
         ws_path!("target" / "tmp" / "upsilon-difftests"),
-        "--bin",
-        ws_bin_path!(profile = "difftests", name = "upsilon-web"),
-        "--bin",
-        ws_bin_path!(
-            profile = "difftests",
-            name = "upsilon-gracefully-shutdown-host"
-        ),
+        ...other_bins(profile).iter().flat_map(|p| [OsStr::new("--bin"), p.as_os_str()]),
         "--index-root",
         index_root(),
         "--index-strategy",
@@ -134,8 +143,9 @@ fn analyze_all_from_index(
 pub fn tests_to_rerun(
     algo: DirtyAlgo,
     commit: Option<git2::Oid>,
+    profile: Profile,
 ) -> XtaskResult<Vec<AnalyzeAllSingleTest>> {
-    Ok(analyze_all(algo, commit)?
+    Ok(analyze_all(algo, commit, profile)?
         .into_iter()
         .filter(|it| it.verdict == AnalysisVerdict::Dirty)
         .collect())
@@ -151,8 +161,12 @@ pub fn tests_to_rerun_from_index(
         .collect())
 }
 
-fn print_tests_to_rerun(algo: DirtyAlgo, commit: Option<git2::Oid>) -> XtaskResult<()> {
-    let to_rerun = tests_to_rerun(algo, commit)?
+fn print_tests_to_rerun(
+    algo: DirtyAlgo,
+    commit: Option<git2::Oid>,
+    profile: Profile,
+) -> XtaskResult<()> {
+    let to_rerun = tests_to_rerun(algo, commit, profile)?
         .into_iter()
         .map(|it| it.test_desc)
         .collect::<Vec<_>>();
@@ -165,8 +179,12 @@ fn print_tests_to_rerun(algo: DirtyAlgo, commit: Option<git2::Oid>) -> XtaskResu
 
 pub fn run(command: DiffTestsCommand) -> XtaskResult<()> {
     match command {
-        DiffTestsCommand::PrintTestsToRerun { algo, commit } => {
-            print_tests_to_rerun(algo, commit)?;
+        DiffTestsCommand::PrintTestsToRerun {
+            algo,
+            commit,
+            profile,
+        } => {
+            print_tests_to_rerun(algo, commit, profile)?;
         }
     }
 

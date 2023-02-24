@@ -12,12 +12,14 @@ Options:
     -v, --verbose    Print the inner `cargo clippy` command (additional
                      invocations will be passed though).
     --dry-run        Don't run `cargo clippy`; just print what would be run.
+    --clippy-args    Don't run `cargo clippy`; just print the list of command line flags.
 ";
 
 #[derive(Debug, Default)]
 struct Options {
     dry_run: bool,
     verbose: usize,
+    clippy_args: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -56,6 +58,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         }
+        if arg == "--clippy-args" {
+            options.clippy_args = true;
+            continue;
+        }
         match (found_double_dash, arg == "--") {
             (false, false) => left_args.push(arg),
             (false, true) => found_double_dash = true,
@@ -67,6 +73,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config = CrankyConfig::get_config()?;
 
     right_args.append(&mut config.extra_right_args());
+
+    if options.clippy_args {
+        println!("{}", right_args.join(" "));
+        return Ok(());
+    }
 
     let all_args = if right_args.is_empty() {
         left_args

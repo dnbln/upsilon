@@ -69,15 +69,6 @@ macro_rules! ws_path_join {
 }
 
 #[macro_export]
-macro_rules! ws_bin_path {
-    (profile = $profile:tt, name = $name:tt) => {{
-        let mut p = $crate::ws_path!("target" / $profile / $name);
-        p.set_extension(std::env::consts::EXE_EXTENSION);
-        p
-    }};
-}
-
-#[macro_export]
 macro_rules! ws_glob {
     ($($p:tt)/ *) => {
         (|| -> $crate::result::XtaskResult<Vec<_>> {

@@ -4893,6 +4893,7 @@ dependencies = [
  "glob",
  "lazy_static",
  "log",
+ "path-absolutize",
  "path-slash",
  "pretty_env_logger",
  "serde_json",

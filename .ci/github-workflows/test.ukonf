@@ -1,5 +1,6 @@
 let nightly: 'nightly-2023-02-03'
 let cx xtask_artifact_path: './ci-artifacts/upsilon-xtask'
+let bin_dir: './bin-dir'
 
 name: 'Test'
 
@@ -115,22 +116,22 @@ let install_nextest: {
 
 let compile_binaries_and_tests compiler xtask: {
   name: 'Compile binaries and tests'
-  run: xtask('test --verbose --no-run --profile ci')
+  run: xtask(concat('test --verbose --no-run --profile ci --custom-bin-dir ', bin_dir))
 }
 
 let run_tests compiler xtask: {
   name: 'Run tests'
-  run: xtask('test --verbose --no-fail-fast --profile ci')
+  run: xtask(concat('test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ', bin_dir))
 }
 
 let compile_binaries_and_tests_with_difftests compiler xtask: {
   name: 'Compile binaries and tests (with difftests)'
-  run: xtask('test --verbose --no-run --profile difftests')
+  run: xtask(concat('test --verbose --no-run --profile difftests --custom-bin-dir ', bin_dir))
 }
 
 let run_tests_with_difftests compiler xtask: {
   name: 'Run tests (with difftests)'
-  run: xtask('test --verbose --no-fail-fast --profile difftests')
+  run: xtask(concat('test --verbose --no-fail-fast --profile difftests --no-build-dev --custom-bin-dir ', bin_dir))
 }
 
 let get_old_commit: {

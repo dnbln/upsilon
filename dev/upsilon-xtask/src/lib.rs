@@ -18,7 +18,6 @@ pub extern crate glob;
 
 pub mod cargo_ws;
 pub mod cmd;
-pub mod difftests;
 pub mod docusaurus;
 pub mod git_checks;
 pub mod mdbook;

@@ -15,6 +15,11 @@
  */
 
 use std::ffi::{OsStr, OsString};
+use std::fmt;
+use std::path::PathBuf;
+use std::str::FromStr;
+
+use clap::ValueEnum;
 
 use crate::{cargo_cmd, cmd_args, ws_path, ws_root, XtaskResult};
 
@@ -189,6 +194,17 @@ impl<'pkg> BinTarget<'pkg> {
         args
     }
 
+    pub fn path_in_profile(&self, profile: Profile) -> PathBuf {
+        self.path_in_custom_dir(profile.target_dir())
+    }
+
+    pub fn path_in_custom_dir(&self, dir: impl Into<PathBuf>) -> PathBuf {
+        let mut p = dir.into();
+        p.push(self.bin_name.name.as_str());
+        p.set_extension(std::env::consts::EXE_EXTENSION);
+        p
+    }
+
     pub fn install_args(&self) -> Vec<OsString> {
         let mut args = self.pkg.install_args();
         args.extend(self.bin_name.bin_arg());
@@ -199,5 +215,57 @@ impl<'pkg> BinTarget<'pkg> {
         cargo_cmd!("install", ...self.install_args(), @workdir = ws_root!())?;
 
         Ok(())
+    }
+}
+
+#[derive(Copy, Clone, ValueEnum, PartialEq, Eq, Debug)]
+pub enum Profile {
+    #[clap(name = "debug")]
+    Debug,
+    #[clap(name = "release")]
+    Release,
+    #[clap(name = "difftests")]
+    Difftests,
+    #[clap(name = "ci")]
+    Ci,
+}
+
+impl FromStr for Profile {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "debug" => Ok(Profile::Debug),
+            "release" => Ok(Profile::Release),
+            "difftests" => Ok(Profile::Difftests),
+            "ci" => Ok(Profile::Ci),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for Profile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl Profile {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Profile::Debug => "dev",
+            Profile::Release => "release",
+            Profile::Difftests => "difftests",
+            Profile::Ci => "ci",
+        }
+    }
+
+    pub fn target_dir(&self) -> PathBuf {
+        match self {
+            Profile::Debug => ws_path!("target" / "debug"),
+            Profile::Release => ws_path!("target" / "release"),
+            Profile::Difftests => ws_path!("target" / "difftests"),
+            Profile::Ci => ws_path!("target" / "ci"),
+        }
     }
 }

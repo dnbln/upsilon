@@ -212,9 +212,9 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --profile ci
+      run: cargo xtask test --verbose --no-run --profile ci --custom-bin-dir ./bin-dir
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --profile ci
+      run: cargo xtask test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ./bin-dir
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux:
@@ -240,9 +240,9 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --profile ci
+      run: cargo xtask test --verbose --no-run --profile ci --custom-bin-dir ./bin-dir
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --profile ci
+      run: cargo xtask test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ./bin-dir
     - name: Run doctests
       run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
   test-linux-with-difftests:
@@ -268,9 +268,9 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests (with difftests)
-      run: cargo xtask test --verbose --no-run --profile difftests
+      run: cargo xtask test --verbose --no-run --profile difftests --custom-bin-dir ./bin-dir
     - name: Run tests (with difftests)
-      run: cargo xtask test --verbose --no-fail-fast --profile difftests
+      run: cargo xtask test --verbose --no-fail-fast --profile difftests --no-build-dev --custom-bin-dir ./bin-dir
   test-linux-only-difftests:
     name: Test (Linux only difftests)
     runs-on: ubuntu-latest
@@ -301,6 +301,6 @@ jobs:
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Compile binaries and tests (with difftests)
-      run: cargo xtask test --verbose --no-run --profile difftests
+      run: cargo xtask test --verbose --no-run --profile difftests --custom-bin-dir ./bin-dir
     - name: Run tests (only difftests)
       run: cargo xtask test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ${{ steps.get-old-commit.outputs.OLD_COMMIT }}
