@@ -383,6 +383,10 @@ jobs {
         }
       }
       {
+        name: 'Display openssl directory structure'
+        run: 'ls -R target\openssl'
+      }
+      {
         name: 'Set up openssl env'
         run: 'echo "OPENSSL_DIR=$(Get-Location)\target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
