@@ -386,7 +386,7 @@ jobs {
       }
       {
         name: 'Set up openssl env'
-        run: 'echo "OPENSSL_DIR=target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
+        run: 'echo "OPENSSL_DIR=$(Get-Location)\target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
       install_rust
       install_nextest

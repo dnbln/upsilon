@@ -199,7 +199,7 @@ jobs:
     - name: List downloaded openssl directory structure
       run: ls -R target\openssl
     - name: Set up openssl env
-      run: echo "OPENSSL_DIR=target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
+      run: echo "OPENSSL_DIR=$(Get-Location)\target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest
