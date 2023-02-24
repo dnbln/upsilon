@@ -196,8 +196,6 @@ jobs:
       with:
         path: target\openssl
         name: openssl-artifacts
-    - name: List downloaded openssl directory structure
-      run: ls -R target\openssl
     - name: Set up openssl env
       run: echo "OPENSSL_DIR=$(Get-Location)\target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
@@ -211,12 +209,16 @@ jobs:
       run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Copy xtask to artifact
+      run: (mkdir -p .\ci-artifacts) -And (cp .\target\debug\upsilon-xtask.exe .\ci-artifacts\upsilon-xtask.exe)
+    - name: Cargo clean
+      run: cargo clean
     - name: Compile binaries and tests
-      run: cargo xtask test --verbose --no-run --profile ci --custom-bin-dir ./bin-dir
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-run --profile ci --custom-bin-dir ./bin-dir
     - name: Run tests
-      run: cargo xtask test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ./bin-dir
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ./bin-dir
     - name: Run doctests
-      run: cargo xtask test --verbose --no-fail-fast --doc --profile ci
+      run: .\ci-artifacts\upsilon-xtask.exe test --verbose --no-fail-fast --doc --profile ci
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest

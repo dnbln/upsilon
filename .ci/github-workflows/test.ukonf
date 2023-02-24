@@ -1,5 +1,6 @@
 let nightly: 'nightly-2023-02-03'
 let cx xtask_artifact_path: './ci-artifacts/upsilon-xtask'
+let xtask_artifact_path_win: win_path(concat(xtask_artifact_path, '.exe'))
 let bin_dir: './bin-dir'
 
 name: 'Test'
@@ -80,7 +81,7 @@ let copy_xtask_to_artifact: {
 
 let copy_xtask_to_artifact_win: {
   name: 'Copy xtask to artifact'
-  run: concat('mkdir ', win_path(parent_dir(xtask_artifact_path)), ' && copy .\target\debug\upsilon-xtask.exe ', win_path(xtask_artifact_path))
+  run: concat('(mkdir -p ', parent_dir(xtask_artifact_path_win), ') -And (cp .\target\debug\upsilon-xtask.exe ', xtask_artifact_path_win, ')')
 }
 
 let upload_xtask: {
@@ -361,7 +362,7 @@ jobs {
   ${compile_openssl_job_win_key}: compile_openssl_job_win
 
   test-win {
-    let cx xtask_cargo_run: true
+    let cx xtask_artifact_path: xtask_artifact_path_win
 
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
@@ -382,10 +383,6 @@ jobs {
         }
       }
       {
-        name: 'List downloaded openssl directory structure'
-        run: 'ls -R target\openssl'
-      }
-      {
         name: 'Set up openssl env'
         run: 'echo "OPENSSL_DIR=$(Get-Location)\target\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
@@ -403,6 +400,11 @@ jobs {
         """
       }
       compile_xtask
+      copy_xtask_to_artifact_win
+      {
+        name: 'Cargo clean'
+        run: 'cargo clean'
+      }
       compile_binaries_and_tests
       run_tests
       run_doctests
