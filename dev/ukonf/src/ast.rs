@@ -478,14 +478,8 @@ pub(crate) fn unquote(s: &str) -> String {
     out
 }
 
-#[cfg(windows)]
 fn patch_triple_quote_string(s: &str) -> String {
     s.replace('\r', "")
-}
-
-#[cfg(not(windows))]
-fn patch_triple_quote_string(s: &str) -> String {
-    s.to_string()
 }
 
 pub struct Ident(pub(crate) Spanned<String>);
