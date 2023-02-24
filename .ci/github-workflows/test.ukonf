@@ -1,6 +1,6 @@
 let nightly: 'nightly-2023-02-03'
 let cx xtask_artifact_path: './ci-artifacts/upsilon-xtask'
-let xtask_artifact_path_win: win_path(concat(xtask_artifact_path, '.exe'))
+let xtask_artifact_path_win: concat(xtask_artifact_path, '.exe')
 let bin_dir: './bin-dir'
 
 name: 'Test'

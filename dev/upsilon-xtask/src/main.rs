@@ -26,7 +26,7 @@ use anyhow::{bail, format_err, Context};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
 use path_absolutize::Absolutize;
-use path_slash::{PathBufExt, PathExt};
+use path_slash::PathBufExt;
 use toml_edit::{Item, Key, TableLike};
 use ukonf::value::{UkonfObject, UkonfValue};
 use ukonf::{Scope, UkonfFnError, UkonfFunctions};
@@ -1172,20 +1172,6 @@ pub fn convert_path_to_win(path: &str) -> String {
     }
 }
 
-pub fn ukonf_add_win_path(fns: &mut UkonfFunctions) {
-    fns.add_fn("win_path", |_scope, args| {
-        if args.len() != 1 {
-            bail!("win_path: expected exactly one argument");
-        }
-
-        let path = args[0].clone_to_string()?;
-
-        let path = convert_path_to_win(&path);
-
-        Ok(UkonfValue::Str(path))
-    });
-}
-
 enum UkonfXtaskPath {
     Artifact(String),
     CargoRun,
@@ -1263,7 +1249,7 @@ pub fn ukonf_add_xtask(fns: &mut UkonfFunctions) {
     });
 }
 
-const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[ukonf_add_xtask, ukonf_add_win_path];
+const CI_UKONF_FUNCTIONS: &[fn(&mut UkonfFunctions)] = &[ukonf_add_xtask];
 
 pub fn ukonf_ci_functions() -> UkonfFunctions {
     let mut fns = UkonfFunctions::new();
