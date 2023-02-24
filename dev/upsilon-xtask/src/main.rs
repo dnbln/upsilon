@@ -1132,7 +1132,7 @@ pub fn add_parent_dir(fns: &mut UkonfFunctions) {
                 if path.contains('\\') {
                     PathBuf::from_backslash(path)
                 } else {
-                    PathBuf::from(path);
+                    PathBuf::from(path)
                 }
             }
             #[cfg(windows)]
