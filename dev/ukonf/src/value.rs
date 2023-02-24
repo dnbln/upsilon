@@ -81,6 +81,13 @@ impl UkonfValue {
         }
     }
 
+    pub fn expect_array(self) -> Result<Vec<UkonfValue>, UkonfFnError> {
+        match self {
+            UkonfValue::Array(arr) => Ok(arr),
+            v => Err(format_err!("Expected array, got: {v:?}")),
+        }
+    }
+
     pub(crate) fn _expect_string(self, span: &Span) -> Result<String, UkonfRunError> {
         match self {
             UkonfValue::Str(s) => Ok(s),

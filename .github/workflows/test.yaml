@@ -147,9 +147,35 @@ jobs:
       run: mkdir -p ./ci-artifacts && cp ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Lint
       run: ./ci-artifacts/upsilon-xtask lint
+  compile-openssl-win:
+    name: Compile openssl (Windows)
+    runs-on: windows-latest
+    steps:
+    - name: Setup env
+      run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+    - name: Restore built openssl
+      id: restore_build_openssl
+      uses: actions/cache/restore@v3
+      env:
+        OPENSSL_TRIPLE: x64-windows-static-md
+      with:
+        path: "\n          ${{ env.VCPKG_ROOT }}\\installed\\${{ env.OPENSSL_TRIPLE }}\\lib\n          ${{ env.VCPKG_ROOT }}\\installed\\${{ env.OPENSSL_TRIPLE }}\\include\n        "
+        key: build-openssl-win
+    - name: Install openssl
+      run: vcpkg install openssl:x64-windows-static-md
+      if: steps.restore_build_openssl.outputs.cache-hit != 'true'
+    - name: Save built openssl
+      uses: actions/cache/save@v3
+      env:
+        OPENSSL_TRIPLE: x64-windows-static-md
+      with:
+        path: "\n          ${{ env.VCPKG_ROOT }}\\installed\\${{ env.OPENSSL_TRIPLE }}\\lib\n          ${{ env.VCPKG_ROOT }}\\installed\\${{ env.OPENSSL_TRIPLE }}\\include\n        "
+        key: build-openssl-win
+      if: steps.restore_build_openssl.outputs.cache-hit != 'true'
   test-win:
     name: Test (Windows)
     runs-on: windows-latest
+    needs: compile-openssl-win
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -157,10 +183,19 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Setup env
       run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-    - name: Install openssl
-      run: vcpkg install openssl:x64-windows-static-md
-    - name: Cleanup vcpkg build trees
-      run: del -Recurse -Force $env:VCPKG_ROOT\\buildtrees
+    - name: Restore built openssl
+      id: restore_build_openssl
+      uses: actions/cache/restore@v3
+      env:
+        OPENSSL_TRIPLE: x64-windows-static-md
+      with:
+        path: "\n            target\\openssl\\lib\n            target\\openssl\\include\n          "
+        key: build-openssl-win
+    - name: Fail if openssl is not found
+      run: exit 1
+      if: steps.restore_build_openssl.outputs.cache-hit != 'true'
+    - name: Set up openssl env
+      run: echo "OPENSSL_DIR=target\\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
     - name: Install nextest

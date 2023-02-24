@@ -448,7 +448,7 @@ impl StrLit {
     }
 }
 
-fn unquote(s: &str) -> String {
+pub(crate) fn unquote(s: &str) -> String {
     let mut out = String::new();
     let mut chars = s.chars();
     while let Some(c) = chars.next() {

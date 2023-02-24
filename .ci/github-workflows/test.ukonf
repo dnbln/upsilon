@@ -228,6 +228,60 @@ let compile_xtask_job_linux: {
 
 let compile_xtask_job_linux_key: 'compile-xtask-linux'
 
+
+let openssl_cache_key: 'build-openssl-win'
+let openssl_triple: 'x64-windows-static-md'
+
+let compile_openssl_job_win: {
+  let restore_build_openssl_id: 'restore_build_openssl'
+
+  name: 'Compile openssl (Windows)'
+  runs-on: 'windows-latest'
+  steps [
+    {
+      name: 'Setup env'
+      run: 'echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append'
+    }
+    {
+      name: 'Restore built openssl'
+      id: restore_build_openssl_id
+      uses: 'actions/cache/restore@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        path: """
+          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\lib
+          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\include
+        """
+        key: openssl_cache_key
+      }
+    }
+    {
+      name: 'Install openssl'
+      run: concat('vcpkg install openssl:', openssl_triple)
+      if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+    }
+    {
+      name: 'Save built openssl'
+      uses: 'actions/cache/save@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        path: """
+          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\lib
+          ${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\include
+        """
+        key: openssl_cache_key
+      }
+      if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+    }
+  ]
+}
+
+let compile_openssl_job_win_key: 'compile-openssl-win'
+
 jobs {
   ${compile_xtask_job_linux_key}: compile_xtask_job_linux
 
@@ -296,10 +350,15 @@ jobs {
     ]
   }
 
+  ${compile_openssl_job_win_key}: compile_openssl_job_win
+
   test-win {
     let cx xtask_cargo_run: true
+    let restore_build_openssl_id: 'restore_build_openssl'
+
     name: 'Test (Windows)'
     runs-on: 'windows-latest'
+    needs: compile_openssl_job_win_key
 
     steps [
       checkout
@@ -308,12 +367,28 @@ jobs {
         run: 'echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
       {
-        name: 'Install openssl'
-        run: 'vcpkg install openssl:x64-windows-static-md'
+        name: 'Restore built openssl'
+        id: restore_build_openssl_id
+        uses: 'actions/cache/restore@v3'
+        env {
+          OPENSSL_TRIPLE: openssl_triple
+        }
+        with {
+          path: """
+            target\openssl\lib
+            target\openssl\include
+          """
+          key: openssl_cache_key
+        }
       }
       {
-        name: 'Cleanup vcpkg build trees'
-        run: 'del -Recurse -Force $env:VCPKG_ROOT\\buildtrees'
+        name: 'Fail if openssl is not found'
+        run: 'exit 1'
+        if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+      }
+      {
+        name: 'Set up openssl env'
+        run: 'echo "OPENSSL_DIR=target\\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
       }
       install_rust
       install_nextest
