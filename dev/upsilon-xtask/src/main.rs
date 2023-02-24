@@ -26,7 +26,7 @@ use anyhow::{bail, format_err, Context};
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches, Parser};
 use log::info;
 use path_absolutize::Absolutize;
-use path_slash::PathBufExt;
+use path_slash::{PathBufExt, PathExt};
 use toml_edit::{Item, Key, TableLike};
 use ukonf::value::{UkonfObject, UkonfValue};
 use ukonf::{Scope, UkonfFnError, UkonfFunctions};
@@ -1126,7 +1126,20 @@ pub fn add_parent_dir(fns: &mut UkonfFunctions) {
         }
 
         let path = args[0].as_string().context("parent_dir: expected string")?;
-        let path = Path::new(path);
+        let path = {
+            #[cfg(not(windows))]
+            {
+                if path.contains('\\') {
+                    PathBuf::from_backslash(path)
+                } else {
+                    PathBuf::from(path);
+                }
+            }
+            #[cfg(windows)]
+            {
+                PathBuf::from(path)
+            }
+        };
         let parent = path.parent().context("parent_dir: no parent")?;
         Ok(UkonfValue::Str(
             parent
