@@ -6,6 +6,8 @@ on:
     paths:
     - crates/**
     - dev/**
+    - plugins/**
+    - tools/**
     - Cargo.toml
     - Cargo.lock
     - rustfmt.toml
