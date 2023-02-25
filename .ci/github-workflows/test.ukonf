@@ -79,9 +79,14 @@ let copy_xtask_to_artifact: {
   run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp target/debug/upsilon-xtask ', xtask_artifact_path)
 }
 
+let create_xtask_artifact_dir: {
+  name: 'Create xtask artifact dir'
+  run: concat('mkdir ', parent_dir(xtask_artifact_path_win))
+}
+
 let copy_xtask_to_artifact_win: {
   name: 'Copy xtask to artifact'
-  run: concat('(mkdir -p ', parent_dir(xtask_artifact_path_win), ') -And (cp .\target\debug\upsilon-xtask.exe ', xtask_artifact_path_win, ')')
+  run: concat('cp .\target\debug\upsilon-xtask.exe ', xtask_artifact_path_win)
 }
 
 let upload_xtask: {
@@ -116,13 +121,13 @@ let download_xtask: {
 }
 
 let move_downloaded_xtask_to_artifact_path: {
-  name: 'Copy downloaded xtask to artifact path'
+  name: 'Move downloaded xtask to artifact path'
   run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && mv ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
 }
 
 let move_downloaded_xtask_to_artifact_path_win: {
-  name: 'Copy downloaded xtask to artifact path'
-  run: concat('(mkdir -p ', parent_dir(xtask_artifact_path_win), ') -And (mv ', downloaded_xtask_artifact_win, ' ', xtask_artifact_path_win, ')')
+  name: 'Move downloaded xtask to artifact path'
+  run: concat('mv ', downloaded_xtask_artifact_win, ' ', xtask_artifact_path_win)
 }
 
 let install_nextest: {
@@ -410,7 +415,6 @@ jobs {
       download_openssl_artifact
       setup_downloaded_openssl
       install_rust
-      install_nextest
       {
         name: 'Print environment'
         shell: 'pwsh'
@@ -423,6 +427,7 @@ jobs {
         """
       }
       compile_xtask
+      create_xtask_artifact_dir
       copy_xtask_to_artifact_win
       upload_xtask_win
     ]

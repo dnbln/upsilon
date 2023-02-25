@@ -64,7 +64,7 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
+    - name: Move downloaded xtask to artifact path
       run: mkdir -p ./ci-artifacts && mv ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run fmt check
       run: ./ci-artifacts/upsilon-xtask fmt-check
@@ -95,7 +95,7 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
+    - name: Move downloaded xtask to artifact path
       run: mkdir -p ./ci-artifacts && mv ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run gql schema check
       run: ./ci-artifacts/upsilon-xtask graphql-schema-check
@@ -117,7 +117,7 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
+    - name: Move downloaded xtask to artifact path
       run: mkdir -p ./ci-artifacts && mv ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Run ci files up to date check
       run: ./ci-artifacts/upsilon-xtask check-ci-files-up-to-date
@@ -143,7 +143,7 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
+    - name: Move downloaded xtask to artifact path
       run: mkdir -p ./ci-artifacts && mv ./ci-artifacts/downloaded-xtask/upsilon-xtask ./ci-artifacts/upsilon-xtask && chmod +x ./ci-artifacts/upsilon-xtask
     - name: Lint
       run: ./ci-artifacts/upsilon-xtask lint
@@ -200,8 +200,6 @@ jobs:
       run: echo "OPENSSL_DIR=$(Get-Location)\target-openssl\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
       run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
-    - name: Install nextest
-      uses: taiki-e/install-action@nextest
     - name: Print environment
       shell: pwsh
       run: 'ls env:'
@@ -209,8 +207,10 @@ jobs:
       run: "\n          git --version\n        "
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
+    - name: Create xtask artifact dir
+      run: mkdir ./ci-artifacts
     - name: Copy xtask to artifact
-      run: (mkdir -p ./ci-artifacts) -And (cp .\target\debug\upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe)
+      run: cp .\target\debug\upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe
     - name: Upload xtask
       uses: actions/upload-artifact@v3
       with:
@@ -248,8 +248,8 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
-      run: (mkdir -p ./ci-artifacts) -And (mv ./ci-artifacts/downloaded-xtask/upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe)
+    - name: Move downloaded xtask to artifact path
+      run: mv ./ci-artifacts/downloaded-xtask/upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe
     - name: Compile binaries and tests
       run: ./ci-artifacts/upsilon-xtask.exe test --verbose --no-run --profile ci --custom-bin-dir ./bin-dir
     - name: Run tests
@@ -284,8 +284,8 @@ jobs:
       with:
         name: ${{ runner.os }}-xtask
         path: ./ci-artifacts/downloaded-xtask
-    - name: Copy downloaded xtask to artifact path
-      run: (mkdir -p ./ci-artifacts) -And (mv ./ci-artifacts/downloaded-xtask/upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe)
+    - name: Move downloaded xtask to artifact path
+      run: mv ./ci-artifacts/downloaded-xtask/upsilon-xtask.exe ./ci-artifacts/upsilon-xtask.exe
     - name: Run doctests
       run: ./ci-artifacts/upsilon-xtask.exe test --verbose --no-fail-fast --doc --profile ci --no-build-dev
   test-linux:
