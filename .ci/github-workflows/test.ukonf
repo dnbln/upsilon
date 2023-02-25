@@ -93,8 +93,18 @@ let upload_xtask: {
   }
 }
 
+let upload_xtask_win: {
+  name: 'Upload xtask'
+  uses: 'actions/upload-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: xtask_artifact_path_win
+  }
+}
+
 let download_xtask_dir: concat(parent_dir(xtask_artifact_path), '/downloaded-xtask')
 let downloaded_xtask_artifact: concat(download_xtask_dir, '/upsilon-xtask')
+let downloaded_xtask_artifact_win: concat(download_xtask_dir, '/upsilon-xtask.exe')
 
 let download_xtask: {
   name: 'Download xtask'
@@ -105,9 +115,14 @@ let download_xtask: {
   }
 }
 
-let copy_downloaded_xtask_to_artifact_path: {
+let move_downloaded_xtask_to_artifact_path: {
   name: 'Copy downloaded xtask to artifact path'
-  run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
+  run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && mv ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
+}
+
+let move_downloaded_xtask_to_artifact_path_win: {
+  name: 'Copy downloaded xtask to artifact path'
+  run: concat('(mkdir -p ', parent_dir(xtask_artifact_path_win), ') -And (mv ', downloaded_xtask_artifact_win, ' ', xtask_artifact_path_win, ')')
 }
 
 let install_nextest: {
@@ -166,7 +181,7 @@ let run_only_difftests compiler xtask: {
 
 let run_doctests compiler xtask: {
   name: 'Run doctests'
-  run: xtask('test --verbose --no-fail-fast --doc --profile ci')
+  run: xtask('test --verbose --no-fail-fast --doc --profile ci --no-build-dev')
 }
 
 let install_clippy: {
@@ -291,6 +306,24 @@ let compile_openssl_job_win: {
 
 let compile_openssl_job_win_key: 'compile-openssl-win'
 
+let compile_xtask_job_win_key: 'compile-xtask-win'
+
+let win_openssl_download_loc: 'target-openssl\openssl'
+
+let download_openssl_artifact: {
+  name: 'Restore built openssl'
+  uses: 'actions/download-artifact@v3'
+  with {
+    path: win_openssl_download_loc
+    name: openssl_artifacts_name
+  }
+}
+
+let setup_downloaded_openssl: {
+  name: 'Set up openssl env'
+  run: concat('echo "OPENSSL_DIR=$(Get-Location)\', win_openssl_download_loc, '" | Out-File -FilePath $env:GITHUB_ENV -Append')
+}
+
 jobs {
   ${compile_xtask_job_linux_key}: compile_xtask_job_linux
 
@@ -304,7 +337,7 @@ jobs {
       install_rust
       install_rustfmt
       download_xtask
-      copy_downloaded_xtask_to_artifact_path
+      move_downloaded_xtask_to_artifact_path
       fmt_check
       git_checks
       check_cargo_dep_order
@@ -322,7 +355,7 @@ jobs {
       install_lld
       install_rust
       download_xtask
-      copy_downloaded_xtask_to_artifact_path
+      move_downloaded_xtask_to_artifact_path
       gql_schema_check
     ]
   }
@@ -337,7 +370,7 @@ jobs {
       install_lld
       install_rust
       download_xtask
-      copy_downloaded_xtask_to_artifact_path
+      move_downloaded_xtask_to_artifact_path
       check_ci_files_up_to_date
     ]
   }
@@ -354,17 +387,17 @@ jobs {
       install_rust
       install_clippy
       download_xtask
-      copy_downloaded_xtask_to_artifact_path
+      move_downloaded_xtask_to_artifact_path
       lint
     ]
   }
 
   ${compile_openssl_job_win_key}: compile_openssl_job_win
 
-  test-win {
+  ${compile_xtask_job_win_key} {
     let cx xtask_artifact_path: xtask_artifact_path_win
 
-    name: 'Test (Windows)'
+    name: 'Compile xtask (Windows)'
     runs-on: 'windows-latest'
     needs: compile_openssl_job_win_key
 
@@ -374,26 +407,8 @@ jobs {
 
     steps [
       checkout
-      {
-        name: 'Setup env'
-        run: 'echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append'
-      }
-      {
-        name: 'Restore built openssl'
-        uses: 'actions/download-artifact@v3'
-        with {
-          path: 'target-openssl\openssl'
-          name: openssl_artifacts_name
-        }
-      }
-      {
-        name: 'Display openssl directory structure'
-        run: 'ls -R target-openssl\openssl'
-      }
-      {
-        name: 'Set up openssl env'
-        run: 'echo "OPENSSL_DIR=$(Get-Location)\target-openssl\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append'
-      }
+      download_openssl_artifact
+      setup_downloaded_openssl
       install_rust
       install_nextest
       {
@@ -409,12 +424,66 @@ jobs {
       }
       compile_xtask
       copy_xtask_to_artifact_win
+      upload_xtask_win
+    ]
+  }
+
+  test-win {
+    let cx xtask_artifact_path: xtask_artifact_path_win
+
+    name: 'Test (Windows)'
+    runs-on: 'windows-latest'
+    needs: [compile_openssl_job_win_key compile_xtask_job_win_key]
+
+    steps [
+      checkout
+      download_openssl_artifact
+      setup_downloaded_openssl
+      install_rust
+      install_nextest
       {
-        name: 'Cargo clean'
-        run: 'cargo clean'
+        name: 'Print environment'
+        shell: 'pwsh'
+        run: 'ls env:'
       }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      download_xtask
+      move_downloaded_xtask_to_artifact_path_win
       compile_binaries_and_tests
       run_tests
+    ]
+  }
+
+  doctest-win {
+    let cx xtask_artifact_path: xtask_artifact_path_win
+
+    name: 'Doctest (Windows)'
+    runs-on: 'windows-latest'
+    needs: [compile_openssl_job_win_key compile_xtask_job_win_key]
+
+    steps [
+      checkout
+      download_openssl_artifact
+      setup_downloaded_openssl
+      install_rust
+      {
+        name: 'Print environment'
+        shell: 'pwsh'
+        run: 'ls env:'
+      }
+      {
+        name: 'Collect other system information'
+        run: """
+          git --version
+        """
+      }
+      download_xtask
+      move_downloaded_xtask_to_artifact_path_win
       run_doctests
     ]
   }
