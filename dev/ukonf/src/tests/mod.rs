@@ -300,4 +300,37 @@ test_case_eq_json! {
     {"a": {"x": "cab"}, "b": {"x": "dabe"}},
 }
 
+// test to check spread in array works
+test_case_eq_json! {
+    spread_in_array,
+    r#"
+    let x: [1 2]
+    let y: [3 4]
+    a: [0 ...x ...y 5]
+    "#,
+    {"a": [0, 1, 2, 3, 4, 5]},
+}
+
+// test to check spread in object works
+test_case_eq_json! {
+    spread_in_object,
+    r#"
+    let x: {a: 1 b: 2}
+    let y: {c: 3 d: 4}
+    a: {e: 0 ...x ...y f: 5}
+    "#,
+    {"a": {"e": 0, "a": 1, "b": 2, "c": 3, "d": 4, "f": 5}},
+}
+
+// test to check spread in function call works
+test_case_eq_json! {
+    spread_in_function_call,
+    r#"
+    let x: ['1' '2']
+    let y: ['3' '4']
+    a: concat(...x, ...y)
+    "#,
+    {"a": "1234"},
+}
+
 mod internals;

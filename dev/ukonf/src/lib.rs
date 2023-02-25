@@ -22,7 +22,7 @@ use std::rc::Rc;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::{lalrpop_mod, ParseError};
 
-use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned};
+use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned, VirtualSpan};
 use crate::value::{UkonfObject, UkonfValue};
 
 lalrpop_mod!(
@@ -204,6 +204,23 @@ pub struct UkonfRunner {
     functions: UkonfFunctions,
 }
 
+enum TempValue {
+    RealValue(UkonfValue),
+    Spread(Span, UkonfValue, Span),
+}
+
+impl TempValue {
+    pub fn spread_to_array(self) -> Result<Vec<UkonfValue>, UkonfRunError> {
+        match self {
+            TempValue::RealValue(v) => Ok(vec![v]),
+            TempValue::Spread(_spread, v, span) => match v {
+                UkonfValue::Array(a) => Ok(a),
+                v => Err(UkonfRunError::SpreadToArrayNotArray(v, span)),
+            },
+        }
+    }
+}
+
 impl UkonfRunner {
     pub fn new(config: UkonfConfig, functions: UkonfFunctions) -> Self {
         Self { config, functions }
@@ -317,30 +334,40 @@ impl UkonfRunner {
         file_id: FileId,
         scope: &Rc<RefCell<Scope>>,
         val: &AstVal,
-    ) -> Result<UkonfValue, UkonfRunError> {
+    ) -> Result<TempValue, UkonfRunError> {
         let v = match val {
-            AstVal::Null(_) => UkonfValue::Null,
+            AstVal::Null(_) => TempValue::RealValue(UkonfValue::Null),
             AstVal::Ident(ident) => {
                 let name = &ident.0 .0;
-                Scope::resolve(scope, name)
-                    .ok_or_else(|| {
-                        UkonfRunError::UndefinedVariable(name.clone(), ident.0 .1.clone())
-                    })?
-                    .fn_error(&ident.0 .1)?
+                TempValue::RealValue(
+                    Scope::resolve(scope, name)
+                        .ok_or_else(|| {
+                            UkonfRunError::UndefinedVariable(name.clone(), ident.0 .1.clone())
+                        })?
+                        .fn_error(&ident.0 .1)?,
+                )
             }
-            AstVal::Str(s) => UkonfValue::Str(s.str_val().into_owned()),
-            AstVal::Num(NumLit::Int(Spanned(v, _))) => UkonfValue::Num(value::NumValue::Int(*v)),
+            AstVal::Str(s) => TempValue::RealValue(UkonfValue::Str(s.str_val().into_owned())),
+            AstVal::Num(NumLit::Int(Spanned(v, _))) => {
+                TempValue::RealValue(UkonfValue::Num(value::NumValue::Int(*v)))
+            }
             AstVal::Num(NumLit::Float(Spanned(v, _))) => {
-                UkonfValue::Num(value::NumValue::Float(*v))
+                TempValue::RealValue(UkonfValue::Num(value::NumValue::Float(*v)))
             }
-            AstVal::Bool(b) => UkonfValue::Bool(b.value),
+            AstVal::Bool(b) => TempValue::RealValue(UkonfValue::Bool(b.value)),
             AstVal::Arr(_, values, _) => {
                 let arr = values
                     .iter()
-                    .map(|it| self.run_value(files, file_id, scope, it))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|it| {
+                        self.run_value(files, file_id, scope, it)
+                            .and_then(|v| v.spread_to_array())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>();
 
-                UkonfValue::Array(arr)
+                TempValue::RealValue(UkonfValue::Array(arr))
             }
             AstVal::Obj(_, items, _) => {
                 let new_scope = Rc::new(RefCell::new(Scope {
@@ -349,7 +376,7 @@ impl UkonfRunner {
                 }));
 
                 let obj = self.run_scope(files, file_id, &new_scope, items)?;
-                UkonfValue::Object(obj)
+                TempValue::RealValue(UkonfValue::Object(obj))
             }
             AstVal::FunctionCall(call) => {
                 let name = &call.name.0 .0;
@@ -361,10 +388,16 @@ impl UkonfRunner {
                 let args = call
                     .args
                     .iter()
-                    .map(|it| self.run_value(files, file_id, scope, it))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|it| {
+                        self.run_value(files, file_id, scope, it)
+                            .and_then(|v| v.spread_to_array())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>();
 
-                f(scope, &args).fn_error(&call.span())?
+                TempValue::RealValue(f(scope, &args).fn_error(&call.span())?)
             }
             AstVal::Dot(base, _, k) => {
                 let base_value = Scope::resolve(scope, &base.0 .0)
@@ -379,7 +412,16 @@ impl UkonfRunner {
                         ._expect_string(&span)?;
                 }
 
-                base_value.expect_object(&span)?.get(&name).unwrap().clone()
+                TempValue::RealValue(base_value.expect_object(&span)?.get(&name).unwrap().clone())
+            }
+            AstVal::Spread(spread, name) => {
+                let value = Scope::resolve(scope, &name.0 .0)
+                    .ok_or_else(|| {
+                        UkonfRunError::UndefinedVariable(name.0 .0.clone(), name.0 .1.clone())
+                    })?
+                    .fn_error(&name.0 .1)?;
+
+                TempValue::Spread(spread.0.clone(), value, name.0 .1.clone())
             }
         };
 
@@ -398,7 +440,15 @@ impl UkonfRunner {
         for item in scope_items {
             match item {
                 AstItem::Decl(decl) => {
-                    let value = self.run_value(files, file_id, scope, &decl.value)?;
+                    let value = match self.run_value(files, file_id, scope, &decl.value)? {
+                        TempValue::RealValue(v) => v,
+                        TempValue::Spread(_, _, _) => {
+                            return Err(UkonfRunError::SpreadNotAllowedHere(
+                                decl.value.span(),
+                                decl.name.0 .1.clone(),
+                            ))
+                        }
+                    };
 
                     let cx_kind = match &decl.cx_kw {
                         Some(_cx_kw) => CxKind::Cx,
@@ -428,6 +478,24 @@ impl UkonfRunner {
                         .insert(decl.name.0 .0.clone(), (cx_kind, value, compiler));
                 }
                 AstItem::DocPatch(patch) => {
+                    let v = match self.run_value(
+                        files,
+                        file_id,
+                        &Rc::new(RefCell::new(Scope {
+                            parent: Some(Rc::clone(scope)),
+                            vars: BTreeMap::new(),
+                        })),
+                        &patch.value,
+                    )? {
+                        TempValue::RealValue(v) => v,
+                        TempValue::Spread(_, _, _) => {
+                            return Err(UkonfRunError::SpreadNotAllowedHere(
+                                patch.value.span(),
+                                patch.key[0].span(),
+                            ))
+                        }
+                    };
+
                     let mut t = &mut result;
 
                     for k in &patch.key[..patch.key.len() - 1] {
@@ -460,18 +528,30 @@ impl UkonfRunner {
                             ._expect_string(&span)?;
                     }
 
-                    t.expect_mut_object(&span)?.insert(
-                        name,
-                        self.run_value(
-                            files,
-                            file_id,
-                            &Rc::new(RefCell::new(Scope {
-                                parent: Some(Rc::clone(scope)),
-                                vars: BTreeMap::new(),
-                            })),
-                            &patch.value,
-                        )?,
-                    );
+                    t.expect_mut_object(&span)?.insert(name, v);
+                }
+                AstItem::DocPatchSpread(_spread, name) => {
+                    let value = Scope::resolve(scope, &name.0 .0)
+                        .ok_or_else(|| {
+                            UkonfRunError::UndefinedVariable(name.0 .0.clone(), name.0 .1.clone())
+                        })?
+                        .fn_error(&name.0 .1)?;
+
+                    let value = match value {
+                        UkonfValue::Object(o) => o,
+                        v => {
+                            return Err(UkonfRunError::SpreadToObjectNotObject(
+                                v,
+                                name.0 .1.clone(),
+                            ))
+                        }
+                    };
+
+                    let t = result.expect_mut_object(&name.0 .1)?;
+
+                    for (k, v) in value.into_iter() {
+                        t.insert(k, v);
+                    }
                 }
             }
         }
@@ -639,6 +719,12 @@ pub enum UkonfRunError {
     InvalidImport(Span),
     #[error("Parse error: {0}")]
     ParseError(String),
+    #[error("Spread to array, but is not an array: {0:?}@{1}")]
+    SpreadToArrayNotArray(UkonfValue, Span),
+    #[error("Spread to object, but is not an object: {0:?}@{1}")]
+    SpreadToObjectNotObject(UkonfValue, Span),
+    #[error("Spread not allowed in this context: {0:?}@{1}")]
+    SpreadNotAllowedHere(Span, Span),
     #[error("Fn error: {0} (@{1})")]
     FnError(UkonfFnError, Span),
 }

@@ -228,6 +228,7 @@ pub struct AstFile {
 
 pub enum AstItem {
     DocPatch(KV),
+    DocPatchSpread(DotDotDot, Ident),
     Decl(AstDecl),
 }
 
@@ -250,7 +251,7 @@ pub trait Punctuation: From<Span> {
 
 macro_rules! punct {
     ($name:ident, $punct:literal) => {
-        pub struct $name(Span);
+        pub struct $name(pub Span);
 
         impl Punctuation for $name {
             const PUNCT: &'static str = $punct;
@@ -276,6 +277,7 @@ punct!(DollarBrace, "${");
 punct!(Semicolon, ";");
 punct!(Colon, ":");
 punct!(Dot, ".");
+punct!(DotDotDot, "...");
 
 pub trait Keyword: From<Span> {
     const KW: &'static str;
@@ -374,6 +376,7 @@ pub enum AstVal {
     Obj(OpenBrace, Vec<AstItem>, CloseBrace),
     FunctionCall(AstFunctionCall),
     Dot(Ident, Dot, K),
+    Spread(DotDotDot, Ident),
 }
 
 impl AstVal {
@@ -391,6 +394,7 @@ impl AstVal {
             Self::Obj(start, _, end) => start.0.join_with(&end.0),
             Self::FunctionCall(it) => it.span(),
             Self::Dot(base, _, k) => base.0 .1.join_with(&k.span()),
+            Self::Spread(dot, ident) => dot.0.join_with(&ident.0 .1),
         }
     }
 }

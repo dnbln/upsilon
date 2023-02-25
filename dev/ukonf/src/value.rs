@@ -233,6 +233,21 @@ impl UkonfObject {
 
         keys.into_iter().map(|(k, v)| (k, &self.map[v]))
     }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (String, UkonfValue)> {
+        let mut keys = self
+            .key_map
+            .into_iter()
+            .map(|(k, v)| (k, v))
+            .collect::<Vec<_>>();
+
+        keys.sort_by_key(|(_, v)| *v);
+
+        let mut map = self.map.into_iter().map(Some).collect::<Vec<_>>();
+
+        keys.into_iter()
+            .map(move |(k, v)| (k, map.get_mut(v).unwrap().take().unwrap()))
+    }
 }
 
 pub mod to_json;
