@@ -1,0 +1,270 @@
+import 'commons.ukonf' as commons;
+
+let download_xtask_dir: commons.download_xtask_dir
+let cx xtask_artifact_path: concat(commons.ci_artifacts_dir, '/upsilon-xtask')
+
+let checkout: commons.checkout
+let checkout_with_history: commons.checkout_with_history
+let install_rust: commons.install_rust
+let install_rustfmt: commons.install_rustfmt
+let install_clippy: commons.install_clippy
+let install_nextest: commons.install_nextest
+let compile_xtask: commons.compile_xtask
+let download_xtask: commons.download_xtask
+let lint compiler xtask: commons.lint
+let compile_binaries_and_tests compiler xtask: commons.compile_binaries_and_tests
+let run_tests compiler xtask: commons.run_tests
+let run_doctests compiler xtask: commons.run_doctests
+let compile_binaries_and_tests_with_difftests compiler xtask: commons.compile_binaries_and_tests_with_difftests
+let run_tests_with_difftests compiler xtask: commons.run_tests_with_difftests
+
+let install_openssl: {
+  name: 'Install openssl'
+  run: 'sudo apt-get install -y libssl-dev'
+}
+
+let install_lld: {
+  name: 'Install lld'
+  run: 'sudo apt-get install -y lld'
+}
+
+let copy_xtask_to_artifact: {
+  name: 'Copy xtask to artifact'
+  run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && cp target/debug/upsilon-xtask ', xtask_artifact_path)
+}
+
+let upload_xtask: {
+  name: 'Upload xtask'
+  uses: 'actions/upload-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: xtask_artifact_path
+  }
+}
+
+let downloaded_xtask_artifact: concat(download_xtask_dir, '/upsilon-xtask')
+
+let move_downloaded_xtask_to_artifact_path: {
+  name: 'Move downloaded xtask to artifact path'
+  run: concat('mkdir -p ', parent_dir(xtask_artifact_path), ' && mv ', downloaded_xtask_artifact, ' ', xtask_artifact_path, ' && chmod +x ', xtask_artifact_path)
+}
+
+let env_linux: [
+  {
+    name: 'Print environment'
+    run: """
+      env
+    """
+  }
+  {
+    name: 'Collect other system information'
+    run: """
+      git --version
+    """
+  }
+]
+
+let get_old_commit: {
+  name: 'Get old commit'
+  id: 'get-old-commit'
+  run: """
+    if [ "$PUSH_BEFORE" != "" ]; then
+        echo "OLD_COMMIT=$PUSH_BEFORE" >> $GITHUB_OUTPUT
+    else
+        if [ "$PULL_REQUEST_BASE_SHA" != "" ]; then
+            echo "OLD_COMMIT=$PULL_REQUEST_BASE_SHA" >> $GITHUB_OUTPUT
+        else
+            echo "Error: neither PUSH_BEFORE nor PULL_REQUEST_BASE_SHA is set" >&2
+            exit 1
+        fi
+    fi
+  """
+  env {
+    PUSH_BEFORE: '${{ github.event.before }}'
+    PULL_REQUEST_BASE_SHA: '${{ github.event.pull_request.base.sha }}'
+  }
+}
+
+let run_only_difftests compiler xtask: {
+  name: 'Run tests (only difftests)'
+  run: xtask(concat(
+    'test-quick --from-index --verbose --no-fail-fast --profile difftests --algo git-diff-files --commit ',
+    '${{ steps.', get_old_commit.id, '.outputs.OLD_COMMIT }}',
+  ))
+}
+
+
+let check_ci_files_up_to_date compiler xtask: {
+  name: 'Run ci files up to date check'
+  run: xtask('check-ci-files-up-to-date')
+}
+
+let fmt_check compiler xtask: {
+  name: 'Run fmt check'
+  run: xtask('fmt-check')
+}
+
+let git_checks compiler xtask: {
+  name: 'Git checks'
+  run: xtask('git-checks --checkout')
+  if: 'success() || failure()'
+}
+
+let check_cargo_dep_order compiler xtask: {
+  name: 'Check Cargo.toml dependencies order'
+  run: xtask('check-cargo-dep-order')
+  if: 'success() || failure()'
+}
+
+let check_cargo_dep_from_workspace compiler xtask: {
+  name: 'Check Cargo.toml dependencies from workspace.dependencies'
+  run: xtask('check-cargo-dep-from-workspace')
+  if: 'success() || failure()'
+}
+
+let gql_schema_check compiler xtask: {
+  name: 'Run gql schema check'
+  run: xtask('graphql-schema-check')
+}
+
+let compile_xtask_job_linux: {
+  name: 'Compile xtask (Linux)'
+  runs-on: 'ubuntu-latest'
+  env: {
+    UXTASK_USE_GLOBAL_CARGO: '1'
+  }
+  steps [
+    checkout
+    install_lld
+    install_rust
+    compile_xtask
+    copy_xtask_to_artifact
+    upload_xtask
+  ]
+}
+
+let compile_xtask_job_linux_key: 'compile-xtask-linux'
+
+
+${compile_xtask_job_linux_key}: compile_xtask_job_linux
+
+style-checks {
+  name: 'Style checks'
+  runs-on: 'ubuntu-latest'
+  needs: compile_xtask_job_linux_key
+  steps [
+    checkout
+    install_lld
+    install_rust
+    install_rustfmt
+    download_xtask
+    move_downloaded_xtask_to_artifact_path
+    fmt_check
+    git_checks
+    check_cargo_dep_order
+    check_cargo_dep_from_workspace
+  ]
+}
+
+gql-schema-up-to-date {
+  name: 'GraphQL schema is up-to-date'
+  runs-on: 'ubuntu-latest'
+  needs: compile_xtask_job_linux_key
+
+  steps [
+    checkout
+    install_lld
+    install_rust
+    download_xtask
+    move_downloaded_xtask_to_artifact_path
+    gql_schema_check
+  ]
+}
+
+ci-files-up-to-date {
+  name: 'CI files are up-to-date'
+  runs-on: 'ubuntu-latest'
+  needs: compile_xtask_job_linux_key
+
+  steps [
+    checkout
+    install_lld
+    install_rust
+    download_xtask
+    move_downloaded_xtask_to_artifact_path
+    check_ci_files_up_to_date
+  ]
+}
+
+lint {
+  name: 'Lint'
+  runs-on: 'ubuntu-latest'
+  needs: compile_xtask_job_linux_key
+
+  steps [
+    checkout
+    install_lld
+    install_openssl
+    install_rust
+    install_clippy
+    download_xtask
+    move_downloaded_xtask_to_artifact_path
+    lint
+  ]
+}
+
+test-linux {
+  let cx xtask_cargo_run: true
+  name: 'Test (Linux)'
+  runs-on: 'ubuntu-latest'
+
+  steps [
+    checkout
+    install_lld
+    install_openssl
+    install_rust
+    install_nextest
+    ...env_linux
+    compile_xtask
+    compile_binaries_and_tests
+    run_tests
+    run_doctests
+  ]
+}
+
+test-linux-with-difftests {
+  let cx xtask_cargo_run: true
+  name: 'Test (Linux with difftests)'
+  runs-on: 'ubuntu-latest'
+
+  steps [
+    checkout
+    install_lld
+    install_openssl
+    install_rust
+    install_nextest
+    ...env_linux
+    compile_xtask
+    compile_binaries_and_tests_with_difftests
+    run_tests_with_difftests
+  ]
+}
+
+test-linux-only-difftests {
+  let cx xtask_cargo_run: true
+  name: 'Test (Linux only difftests)'
+  runs-on: 'ubuntu-latest'
+
+  steps [
+    checkout_with_history
+    get_old_commit
+    install_lld
+    install_openssl
+    install_rust
+    install_nextest
+    ...env_linux
+    compile_xtask
+    compile_binaries_and_tests_with_difftests
+    run_only_difftests
+  ]
+}

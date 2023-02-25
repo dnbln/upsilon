@@ -16,6 +16,8 @@
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::fmt;
+use std::fmt::Debug;
 
 use anyhow::format_err;
 
@@ -165,10 +167,30 @@ impl From<UkonfObject> for UkonfValue {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct UkonfObject {
     map: Vec<UkonfValue>,
     key_map: BTreeMap<String, usize>,
+}
+
+impl fmt::Debug for UkonfObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+
+        let mut need_comma = false;
+
+        for (k, v) in self.key_map.iter() {
+            if need_comma {
+                write!(f, ", ")?;
+            }
+            write!(f, "{:?}: {:?}", k, self.map[*v])?;
+            need_comma = true;
+        }
+
+        write!(f, "}}")?;
+
+        Ok(())
+    }
 }
 
 impl UkonfObject {

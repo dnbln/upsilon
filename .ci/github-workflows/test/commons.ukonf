@@ -1,0 +1,89 @@
+let nightly: 'nightly-2023-02-03'
+let ci_artifacts_dir: './ci-artifacts'
+ci_artifacts_dir: ci_artifacts_dir
+let bin_dir: './bin-dir'
+
+checkout {
+  name: 'Checkout'
+  uses: 'actions/checkout@v3'
+  with {
+    ref: '${{ github.event.pull_request.head.sha }}'
+  }
+}
+
+checkout_with_history {
+  name: 'Checkout'
+  uses: 'actions/checkout@v3'
+  with {
+    ref: '${{ github.event.pull_request.head.sha }}'
+    fetch-depth: 0
+  }
+}
+
+let download_xtask_dir: concat(ci_artifacts_dir, '/downloaded-xtask')
+download_xtask_dir: download_xtask_dir
+
+download_xtask {
+  name: 'Download xtask'
+  uses: 'actions/download-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: download_xtask_dir
+  }
+}
+
+install_rust {
+  name: 'Install rust'
+  run: concat('rustup toolchain install ', nightly, ' --no-self-update && rustup default ', nightly)
+}
+
+install_nextest {
+  name: 'Install nextest'
+  uses: 'taiki-e/install-action@nextest'
+}
+
+compile_binaries_and_tests {
+  name: 'Compile binaries and tests'
+  run: xtask(concat('test --verbose --no-run --profile ci --custom-bin-dir ', bin_dir))
+}
+
+run_tests {
+  name: 'Run tests'
+  run: xtask(concat('test --verbose --no-fail-fast --profile ci --no-build-dev --custom-bin-dir ', bin_dir))
+}
+
+compile_binaries_and_tests_with_difftests {
+  name: 'Compile binaries and tests (with difftests)'
+  run: xtask(concat('test --verbose --no-run --profile difftests --custom-bin-dir ', bin_dir))
+}
+
+run_tests_with_difftests {
+  name: 'Run tests (with difftests)'
+  run: xtask(concat('test --verbose --no-fail-fast --profile difftests --no-build-dev --custom-bin-dir ', bin_dir))
+}
+
+install_rustfmt {
+  name: 'Install rustfmt'
+  run: 'rustup component add rustfmt'
+}
+
+compile_xtask {
+  name: 'Compile xtask'
+  run: 'cargo build -p upsilon-xtask --bin upsilon-xtask --verbose'
+}
+
+run_doctests {
+  name: 'Run doctests'
+  run: xtask('test --verbose --no-fail-fast --doc --profile ci --no-build-dev')
+}
+
+install_clippy {
+  name: 'Install clippy'
+  run: 'rustup component add clippy'
+}
+
+lint {
+  name: 'Lint'
+  run: xtask('lint')
+}
+

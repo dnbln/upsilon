@@ -1,0 +1,197 @@
+import 'commons.ukonf' as commons;
+
+let download_xtask_dir: commons.download_xtask_dir
+let cx xtask_artifact_path: concat(commons.ci_artifacts_dir, '/upsilon-xtask.exe')
+
+let checkout: commons.checkout
+let install_rust: commons.install_rust
+let install_nextest: commons.install_nextest
+let download_xtask: commons.download_xtask
+let compile_xtask: commons.compile_xtask
+let compile_binaries_and_tests compiler xtask: commons.compile_binaries_and_tests
+let run_tests compiler xtask: commons.run_tests
+let run_doctests compiler xtask: commons.run_doctests
+
+
+let openssl_cache_key: 'build-openssl-win'
+let openssl_triple: 'x64-windows-static-md'
+let openssl_artifacts_name: 'openssl-artifacts'
+
+let compile_openssl_job: {
+  let restore_build_openssl_id: 'restore_build_openssl'
+
+  name: 'Compile openssl (Windows)'
+  runs-on: 'windows-latest'
+  steps [
+    {
+      name: 'Setup env'
+      run: 'echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append'
+    }
+    {
+      name: 'Restore built openssl'
+      id: restore_build_openssl_id
+      uses: 'actions/cache/restore@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}'
+        key: openssl_cache_key
+      }
+    }
+    {
+      name: 'Install openssl'
+      run: concat('vcpkg install openssl:', openssl_triple)
+      if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+    }
+    {
+      name: 'Save built openssl'
+      uses: 'actions/cache/save@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}'
+        key: openssl_cache_key
+      }
+      if: concat('steps.', restore_build_openssl_id, """.outputs.cache-hit != 'true'""")
+    }
+    {
+      name: 'Upload openssl artifacts'
+      uses: 'actions/upload-artifact@v3'
+      env {
+        OPENSSL_TRIPLE: openssl_triple
+      }
+      with {
+        name: openssl_artifacts_name
+        path: '${{ env.VCPKG_ROOT }}\installed\${{ env.OPENSSL_TRIPLE }}\*'
+        if-no-files-found: 'error'
+      }
+    }
+  ]
+}
+
+let compile_openssl_job_key: 'compile-openssl-win'
+let compile_xtask_job_key: 'compile-xtask-win'
+let win_openssl_download_loc: 'target-openssl\openssl'
+
+let download_openssl_artifact: {
+  name: 'Restore built openssl'
+  uses: 'actions/download-artifact@v3'
+  with {
+    path: win_openssl_download_loc
+    name: openssl_artifacts_name
+  }
+}
+
+let setup_downloaded_openssl: {
+  name: 'Set up openssl env'
+  run: concat('echo "OPENSSL_DIR=$(Get-Location)\', win_openssl_download_loc, '" | Out-File -FilePath $env:GITHUB_ENV -Append')
+}
+
+
+let init_openssl: [
+  download_openssl_artifact
+  setup_downloaded_openssl
+]
+
+let env: [
+  {
+    name: 'Print environment'
+    shell: 'pwsh'
+    run: 'ls env:'
+  }
+  {
+    name: 'Collect other system information'
+    run: """
+      git --version
+    """
+  }
+]
+
+let create_xtask_artifact_dir: {
+  name: 'Create xtask artifact dir'
+  run: concat('mkdir ', parent_dir(xtask_artifact_path))
+}
+
+let copy_xtask_to_artifact: {
+  name: 'Copy xtask to artifact'
+  run: concat('cp .\target\debug\upsilon-xtask.exe ', xtask_artifact_path)
+}
+
+let downloaded_xtask_artifact: concat(download_xtask_dir, '/upsilon-xtask.exe')
+
+let move_downloaded_xtask_to_artifact_path: {
+  name: 'Move downloaded xtask to artifact path'
+  run: concat('mv ', downloaded_xtask_artifact, ' ', xtask_artifact_path)
+}
+
+let upload_xtask: {
+  name: 'Upload xtask'
+  uses: 'actions/upload-artifact@v3'
+  with {
+    name: '${{ runner.os }}-xtask'
+    path: xtask_artifact_path
+  }
+}
+
+let init_xtask: [
+  download_xtask
+  move_downloaded_xtask_to_artifact_path
+]
+
+
+${compile_openssl_job_key}: compile_openssl_job
+
+${compile_xtask_job_key} {
+  name: 'Compile xtask (Windows)'
+  runs-on: 'windows-latest'
+  needs: compile_openssl_job_key
+
+  env {
+    UXTASK_USE_GLOBAL_CARGO: '1'
+  }
+
+  steps [
+    checkout
+    ...init_openssl
+    install_rust
+    ...env
+    compile_xtask
+    create_xtask_artifact_dir
+    copy_xtask_to_artifact
+    upload_xtask
+  ]
+}
+
+test-win {
+  name: 'Test (Windows)'
+  runs-on: 'windows-latest'
+  needs: [compile_openssl_job_key compile_xtask_job_key]
+
+  steps [
+    checkout
+    ...init_openssl
+    install_rust
+    install_nextest
+    ...env
+    ...init_xtask
+    compile_binaries_and_tests
+    run_tests
+  ]
+}
+
+doctest-win {
+  name: 'Doctest (Windows)'
+  runs-on: 'windows-latest'
+  needs: [compile_openssl_job_key compile_xtask_job_key]
+
+  steps [
+    checkout
+    ...init_openssl
+    install_rust
+    ...env
+    ...init_xtask
+    run_doctests
+  ]
+}

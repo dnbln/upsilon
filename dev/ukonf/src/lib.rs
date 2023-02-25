@@ -412,7 +412,15 @@ impl UkonfRunner {
                         ._expect_string(&span)?;
                 }
 
-                TempValue::RealValue(base_value.expect_object(&span)?.get(&name).unwrap().clone())
+                let obj = base_value.expect_object(&span)?;
+
+                TempValue::RealValue(
+                    obj.get(&name)
+                        .ok_or_else(|| {
+                            UkonfRunError::PropertyNotFound(name, base.0 .1.clone(), obj.clone())
+                        })?
+                        .clone(),
+                )
             }
             AstVal::Spread(spread, name) => {
                 let value = Scope::resolve(scope, &name.0 .0)
@@ -719,6 +727,8 @@ pub enum UkonfRunError {
     InvalidImport(Span),
     #[error("Parse error: {0}")]
     ParseError(String),
+    #[error("Property not found: {0}@{1:?} in {2:?}")]
+    PropertyNotFound(String, Span, UkonfObject),
     #[error("Spread to array, but is not an array: {0:?}@{1}")]
     SpreadToArrayNotArray(UkonfValue, Span),
     #[error("Spread to object, but is not an object: {0:?}@{1}")]

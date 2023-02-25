@@ -1,0 +1,20 @@
+push {
+  branches [ 'trunk' ]
+  paths [
+    'crates/**'
+    'dev/**'
+    'Cargo.toml'
+    'Cargo.lock'
+    'rustfmt.toml'
+    'clippy.toml'
+    '.cargo/**'
+    '.ci/github-workflows/**'
+    '.config/nextest.toml'
+    '.github/workflows/test.yaml'
+    'schemas/graphql/schema.graphql'
+  ]
+}
+
+pull_request {
+  branches [ 'trunk' ]
+}
