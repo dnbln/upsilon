@@ -14,7 +14,9 @@
  *    limitations under the License.
  */
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use log::info;
 
 #[macro_export]
 macro_rules! ws_path {
@@ -81,9 +83,23 @@ macro_rules! ws_glob {
     };
 }
 
-pub fn workspace_root() -> &'static Path {
-    let xtask_dir: &Path = env!("CARGO_MANIFEST_DIR").as_ref();
-    // parent of upsilon-xtask = dev,
-    // parent of crates = workspace root
-    xtask_dir.parent().unwrap().parent().unwrap()
+pub fn workspace_root() -> PathBuf {
+    match option_env!("UXTASK_USE_WS_ROOT") {
+        Some(_) => {
+            let ws_root = std::env::var("UXTASK_WS_ROOT").expect("UXTASK_WS_ROOT not set");
+            info!("UXTASK_USE_WS_ROOT set, using UXTASK_WS_ROOT: {ws_root}");
+
+            PathBuf::from(ws_root)
+        }
+        None => {
+            // parent of upsilon-xtask = dev,
+            // parent of crates = workspace root
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_path_buf()
+        }
+    }
 }

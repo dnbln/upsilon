@@ -368,6 +368,10 @@ jobs {
     runs-on: 'windows-latest'
     needs: compile_openssl_job_win_key
 
+    env {
+      UXTASK_USE_GLOBAL_CARGO: '1'
+    }
+
     steps [
       checkout
       {
