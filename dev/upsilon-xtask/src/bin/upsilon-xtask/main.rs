@@ -32,7 +32,7 @@ use crate::test::{
     run_test_quick_cmd, run_test_support_examples_cmd, run_tests_cmd, TestCmd, TestQuickCmd
 };
 use crate::utils::{copy, extend_filext_new, rm};
-use crate::ws_layout::{DOCS, WS_BIN_LAYOUT};
+use crate::ws_layout::{DOCS, WS_BIN_LAYOUT, WS_PKG_LAYOUT};
 
 mod cargo_toml_style;
 mod difftests;
@@ -495,9 +495,9 @@ fn main_impl() -> XtaskResult<()> {
             difftests::run(command)?;
         }
         App::PublishDifftestsCrates => {
-            Pkg::dev_pkg("cargo-difftests-core").publish()?;
-            Pkg::dev_pkg("cargo-difftests-testclient").publish()?;
-            Pkg::dev_pkg("cargo-difftests").publish()?;
+            WS_PKG_LAYOUT.cargo_difftests_core.publish()?;
+            WS_PKG_LAYOUT.cargo_difftests_testclient.publish()?;
+            WS_PKG_LAYOUT.cargo_difftests.publish()?;
         }
     }
 
