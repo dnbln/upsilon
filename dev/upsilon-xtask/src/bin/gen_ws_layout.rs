@@ -195,5 +195,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() -> XtaskResult<()> {
-    gen_ws_layout(&ws_path!("dev" / "upsilon-xtask" / "src" / "ws_layout.rs"))
+    gen_ws_layout(&ws_path!(
+        "dev" / "upsilon-xtask" / "src" / "bin" / "upsilon-xtask" / "ws_layout.rs"
+    ))
 }

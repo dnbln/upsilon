@@ -26,3 +26,7 @@ ukonf.workspace = true
 zip = { version = "0.6.3", default-features = false, features = ["deflate"] }
 
 upsilon-diff-util.workspace = true
+
+[[bin]]
+name = "upsilon-xtask"
+path = "src/bin/upsilon-xtask/main.rs"
