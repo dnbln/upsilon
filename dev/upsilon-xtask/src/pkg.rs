@@ -28,6 +28,7 @@ pub enum PkgKind {
     LocalCrates,
     LocalDev,
     LocalPlugins,
+    LocalTools { path_in_ws: PathBuf },
     CratesIo,
 }
 
@@ -59,6 +60,15 @@ impl Pkg {
         }
     }
 
+    pub fn tool_pkg(name: impl Into<String>, path_in_ws: impl Into<PathBuf>) -> Self {
+        Self {
+            name: name.into(),
+            kind: PkgKind::LocalTools {
+                path_in_ws: path_in_ws.into(),
+            },
+        }
+    }
+
     pub fn crates_io(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -83,7 +93,10 @@ impl Pkg {
     #[track_caller]
     pub fn build_args(&self) -> Vec<OsString> {
         match self.kind {
-            PkgKind::LocalCrates | PkgKind::LocalDev | PkgKind::LocalPlugins => {
+            PkgKind::LocalCrates
+            | PkgKind::LocalDev
+            | PkgKind::LocalPlugins
+            | PkgKind::LocalTools { .. } => {
                 vec!["-p".into(), self.name.clone().into()]
             }
             PkgKind::CratesIo => {
@@ -95,7 +108,10 @@ impl Pkg {
     #[track_caller]
     pub fn run_args(&self) -> Vec<OsString> {
         match self.kind {
-            PkgKind::LocalCrates | PkgKind::LocalDev | PkgKind::LocalPlugins => {
+            PkgKind::LocalCrates
+            | PkgKind::LocalDev
+            | PkgKind::LocalPlugins
+            | PkgKind::LocalTools { .. } => {
                 vec!["-p".into(), self.name.clone().into()]
             }
             PkgKind::CratesIo => {
@@ -105,7 +121,7 @@ impl Pkg {
     }
 
     pub fn install_args(&self) -> Vec<OsString> {
-        match self.kind {
+        match &self.kind {
             PkgKind::LocalCrates => vec![
                 "--path".into(),
                 ws_path!("crates" / (self.name.as_str())).into(),
@@ -118,6 +134,9 @@ impl Pkg {
                 "--path".into(),
                 ws_path!("plugins" / (self.name.as_str())).into(),
             ],
+            PkgKind::LocalTools { path_in_ws } => {
+                vec!["--path".into(), ws_path!(path_in_ws).into_os_string()]
+            }
             PkgKind::CratesIo => vec![self.name.clone().into()],
         }
     }

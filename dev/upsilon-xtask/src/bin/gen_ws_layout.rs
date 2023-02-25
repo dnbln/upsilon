@@ -17,9 +17,10 @@
 use std::io::Write;
 use std::path::Path;
 
+use path_slash::PathExt;
 use upsilon_xtask::cargo_ws::{cargo_config, cargo_ws};
 use upsilon_xtask::pkg::PkgKind;
-use upsilon_xtask::{ws_path, XtaskResult};
+use upsilon_xtask::{ws_path, ws_root, XtaskResult};
 
 fn one_of(v: &[bool]) -> bool {
     let Some(pos) = v.iter().position(|it| *it) else {
@@ -38,19 +39,23 @@ pub fn gen_ws_layout(to: &Path) -> XtaskResult<()> {
     for member in ws.members() {
         let pkg_name = member.name().as_str();
         let path = member.root();
-        let rustic_name = pkg_name.replace("-", "_");
+        let rustic_name = pkg_name.replace('-', "_");
 
-        let parent = path.parent().unwrap();
-        let is_dev = parent.ends_with("dev");
-        let is_crates = parent.ends_with("crates");
-        let is_plugins = parent.ends_with("plugins");
+        let path_in_ws = path.strip_prefix(ws_root!()).unwrap();
+        let is_dev = path_in_ws.starts_with("dev");
+        let is_crates = path_in_ws.starts_with("crates");
+        let is_plugins = path_in_ws.starts_with("plugins");
+        let is_tools = path_in_ws.starts_with("tools");
 
-        assert!(one_of(&[is_dev, is_crates, is_plugins]));
+        assert!(one_of(&[is_dev, is_crates, is_plugins, is_tools]));
 
-        let kind = match (is_dev, is_crates, is_plugins) {
-            (true, false, false) => PkgKind::LocalDev,
-            (false, true, false) => PkgKind::LocalCrates,
-            (false, false, true) => PkgKind::LocalPlugins,
+        let kind = match (is_dev, is_crates, is_plugins, is_tools) {
+            (true, false, false, false) => PkgKind::LocalDev,
+            (false, true, false, false) => PkgKind::LocalCrates,
+            (false, false, true, false) => PkgKind::LocalPlugins,
+            (false, false, false, true) => PkgKind::LocalTools {
+                path_in_ws: path_in_ws.to_path_buf(),
+            },
             _ => unreachable!(),
         };
 
@@ -98,16 +103,25 @@ lazy_static::lazy_static! {
             "    pub {rustic_name}: upsilon_xtask::pkg::Pkg,\n"
         ));
 
-        let pkg_initializer = match kind {
-            PkgKind::LocalDev => "dev_pkg",
-            PkgKind::LocalCrates => "local_crates",
-            PkgKind::LocalPlugins => "plugin_pkg",
+        let (pkg_initializer, extra) = match kind {
+            PkgKind::LocalDev => ("dev_pkg", None),
+            PkgKind::LocalCrates => ("local_crates", None),
+            PkgKind::LocalPlugins => ("plugin_pkg", None),
+            PkgKind::LocalTools { path_in_ws } => (
+                "tool_pkg",
+                Some(format!("\"{}\"", path_in_ws.to_slash().unwrap())),
+            ),
             PkgKind::CratesIo => unreachable!(),
         };
 
         ws_pkg_layout.push_str(&format!(
-            r#"        {rustic_name}: upsilon_xtask::pkg::Pkg::{pkg_initializer}("{name}"),
+            r#"        {rustic_name}: upsilon_xtask::pkg::Pkg::{pkg_initializer}("{name}"{extra}),
 "#,
+            extra = if let Some(extra) = extra {
+                format!(", {extra}")
+            } else {
+                "".to_string()
+            }
         ));
 
         package_from_str.push_str(
