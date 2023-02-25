@@ -22,7 +22,7 @@ use std::rc::Rc;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::{lalrpop_mod, ParseError};
 
-use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned, VirtualSpan};
+use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned};
 use crate::value::{UkonfObject, UkonfValue};
 
 lalrpop_mod!(
