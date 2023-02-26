@@ -95,7 +95,7 @@ fn write_bin_file_to_zip<W: Write + Seek>(
         .as_ref()
         .with_extension(std::env::consts::EXE_EXTENSION);
 
-    let mut buf = [0u8; 65536];
+    let mut buf = [0u8; 0x0001_0000];
     let mut f = fs::File::open(path)?;
 
     loop {

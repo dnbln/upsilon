@@ -220,7 +220,7 @@ struct RwGuardKinds {
 impl RwGuardKinds {
     fn need_for_kind(kind: NamespaceKind) -> Self {
         match kind {
-            NamespaceKind::GlobalNamespace => Self {
+            NamespaceKind::Global => Self {
                 users: RwGuardKind::Read,
                 orgs: RwGuardKind::Read,
                 teams: RwGuardKind::None,
@@ -431,7 +431,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn create_user(&self, user: User) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
-            NamespaceKind::GlobalNamespace,
+            NamespaceKind::Global,
             |it| it.need_users(RwGuardKind::Write),
         )
         .await;
@@ -483,7 +483,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn set_user_name(&self, user_id: UserId, user_name: Username) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
-            NamespaceKind::GlobalNamespace,
+            NamespaceKind::Global,
             |it| it.need_users(RwGuardKind::Write),
         )
         .await;
@@ -564,7 +564,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn set_repo_name(&self, repo_id: RepoId, repo_name: RepoName) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
-            NamespaceKind::GlobalNamespace,
+            NamespaceKind::Global,
             |it| {
                 it.need_users(RwGuardKind::Read)
                     .need_orgs(RwGuardKind::Read)
@@ -623,7 +623,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
 
         Ok(lock
             .get(&repo_id)
-            .and_then(|map| map.get(&user_id).cloned()))
+            .and_then(|map| map.get(&user_id).copied()))
     }
 
     async fn add_repo_user_perms(
@@ -669,7 +669,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     async fn create_organization(&self, org: Organization) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
-            NamespaceKind::GlobalNamespace,
+            NamespaceKind::Global,
             |it| it.need_orgs(RwGuardKind::Write),
         )
         .await;
@@ -711,7 +711,7 @@ impl<'a> DataClientQueryImpl<'a> for InMemoryQueryImpl<'a> {
     ) -> Result<(), Self::Error> {
         let mut ns_query_lock = InMemoryNamespaceMutQueryLock::for_namespace_kind(
             self.store(),
-            NamespaceKind::GlobalNamespace,
+            NamespaceKind::Global,
             |it| it.need_orgs(RwGuardKind::Write),
         )
         .await;

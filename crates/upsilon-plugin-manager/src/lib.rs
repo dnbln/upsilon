@@ -302,7 +302,7 @@ impl PluginManager {
         let mut rocket = self.rocket.take().unwrap();
 
         let hook_runner = PluginHookRunner {
-            liftoff_hooks: self.liftoff_hooks.clone(),
+            liftoff_hooks: Arc::clone(&self.liftoff_hooks),
         };
 
         if hook_runner.attach().await {
@@ -359,7 +359,7 @@ impl PluginManager {
         let mut mutator = PluginLoadApiImpl {
             plugin_name: name,
             rocket: Arc::new(Mutex::new(self.rocket.take())),
-            liftoff_hooks: self.liftoff_hooks.clone(),
+            liftoff_hooks: Arc::clone(&self.liftoff_hooks),
         };
 
         let r = p.init(&mut mutator).await;

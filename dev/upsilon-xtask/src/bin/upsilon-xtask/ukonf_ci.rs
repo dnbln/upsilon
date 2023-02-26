@@ -63,6 +63,7 @@ pub fn add_parent_dir(fns: &mut UkonfFunctions) {
         let path = {
             #[cfg(not(windows))]
             {
+                use path_slash::PathBufExt;
                 if path.contains('\\') {
                     PathBuf::from_backslash(path)
                 } else {
@@ -197,7 +198,7 @@ pub fn ukonf_ci_functions() -> UkonfFunctions {
     fns
 }
 
-fn gen_ci_file(from: PathBuf, to: &PathBuf) -> XtaskResult<()> {
+fn gen_ci_file(from: PathBuf, to: &Path) -> XtaskResult<()> {
     ukonf_to_yaml(from, to, ukonf_ci_functions)
 }
 

@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 struct Hook {
@@ -44,21 +45,25 @@ fn main() {
     let mut run_hook_match_arms = String::new();
 
     for hook in HOOKS {
-        hooks_to_register.push_str(&format!("{:?},", hook.name));
+        write!(hooks_to_register, "{:?},", hook.name).unwrap();
 
-        app_variants.push_str(&format!(
+        write!(
+            app_variants,
             "
             #[clap(name = {git_hook_name:?})]
             {name}({name}),",
             git_hook_name = hook.name,
             name = hook.rust_name,
-        ));
+        )
+        .unwrap();
 
-        run_hook_match_arms.push_str(&format!(
+        write!(
+            run_hook_match_arms,
             "
             App::{name}(hook) => hook.run(),",
             name = hook.rust_name,
-        ));
+        )
+        .unwrap();
     }
 
     std::fs::write(

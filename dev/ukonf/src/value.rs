@@ -179,7 +179,7 @@ impl fmt::Debug for UkonfObject {
 
         let mut need_comma = false;
 
-        for (k, v) in self.key_map.iter() {
+        for (k, v) in &self.key_map {
             if need_comma {
                 write!(f, ", ")?;
             }
@@ -268,7 +268,7 @@ impl UkonfObject {
         let mut map = self.map.into_iter().map(Some).collect::<Vec<_>>();
 
         keys.into_iter()
-            .map(move |(k, v)| (k, map.get_mut(v).unwrap().take().unwrap()))
+            .map(move |(k, v)| (k, map[v].take().unwrap()))
     }
 }
 

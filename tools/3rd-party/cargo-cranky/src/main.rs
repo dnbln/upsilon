@@ -79,13 +79,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    let all_args = if right_args.is_empty() {
-        left_args
-    } else {
+    if !right_args.is_empty() {
         left_args.push("--".to_string());
         left_args.append(&mut right_args);
-        left_args
-    };
+    }
+
+    let all_args = left_args;
 
     if options.dry_run || options.verbose > 0 {
         let print_args = all_args.join(" ");

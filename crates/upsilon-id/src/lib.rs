@@ -54,12 +54,13 @@ pub fn __internal_new_without_ts() -> __InternalUUID {
 impl __InternalUUID {
     pub fn ts(&self) -> SystemTime {
         let (s, ns) = self.0.get_timestamp().expect("Missing timestamp").to_unix();
-        SystemTime::UNIX_EPOCH + Duration::from_secs(s) + Duration::from_nanos(ns as u64)
+        SystemTime::UNIX_EPOCH + Duration::from_secs(s) + Duration::from_nanos(u64::from(ns))
     }
 
     pub fn chrono_ts(&self) -> chrono::NaiveDateTime {
         let (s, ns) = self.0.get_timestamp().expect("Missing timestamp").to_unix();
-        chrono::NaiveDateTime::from_timestamp_opt(s as i64, ns).expect("out of range")
+        chrono::NaiveDateTime::from_timestamp_opt(i64::try_from(s).unwrap(), ns)
+            .expect("out of range")
     }
 }
 

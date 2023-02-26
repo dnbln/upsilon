@@ -223,13 +223,13 @@ async fn run_bin_task(
         }
     }
 
-    if !exit_status.success() {
+    if exit_status.success() {
+        info!("{} finished successfully", bin.name);
+    } else {
         error!(
             "{} exited with non-zero status code: {exit_status}",
             bin.name,
         );
-    } else {
-        info!("{} finished successfully", bin.name);
     }
 
     Ok(())

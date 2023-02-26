@@ -22,7 +22,7 @@ pub(crate) struct LintCfg {
     level: LintLevel,
 }
 
-#[derive(Debug, Default, PartialEq, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(from = "CrankyConfigMap")]
 pub struct CrankyConfig {
     lints: Vec<LintCfg>,

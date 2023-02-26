@@ -225,11 +225,7 @@ mod take_if_unless {
         where
             F: FnOnce(&Self) -> bool,
         {
-            if condition(&self) {
-                Some(self)
-            } else {
-                None
-            }
+            condition(&self).then_some(self)
         }
         /// Returns `None` if condition == true or Some(...) otherwise
         #[inline(always)]
@@ -237,11 +233,7 @@ mod take_if_unless {
         where
             F: FnOnce(&Self) -> bool,
         {
-            if condition(&self) {
-                None
-            } else {
-                Some(self)
-            }
+            Self::take_if(self, |it| !condition(it))
         }
     }
 
@@ -260,11 +252,7 @@ mod take_if_unless_owned {
         where
             F: FnOnce(&Self) -> bool,
         {
-            if condition(self) {
-                Some(self.to_owned())
-            } else {
-                None
-            }
+            condition(self).then(|| self.to_owned())
         }
         /// Similar to
         /// [`TakeIfUnless::take_unless`][super::TakeIfUnless::take_unless],

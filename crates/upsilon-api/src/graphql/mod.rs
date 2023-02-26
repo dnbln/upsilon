@@ -22,7 +22,7 @@ use std::pin::Pin;
 
 use chrono::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
-use juniper::{graphql_interface, graphql_object, graphql_subscription, FieldError, FieldResult};
+use juniper::{graphql_object, graphql_subscription, FieldError, FieldResult};
 use path_slash::PathBufExt;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
@@ -314,26 +314,36 @@ impl QueryRoot {
     }
 }
 
-#[graphql_interface(for = [UserRef, OrganizationRef, TeamRef, RepoRef])]
-trait Entity {
-    fn _entity_id(&self, ctx: &GraphQLContext) -> String;
+mod ent {
+    #![allow(clippy::enum_variant_names)]
 
-    fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
-        None
-    }
+    use juniper::graphql_interface;
 
-    fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
-        None
-    }
+    use super::{GraphQLContext, OrganizationRef, RepoRef, TeamRef, UserRef};
 
-    fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
-        None
-    }
+    #[graphql_interface(for = [UserRef, OrganizationRef, TeamRef, RepoRef])]
+    pub(in super) trait Entity {
+        fn _entity_id(&self, ctx: &GraphQLContext) -> String;
 
-    fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
-        None
+        fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
+            None
+        }
+
+        fn entity_organization(&self, ctx: &GraphQLContext) -> Option<&OrganizationRef> {
+            None
+        }
+
+        fn entity_team(&self, ctx: &GraphQLContext) -> Option<&TeamRef> {
+            None
+        }
+
+        fn entity_repo(&self, ctx: &GraphQLContext) -> Option<&RepoRef> {
+            None
+        }
     }
 }
+
+use ent::{Entity, EntityValue};
 
 macro_rules! defer_entity_impl {
     () => {

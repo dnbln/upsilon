@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use std::fmt::Write as _;
 use std::io::Write;
 use std::path::Path;
 
@@ -99,9 +100,11 @@ lazy_static::lazy_static! {
     );
 
     for (name, rustic_name, _path, kind, bins) in &ws_layout_members {
-        ws_pkg_layout_decl.push_str(&format!(
-            "    pub {rustic_name}: upsilon_xtask::pkg::Pkg,\n"
-        ));
+        writeln!(
+            ws_pkg_layout_decl,
+            "    pub {rustic_name}: upsilon_xtask::pkg::Pkg,"
+        )
+        .unwrap();
 
         let (pkg_initializer, extra) = match kind {
             PkgKind::LocalDev => ("dev_pkg", None),
@@ -114,33 +117,34 @@ lazy_static::lazy_static! {
             PkgKind::CratesIo => unreachable!(),
         };
 
-        ws_pkg_layout.push_str(&format!(
-            r#"        {rustic_name}: upsilon_xtask::pkg::Pkg::{pkg_initializer}("{name}"{extra}),
-"#,
+        writeln!(
+            ws_pkg_layout,
+            r#"        {rustic_name}: upsilon_xtask::pkg::Pkg::{pkg_initializer}("{name}"{extra}),"#,
             extra = if let Some(extra) = extra {
                 format!(", {extra}")
             } else {
                 "".to_string()
             }
-        ));
+        )
+        .unwrap();
 
-        package_from_str.push_str(
-            format!(
-                r#"            "{name}" => Some(&WS_PKG_LAYOUT.{rustic_name}),
-"#,
-            )
-            .as_str(),
-        );
+        writeln!(
+            package_from_str,
+            r#"            "{name}" => Some(&WS_PKG_LAYOUT.{rustic_name}),"#,
+        )
+        .unwrap();
 
         for (bin_rustic_name, name) in bins {
-            ws_bin_layout_decl.push_str(&format!(
+            write!(
+                ws_bin_layout_decl,
                 "    pub {bin_rustic_name}: upsilon_xtask::pkg::BinTarget<'static>,\n"
-            ));
+            )
+            .unwrap();
 
-            ws_bin_layout.push_str(&format!(
+            write!(ws_bin_layout,
                 r#"        {bin_rustic_name}: upsilon_xtask::pkg::BinTarget::new(&WS_PKG_LAYOUT.{rustic_name}, "{name}"),
 "#,
-            ));
+            ).unwrap();
         }
     }
 

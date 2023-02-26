@@ -338,7 +338,7 @@ impl AstImport {
     }
 
     pub(crate) fn resolved(&self) -> Option<FileId> {
-        self.resolved_file_id.borrow().clone()
+        *self.resolved_file_id.borrow()
     }
 }
 

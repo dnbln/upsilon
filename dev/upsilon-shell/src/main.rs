@@ -80,10 +80,10 @@ impl App {
             let hostname = hostname.as_str();
             let port = http_port;
 
-            if port != default_port {
-                format!("{proto}://{hostname}:{port}/graphql")
-            } else {
+            if port == default_port {
                 format!("{proto}://{hostname}/graphql")
+            } else {
+                format!("{proto}://{hostname}:{port}/graphql")
             }
         });
 
@@ -226,8 +226,8 @@ query {
     let cwd = Rc::new(RefCell::new(std::env::current_dir().unwrap()));
 
     editor.set_helper(Some(Helper {
-        cwd: cwd.clone(),
-        usermap: client.usermap().clone(),
+        cwd: Rc::clone(&cwd),
+        usermap: Rc::clone(client.usermap()),
     }));
 
     let exit_code = loop {

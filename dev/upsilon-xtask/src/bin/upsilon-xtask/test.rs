@@ -95,9 +95,10 @@ impl TestenvConfig {
     }
 
     fn compile(self) -> Option<TestenvConfig> {
-        if let TestenvConfig {
-            needs_upsilon_clone: false,
-        } = &self
+        if (self
+            == TestenvConfig {
+                needs_upsilon_clone: false,
+            })
         {
             None
         } else {

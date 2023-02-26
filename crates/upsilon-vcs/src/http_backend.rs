@@ -15,6 +15,7 @@
  */
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -121,7 +122,7 @@ impl AsyncRead for GitBackendCgiResponse {
                     buf,
                 );
 
-                if let Poll::Ready(Ok(())) = r {
+                if matches!(r, Poll::Ready(Ok(()))) {
                     let len = ReadBuf::filled(buf).len();
                     if len == 0 {
                         this.state = GitBackendCgiResponseState::ReadbackChild;
@@ -142,7 +143,7 @@ impl AsyncRead for GitBackendCgiResponse {
                 };
                 let r = ChildStdout::poll_read(Pin::new(stdout), cx, buf);
 
-                if let Poll::Ready(Ok(())) = r {
+                if matches!(r, Poll::Ready(Ok(()))) {
                     let len = ReadBuf::filled(buf).len();
 
                     if len == 0 {
@@ -173,7 +174,7 @@ pub async fn handle<B: AsyncRead>(
             if id != 0 {
                 s.push('&');
             }
-            s.push_str(&format!("{k}={v}"));
+            write!(s, "{k}={v}").unwrap();
         }
         s
     }
@@ -284,11 +285,7 @@ pub async fn handle<B: AsyncRead>(
     Ok(GitBackendCgiResponse {
         child: proc,
         headers,
-        buffer: if !buffer.is_empty() {
-            Some(Cursor::new(buffer.to_vec()))
-        } else {
-            None
-        },
+        buffer: (!buffer.is_empty()).then(|| Cursor::new(buffer.to_vec())),
         state: if buffer.is_empty() {
             GitBackendCgiResponseState::ReadbackChild
         } else {

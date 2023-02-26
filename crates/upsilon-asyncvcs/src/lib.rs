@@ -241,7 +241,7 @@ impl Client {
                     if let Some(message_and_id) = client.receiver.recv().await {
                         let FlatResponseAndId { id, response } = message_and_id;
 
-                        if let FlatResponse::CloseRelay = response {
+                        if matches!(response, FlatResponse::CloseRelay) {
                             break;
                         }
 

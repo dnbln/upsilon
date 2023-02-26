@@ -193,11 +193,9 @@ impl Difftest {
             return None;
         }
 
-        if self.profdata_file.is_some() {
-            Some(HasProfdata { difftest: self })
-        } else {
-            None
-        }
+        self.profdata_file
+            .is_some()
+            .then_some(HasProfdata { difftest: self })
     }
 
     /// Asserts that the [`Difftest`] has the `.profdata` file, and if so,
@@ -330,7 +328,7 @@ impl<'r> HasProfdata<'r> {
             None => self.difftest.load_test_desc()?,
         };
 
-        for other_binary in other_binaries.iter_mut() {
+        for other_binary in &mut other_binaries {
             if !other_binary.is_absolute() {
                 use path_absolutize::Absolutize;
                 *other_binary = other_binary.absolutize()?.into_owned();

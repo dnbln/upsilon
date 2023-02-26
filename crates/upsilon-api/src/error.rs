@@ -20,11 +20,11 @@ use rocket::Request;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("IO Error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("VCS Error: {0}")]
-    VcsError(#[from] upsilon_vcs::Error),
+    Vcs(#[from] upsilon_vcs::Error),
     #[error("data backend error: {0}")]
-    DataBackendError(#[from] upsilon_data::CommonDataClientError),
+    DataBackend(#[from] upsilon_data::CommonDataClientError),
 
     #[error("Repo not found")]
     RepoNotFound,
@@ -43,9 +43,9 @@ pub enum Error {
 impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
         let status = match &self {
-            Error::IoError(_) => rocket::http::Status::InternalServerError,
-            Error::VcsError(_) => rocket::http::Status::InternalServerError,
-            Error::DataBackendError(_) => rocket::http::Status::InternalServerError,
+            Error::Io(_) => rocket::http::Status::InternalServerError,
+            Error::Vcs(_) => rocket::http::Status::InternalServerError,
+            Error::DataBackend(_) => rocket::http::Status::InternalServerError,
 
             Error::RepoNotFound => rocket::http::Status::NotFound,
             Error::RepoAlreadyExists => rocket::http::Status::Conflict,

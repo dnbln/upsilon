@@ -463,13 +463,12 @@ fn repo_setup(
         if repo_config.visibility == RepoVisibility::Private {
             // disable git:// daemon services if private:
             repo_local_config.set_bool("daemon.uploadpack", false)?;
-            repo_local_config.set_bool("daemon.uploadarchive", false)?;
-            repo_local_config.set_bool("daemon.receivepack", false)?;
         } else {
             repo_local_config.set_bool("daemon.uploadpack", true)?;
-            repo_local_config.set_bool("daemon.uploadarchive", false)?;
-            repo_local_config.set_bool("daemon.receivepack", false)?;
         }
+        // uploadarchive and receivepack is always disabled on git://
+        repo_local_config.set_bool("daemon.uploadarchive", false)?;
+        repo_local_config.set_bool("daemon.receivepack", false)?;
     }
 
     if let GitHttpProtocol::Enabled(_) = &config.http_protocol {

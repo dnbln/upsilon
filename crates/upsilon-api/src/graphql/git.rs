@@ -293,6 +293,6 @@ impl GitSignatureContributions {
     }
 
     fn contributions(&self) -> i32 {
-        self.2 as i32
+        i32::try_from(self.2).unwrap()
     }
 }

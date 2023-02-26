@@ -26,7 +26,12 @@ use crate::ast::{AstItem, AstVal, FileId, NumLit, Span, Spanned};
 use crate::value::{UkonfObject, UkonfValue};
 
 lalrpop_mod!(
-    #[allow(clippy::all, clippy::uninlined_format_args)]
+    #[allow(
+        clippy::all,
+        clippy::uninlined_format_args,
+        clippy::cloned_instead_of_copied,
+        clippy::cognitive_complexity
+    )]
     ukonf_parser
 );
 
@@ -227,7 +232,7 @@ impl UkonfRunner {
     }
 
     fn find_file(&self, f: &Path, file: &str) -> Option<PathBuf> {
-        for dir in self.config.include_dirs.dirs.iter() {
+        for dir in &self.config.include_dirs.dirs {
             let p = dir.join(file);
             if p.is_file() {
                 return Some(p.canonicalize().unwrap());
@@ -282,7 +287,7 @@ impl UkonfRunner {
                 .unwrap()
                 .imports
                 .iter()
-                .filter_map(|it| match &it.path {
+                .find_map(|it| match &it.path {
                     AstVal::Str(s) => {
                         let p = s.str_val();
                         let p = match self.find_file(&file, p.as_ref()) {
@@ -299,7 +304,6 @@ impl UkonfRunner {
                     }
                     _ => Some(UkonfRunError::InvalidImport(it.path.span().clone())),
                 })
-                .next()
             {
                 return Err(e);
             }
@@ -576,8 +580,7 @@ impl UkonfRunner {
             vars: BTreeMap::new(),
         }));
 
-        let mut import_id = 0;
-        for import in &ast.imports {
+        for (import_id, import) in ast.imports.iter().enumerate() {
             let file_id = import.resolved().unwrap();
 
             let obj = self.run_file(file_id)?;
@@ -586,7 +589,6 @@ impl UkonfRunner {
                 || format!("import_{import_id}"),
                 |(_, name)| name.0 .0.clone(),
             );
-            import_id += 1;
 
             scope
                 .borrow_mut()
@@ -639,18 +641,14 @@ impl Scope {
         name: &str,
     ) -> Option<Result<UkonfValue, UkonfFnError>> {
         Scope::resolve_one(Rc::clone(scope), name).and_then(|((k, v, c), _)| {
-            if let CxKind::Cx = k {
-                Some(match c {
-                    Some(compiler) => (compiler.f)(scope, v),
-                    None => Ok(v),
-                })
-            } else {
-                None
-            }
+            (k == CxKind::Cx).then(|| match c {
+                Some(compiler) => (compiler.f)(scope, v),
+                None => Ok(v),
+            })
         })
     }
 
-    fn resolve_one<'a>(
+    fn resolve_one(
         scope: Rc<RefCell<Self>>,
         name: &str,
     ) -> Option<(

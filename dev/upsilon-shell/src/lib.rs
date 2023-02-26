@@ -1038,7 +1038,7 @@ impl<'src> UshCommandParser<'src> {
         let mut args = Vec::new();
 
         for (token, span, slice) in self.lexer.by_ref() {
-            if let Token::Error = token {
+            if token == Token::Error {
                 return Err(UshParseError::UnexpectedToken(span.spanned_string(slice)));
             }
 
@@ -1885,8 +1885,8 @@ impl rustyline::completion::Completer for Helper {
             &mut candidates,
             &CompletionContext {
                 line,
-                cwd: self.cwd.clone(),
-                usermap: self.usermap.clone(),
+                cwd: Rc::clone(&self.cwd),
+                usermap: Rc::clone(&self.usermap),
             },
         );
 

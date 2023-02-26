@@ -591,15 +591,11 @@ where
     }
 
     fn try_new(start: usize, end: usize) -> Option<Self> {
-        if C::validate(start, end) {
-            Some(Self {
-                start,
-                end,
-                _constraint: PhantomData,
-            })
-        } else {
-            None
-        }
+        C::validate(start, end).then_some(Self {
+            start,
+            end,
+            _constraint: PhantomData,
+        })
     }
 
     fn map_constraint<C2: LineRangeConstraint>(self) -> Result<LineRange<C2>, Self> {
@@ -814,10 +810,10 @@ pub fn git_diff_analysis_from_tree(
     let git_r = diff.foreach(&mut *file_cb, None, Some(&mut *hunk_cb), None);
 
     if let Err(e) = git_r {
-        if e.code() != git2::ErrorCode::User {
-            return Err(DifftestsError::Git(e));
-        } else {
+        if e.code() == git2::ErrorCode::User {
             debug_assert_eq!(*analysis_result.borrow(), AnalysisResult::Dirty);
+        } else {
+            return Err(DifftestsError::Git(e));
         }
     }
 
