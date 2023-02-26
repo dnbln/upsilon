@@ -40,7 +40,7 @@ pub fn prepare(child: &Child) -> PrepResult {
 fn add_children_to_vec(children: &mut Vec<u32>, child: u32) {
     children.push(child);
 
-    let proc = procfs::process::Process::new(child as i32).unwrap();
+    let proc = procfs::process::Process::new(i32::try_from(child).unwrap()).unwrap();
 
     proc.tasks().unwrap().for_each(|task| {
         task.unwrap()
@@ -54,9 +54,11 @@ fn add_children_to_vec(children: &mut Vec<u32>, child: u32) {
 }
 
 fn kill_child_with_sigterm(id: u32) {
+    let pid = libc::pid_t::try_from(id).unwrap();
+
     // SAFETY: correct usage of libc::kill
     #[allow(unsafe_code)]
-    let success = unsafe { libc::kill(id as libc::pid_t, libc::SIGTERM) == 0 };
+    let success = unsafe { libc::kill(pid, libc::SIGTERM) == 0 };
 
     if !success {
         // get errno if failed
