@@ -322,7 +322,7 @@ mod ent {
     use super::{GraphQLContext, OrganizationRef, RepoRef, TeamRef, UserRef};
 
     #[graphql_interface(for = [UserRef, OrganizationRef, TeamRef, RepoRef])]
-    pub(in super) trait Entity {
+    pub(super) trait Entity {
         fn _entity_id(&self, ctx: &GraphQLContext) -> String;
 
         fn entity_user(&self, ctx: &GraphQLContext) -> Option<&UserRef> {
