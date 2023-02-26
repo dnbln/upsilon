@@ -143,6 +143,8 @@ fn all_cargo_manifests_except_ws_root() -> XtaskResult<Vec<PathBuf>> {
 
     collect_from_folder(ws_path!("crates"), &mut cargo_toml_files)?;
     collect_from_folder(ws_path!("dev"), &mut cargo_toml_files)?;
+    collect_from_folder(ws_path!("tools"), &mut cargo_toml_files)?;
+    collect_from_folder(ws_path!("plugins"), &mut cargo_toml_files)?;
 
     Ok(cargo_toml_files)
 }
