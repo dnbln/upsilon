@@ -25,7 +25,7 @@ fn default_hostinfo() -> UshHostInfo {
         git_http_enabled: true,
         http_port: 80,
         https_enabled: false,
-        hostname: "localhost".to_string(),
+        hostname: "localhost".to_owned(),
     }
 }
 
@@ -106,21 +106,21 @@ test_case! {
 test_case! {
     http_remote_host,
     Http,
-    patches: [hostname: "upsilon.dnbln.dev".to_string(), http_port: 443, https_enabled: true],
+    patches: [hostname: "upsilon.dnbln.dev".to_owned(), http_port: 443, https_enabled: true],
     "upsilon",
     "https://upsilon.dnbln.dev/upsilon",
 }
 test_case! {
     ssh_remote_host,
     Ssh,
-    patches: [git_ssh_enabled: true, hostname: "upsilon.dnbln.dev".to_string(), ssh_port: 22],
+    patches: [git_ssh_enabled: true, hostname: "upsilon.dnbln.dev".to_owned(), ssh_port: 22],
     "upsilon",
     "git@upsilon.dnbln.dev:upsilon",
 }
 test_case! {
     ssh_remote_host_with_port,
     Ssh,
-    patches: [git_ssh_enabled: true, hostname: "upsilon.dnbln.dev".to_string(), ssh_port: 1234],
+    patches: [git_ssh_enabled: true, hostname: "upsilon.dnbln.dev".to_owned(), ssh_port: 1234],
     "upsilon",
     "ssh://git@upsilon.dnbln.dev:1234/upsilon",
 }

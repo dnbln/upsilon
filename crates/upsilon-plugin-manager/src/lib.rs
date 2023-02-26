@@ -267,7 +267,7 @@ impl PluginRegistry {
             depgraph.register_dependencies(name.clone(), deps);
         }
 
-        let root = PluginName("__upsilon_plugin_root".to_string());
+        let root = PluginName("__upsilon_plugin_root".to_owned());
 
         depgraph.register_dependencies(root.clone(), plugins);
 

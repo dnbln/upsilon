@@ -943,7 +943,7 @@ impl<'src> UshCommandParser<'src> {
         let command = UshCommand::get(slice)
             .ok_or(UshParseError::UnknownCommand(span.spanned_string(slice)))?;
 
-        let command_name = slice.to_string();
+        let command_name = slice.to_owned();
 
         let command_name = Spanned {
             span,
@@ -970,7 +970,7 @@ impl<'src> UshCommandParser<'src> {
         }
 
         let span = *span;
-        let path = UshPath::new(slice.to_string());
+        let path = UshPath::new(slice.to_owned());
 
         self.lexer.next();
 
@@ -1044,7 +1044,7 @@ impl<'src> UshCommandParser<'src> {
 
             let arg = Spanned {
                 span,
-                value: slice.to_string(),
+                value: slice.to_owned(),
             };
 
             args.push(arg);
@@ -1573,11 +1573,11 @@ impl ArgDeclList {
                     if slice.starts_with("--") {
                         let (name, flag_value) = self.parse_flag(span, slice)?;
 
-                        args.flags.insert(name.to_string(), flag_value);
+                        args.flags.insert(name.to_owned(), flag_value);
                     } else {
                         let (name, value) = self.parse_arg(span, slice)?;
 
-                        args.args.insert(name.to_string(), value);
+                        args.args.insert(name.to_owned(), value);
                     }
                 }
                 t => {
@@ -1720,7 +1720,7 @@ impl ArgStore {
             Some(ArgValue::Default(s)) => {
                 panic!("Required arg {name} has default value {s}")
             }
-            None => Err(UshParseError::MissingRequiredArg(name.to_string())),
+            None => Err(UshParseError::MissingRequiredArg(name.to_owned())),
         }
     }
 
@@ -1816,8 +1816,8 @@ impl rustyline::completion::Completer for Helper {
                     UshCommand::get_for_prefix(&name.value)
                         .into_iter()
                         .map(|it| Pair {
-                            replacement: it.to_string(),
-                            display: it.to_string(),
+                            replacement: it.to_owned(),
+                            display: it.to_owned(),
                         })
                         .collect(),
                 ))
@@ -1828,8 +1828,8 @@ impl rustyline::completion::Completer for Helper {
                     UshCommand::get_all_for_empty()
                         .into_iter()
                         .map(|it| Pair {
-                            replacement: it.to_string(),
-                            display: it.to_string(),
+                            replacement: it.to_owned(),
+                            display: it.to_owned(),
                         })
                         .collect(),
                 ));
@@ -1901,7 +1901,7 @@ impl rustyline::highlight::Highlighter for Helper {
         default: bool,
     ) -> Cow<'b, str> {
         let _ = default;
-        Cow::Owned(prompt.green().to_string())
+        Cow::Owned(format!("{}", prompt.green()))
     }
 
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
@@ -2198,8 +2198,8 @@ impl Client {
                 }            
             "#,
                 HashMap::from([
-                    ("username".to_string(), serde_json::json!(&username.0)),
-                    ("password".to_string(), serde_json::json!(password)),
+                    ("username".to_owned(), serde_json::json!(&username.0)),
+                    ("password".to_owned(), serde_json::json!(password)),
                 ]),
                 None,
             )
@@ -2237,11 +2237,11 @@ impl Client {
                 mutation CreateUser($username: Username!, $email: Email!, $password: PlainPassword!) {
                     createUser(username: $username, email: $email, password: $password)
                 }
-            "#,
+                "#,
                 HashMap::from([
-                    ("username".to_string(), serde_json::json!(&username.0)),
-                    ("email".to_string(), serde_json::json!(email)),
-                    ("password".to_string(), serde_json::json!(password)),
+                    ("username".to_owned(), serde_json::json!(&username.0)),
+                    ("email".to_owned(), serde_json::json!(email)),
+                    ("password".to_owned(), serde_json::json!(password)),
                 ]),
                 None,
             )

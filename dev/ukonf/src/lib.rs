@@ -408,7 +408,7 @@ impl UkonfRunner {
                     .ok_or_else(|| UkonfRunError::UndefinedVariable(base.0 .0.clone(), k.span()))?
                     .fn_error(&base.0 .1)?;
                 let (name, indirections) = k.key().lower();
-                let mut name = name.to_string();
+                let mut name = name.into_owned();
                 let span = k.span();
 
                 if indirections > 0 {
@@ -512,7 +512,7 @@ impl UkonfRunner {
 
                     for k in &patch.key[..patch.key.len() - 1] {
                         let (name, indirections) = k.key().lower();
-                        let mut name = name.to_string();
+                        let mut name = name.into_owned();
                         let span = k.span();
 
                         if indirections > 0 {
@@ -532,7 +532,7 @@ impl UkonfRunner {
 
                     let k = patch.key.last().unwrap();
                     let (name, indirections) = k.key().lower();
-                    let mut name = name.to_string();
+                    let mut name = name.into_owned();
                     let span = k.span();
 
                     if indirections > 0 {
@@ -606,7 +606,7 @@ impl UkonfRunner {
     }
 
     pub fn run_str(&self, s: &str) -> Result<UkonfObject, UkonfRunError> {
-        let file_id = self.process_string_file(s.to_string())?;
+        let file_id = self.process_string_file(s.to_owned())?;
 
         self.run_file(file_id)
     }
@@ -674,11 +674,11 @@ impl Scope {
     ) -> Result<UkonfValue, UkonfRunError> {
         if indirections == 1 {
             return Scope::resolve(scope, name)
-                .ok_or_else(|| UkonfRunError::UndefinedVariable(name.to_string(), span.clone()))?
+                .ok_or_else(|| UkonfRunError::UndefinedVariable(name.to_owned(), span.clone()))?
                 .fn_error(span);
         }
 
-        let mut name = name.to_string();
+        let mut name = name.to_owned();
 
         enum R<'a> {
             Ref(&'a Rc<RefCell<Scope>>),

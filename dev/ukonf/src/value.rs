@@ -145,7 +145,7 @@ impl From<String> for UkonfValue {
 
 impl From<&str> for UkonfValue {
     fn from(s: &str) -> Self {
-        Self::Str(s.to_string())
+        Self::Str(s.to_owned())
     }
 }
 

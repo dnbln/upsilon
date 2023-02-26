@@ -83,7 +83,7 @@ impl<'r> FromRequest<'r> for AuthToken {
 
         Outcome::Success(AuthToken {
             claims,
-            token: token.to_string(),
+            token: token.to_owned(),
         })
     }
 }
@@ -153,7 +153,7 @@ impl AuthContextInternal {
 
         AuthToken {
             claims,
-            token: token.as_str().to_string(),
+            token: token.as_str().to_owned(),
         }
     }
 

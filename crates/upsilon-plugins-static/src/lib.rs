@@ -20,7 +20,7 @@ use upsilon_plugin_manager::{PluginData, PluginName, PluginRegistry, StaticPlugi
 
 pub fn static_plugins() -> (PluginRegistry, StaticPluginLoader) {
     let registry = PluginRegistry::new(HashMap::from([(
-        PluginName("upsilon-debug-data-driver".to_string()),
+        PluginName("upsilon-debug-data-driver".to_owned()),
         PluginData {
             dependencies: vec![],
         },

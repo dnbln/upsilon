@@ -536,7 +536,7 @@ fn discover_difftest_from_tempdir(
     if version != env!("CARGO_PKG_VERSION") {
         return Err(DifftestsError::CargoDifftestsVersionMismatch(
             version,
-            env!("CARGO_PKG_VERSION").to_string(),
+            env!("CARGO_PKG_VERSION").to_owned(),
         ));
     }
 

@@ -80,7 +80,7 @@ pub fn add_parent_dir(fns: &mut UkonfFunctions) {
             parent
                 .to_str()
                 .context("parent_dir: invalid utf-8")?
-                .to_string(),
+                .to_owned(),
         ))
     });
 }
@@ -104,7 +104,7 @@ pub fn convert_path_to_win(path: &str) -> String {
     #[cfg(windows)]
     {
         use path_slash::PathBufExt;
-        PathBuf::from_slash(path).to_str().unwrap().to_string()
+        PathBuf::from_slash(path).to_str().unwrap().to_owned()
     }
 }
 

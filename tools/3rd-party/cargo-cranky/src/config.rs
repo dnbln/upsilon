@@ -175,7 +175,7 @@ impl CrankyConfig {
 
             match need_space {
                 true => {
-                    args.extend([level_head.to_string(), lint.name.clone()]);
+                    args.extend([level_head.to_owned(), lint.name.clone()]);
                 }
                 false => {
                     args.push(format!("{}{}", level_head, lint.name));

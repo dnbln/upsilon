@@ -51,7 +51,7 @@ struct Run {
 }
 
 fn parse_duration(s: &str) -> Result<Duration, String> {
-    let mut s = s.to_string();
+    let mut s = s.to_owned();
     if s.ends_with('s') {
         s.pop();
     }

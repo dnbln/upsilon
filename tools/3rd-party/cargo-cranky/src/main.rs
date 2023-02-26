@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if !right_args.is_empty() {
-        left_args.push("--".to_string());
+        left_args.push("--".to_owned());
         left_args.append(&mut right_args);
     }
 

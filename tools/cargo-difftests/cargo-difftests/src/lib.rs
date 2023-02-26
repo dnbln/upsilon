@@ -40,7 +40,7 @@ pub enum DifftestsError {
         "JSON error: {0}{}",
         match &.1 {
             Some(it) => format!(" (in {it:?})"),
-            None => "".to_string(),
+            None => "".to_owned(),
         }
     )]
     Json(#[source] serde_json::Error, Option<PathBuf>),

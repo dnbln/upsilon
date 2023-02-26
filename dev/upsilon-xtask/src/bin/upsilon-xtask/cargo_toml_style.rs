@@ -76,7 +76,7 @@ fn check_dep_order_for_table(
         if let Some(last) = last {
             if *k < *last.0 {
                 out_of_order_for_file
-                    .push((k.to_string(), format!("{k} should be before {}", last.0)));
+                    .push((k.to_owned(), format!("{k} should be before {}", last.0)));
             }
         }
     }
@@ -97,7 +97,7 @@ fn check_dep_order_for_table(
                     add_out_of_order_if_necessary(out_of_order_for_file, last, k);
                 } else {
                     out_of_order_for_file
-                        .push((k.to_string(), "upsilon deps should be last".to_string()));
+                        .push(((*k).to_owned(), "upsilon deps should be last".to_owned()));
                 }
             }
         }
@@ -169,7 +169,7 @@ fn check_if_any_deps_in_ws_deps(
         }
 
         if item.is_str() {
-            in_ws_deps_for_file.push(k.to_string());
+            in_ws_deps_for_file.push(k.to_owned());
             continue;
         }
 
@@ -178,7 +178,7 @@ fn check_if_any_deps_in_ws_deps(
             .expect("dependencies should be table like");
 
         if !table_like.contains_key("workspace") {
-            in_ws_deps_for_file.push(k.to_string());
+            in_ws_deps_for_file.push(k.to_owned());
             continue;
         }
 
@@ -194,7 +194,7 @@ fn check_if_any_deps_in_ws_deps(
         }
 
         if !dep_ws_value(table_like) {
-            in_ws_deps_for_file.push(k.to_string());
+            in_ws_deps_for_file.push(k.to_owned());
             continue;
         }
     }
@@ -244,7 +244,7 @@ pub fn run_check_cargo_deps_from_workspace_cmd() -> XtaskResult<()> {
 
     let ws_deps_names = ws_deps
         .iter()
-        .map(|(k, _)| k.to_string())
+        .map(|(k, _)| k.to_owned())
         .collect::<Vec<_>>();
 
     let cargo_toml_files = all_cargo_manifests_except_ws_root()?;

@@ -352,7 +352,7 @@ impl Server {
                             }
 
                             *contributors
-                                .entry(c.author().email().unwrap_or("<invalid email>").to_string())
+                                .entry(c.author().email().unwrap_or("<invalid email>").to_owned())
                                 .or_insert(0) += 1;
 
                             if commit_queue.is_empty() {
@@ -467,7 +467,7 @@ impl Server {
                     let mut entries = vec![];
 
                     for entry in t.iter() {
-                        let name = entry.name().to_string();
+                        let name = entry.name().to_owned();
                         let name_clone = name.clone();
 
                         entries.push((

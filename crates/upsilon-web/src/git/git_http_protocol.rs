@@ -193,7 +193,7 @@ impl Fairing for GitHttpProtocolFairing {
         let p_str = p.as_str();
 
         if GIT_HTTP_PROTOCOL_STATIC_PATHS.is_match(p_str) {
-            let forward_path = p_str.to_string();
+            let forward_path = p_str.to_owned();
 
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
@@ -203,7 +203,7 @@ impl Fairing for GitHttpProtocolFairing {
                     .append(Cow::Owned(forward_path), query),
             );
         } else if GIT_HTTP_PROTOCOL_PATHS.is_match(p_str) {
-            let forward_path = p_str.to_string();
+            let forward_path = p_str.to_owned();
 
             let query = uri.query().map(|it| Cow::Owned(it.to_string()));
 
@@ -222,7 +222,7 @@ impl<'r> HMap<'r> {
     fn to_headers_list(&self) -> Vec<(String, String)> {
         self.0
             .iter()
-            .map(|h| (h.name.to_string(), h.value.to_string()))
+            .map(|h| (h.name.to_string(), h.value.clone().into_owned()))
             .collect()
     }
 }

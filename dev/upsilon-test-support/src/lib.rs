@@ -55,7 +55,7 @@ impl From<String> for Username {
 
 impl<'a> From<&'a str> for Username {
     fn from(value: &'a str) -> Self {
-        Self(value.to_string())
+        Self(value.to_owned())
     }
 }
 
@@ -200,11 +200,11 @@ impl TestCx {
             difftests_tempdir.push(test_name);
             let env = cargo_difftests_testclient::init(
                 cargo_difftests_testclient::TestDesc {
-                    pkg_name: pkg_name.to_string(),
-                    crate_name: crate_name.to_string(),
-                    bin_name: bin_name.map(ToString::to_string),
+                    pkg_name: pkg_name.to_owned(),
+                    crate_name: crate_name.to_owned(),
+                    bin_name: bin_name.map(ToOwned::to_owned),
                     bin_path,
-                    test_name: test_name.to_string(),
+                    test_name: test_name.to_owned(),
                     other_fields: std::collections::HashMap::new(),
                 },
                 &difftests_tempdir,
@@ -554,7 +554,7 @@ impl TestCxConfig {
             port: 0,
             git_daemon_port: 0,
             git_ssh_port: 0,
-            config: "".to_string(),
+            config: "".to_owned(),
             tempdir: vars.workdir.clone(),
             upsilon_web_bin: vars.upsilon_web_bin.clone(),
             gracefully_shutdown_host_bin: vars.gracefully_shutdown_host_bin.clone(),

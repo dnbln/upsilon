@@ -130,7 +130,7 @@ macro_rules! gql_vars {
     ($($name:literal: $value:tt),* $(,)?) => {
         std::collections::HashMap::from([
             $(
-                ($name.to_string(), $crate::serde_json::json!($value)),
+                ($name.to_owned(), $crate::serde_json::json!($value)),
             )*
         ])
     };

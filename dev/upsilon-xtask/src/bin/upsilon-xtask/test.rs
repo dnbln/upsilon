@@ -214,8 +214,8 @@ impl TestGroups {
     fn to_args(&self) -> Vec<String> {
         let mut args = Vec::new();
         for group in &self.groups {
-            args.push("-E".to_string());
-            args.push(group.nextest_filter().to_string());
+            args.push("-E".to_owned());
+            args.push(group.nextest_filter().to_owned());
         }
         args
     }
@@ -269,7 +269,7 @@ impl Args for TestGroups {
                 Arg::new(group.name())
                     .long(group.name())
                     .action(ArgAction::SetTrue)
-                    .aliases(group.aliases().iter().map(|it| it.to_string()))
+                    .aliases(group.aliases().iter().map(|it| (*it).to_owned()))
                     .help(format!(
                         "Filter tests from the {group} test group",
                         group = group.name()

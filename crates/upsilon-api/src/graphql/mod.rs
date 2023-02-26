@@ -14,6 +14,9 @@
  *    limitations under the License.
  */
 
+// FIXME: graphql_object macro uses str.to_string() instead of str.to_owned()
+#![allow(clippy::str_to_string)]
+
 mod git;
 
 use std::future::Future;
@@ -210,21 +213,21 @@ impl QueryRoot {
         if !context.debug_config.debug_enabled {
             // we are in production
             // do not return an error, but also do not return the args
-            return vec!["--upsilon-is-not-debug-rerun-shell-with-'--no-reconfigure'".to_string()];
+            return vec!["--upsilon-is-not-debug-rerun-shell-with-'--no-reconfigure'".to_owned()];
         }
 
         let mut v = (*context.ush_args).0.clone();
         let mut port = context.http_port;
 
         if let Some((hn, http_port)) = &context.host {
-            v.extend(["--hostname".to_string(), hn.clone()]);
+            v.extend(["--hostname".to_owned(), hn.clone()]);
 
             if let Some(http_port) = *http_port {
                 port = http_port;
             }
         }
 
-        v.extend(["--http-port".to_string(), port.to_string()]);
+        v.extend(["--http-port".to_owned(), port.to_string()]);
 
         v
     }
@@ -878,7 +881,7 @@ impl MutationRoot {
         Self::make_global_mirror(
             context,
             name,
-            local_path.to_str().expect("Invalid path").to_string(),
+            local_path.to_str().expect("Invalid path").to_owned(),
         )
         .await
     }

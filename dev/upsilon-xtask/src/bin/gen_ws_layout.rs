@@ -123,7 +123,7 @@ lazy_static::lazy_static! {
             extra = if let Some(extra) = extra {
                 format!(", {extra}")
             } else {
-                "".to_string()
+                "".to_owned()
             }
         )
         .unwrap();
@@ -135,15 +135,14 @@ lazy_static::lazy_static! {
         .unwrap();
 
         for (bin_rustic_name, name) in bins {
-            write!(
+            writeln!(
                 ws_bin_layout_decl,
-                "    pub {bin_rustic_name}: upsilon_xtask::pkg::BinTarget<'static>,\n"
+                "    pub {bin_rustic_name}: upsilon_xtask::pkg::BinTarget<'static>,"
             )
             .unwrap();
 
-            write!(ws_bin_layout,
-                r#"        {bin_rustic_name}: upsilon_xtask::pkg::BinTarget::new(&WS_PKG_LAYOUT.{rustic_name}, "{name}"),
-"#,
+            writeln!(ws_bin_layout,
+                r#"        {bin_rustic_name}: upsilon_xtask::pkg::BinTarget::new(&WS_PKG_LAYOUT.{rustic_name}, "{name}"),"#,
             ).unwrap();
         }
     }

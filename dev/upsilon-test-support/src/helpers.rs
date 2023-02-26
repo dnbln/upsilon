@@ -576,7 +576,7 @@ mutation ($username: Username!, $password: PlainPassword!, $email: Email!) {
             .result;
 
         self.tokens
-            .insert(Username(username.to_string()), Token(result.token.clone()));
+            .insert(Username(username.to_owned()), Token(result.token.clone()));
 
         Ok(result)
     }

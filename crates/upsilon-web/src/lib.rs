@@ -124,17 +124,21 @@ impl Fairing for ConfigManager {
         let mut ush_args = vec![];
 
         if let Some(ssh_port) = ssh_port {
-            ush_args.extend(["--ssh".into(), "--ssh-port".into(), ssh_port.to_string()]);
+            ush_args.extend([
+                "--ssh".to_owned(),
+                "--ssh-port".to_owned(),
+                ssh_port.to_string(),
+            ]);
         }
 
         if vcs.http_protocol_enabled() {
-            ush_args.push("--git-http".into());
+            ush_args.push("--git-http".to_owned());
         }
 
         if let Some(git_port) = vcs.git_daemon_port() {
             ush_args.extend([
-                "--git-protocol".into(),
-                "--git-protocol-port".into(),
+                "--git-protocol".to_owned(),
+                "--git-protocol-port".to_owned(),
                 git_port.to_string(),
             ]);
         }

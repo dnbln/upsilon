@@ -48,9 +48,9 @@ impl ShaShaRefLines {
             let ref_name = split.next().unwrap();
 
             lines.push(ShaShaRef {
-                old_sha: old_sha.to_string(),
-                new_sha: new_sha.to_string(),
-                ref_name: ref_name.to_string(),
+                old_sha: old_sha.to_owned(),
+                new_sha: new_sha.to_owned(),
+                ref_name: ref_name.to_owned(),
             });
         }
 

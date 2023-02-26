@@ -559,7 +559,7 @@ pub fn setup_mirror_absolute(
     repo_config: &RepoConfig,
     path: impl AsRef<Path>,
 ) -> Result<Repository> {
-    let mirror_url_clone = mirror_url.as_ref().to_string();
+    let mirror_url_clone = mirror_url.as_ref().to_owned();
     let path_clone = path.as_ref().to_path_buf();
 
     let repo = git2::build::RepoBuilder::new()

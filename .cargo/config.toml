@@ -13,6 +13,7 @@ ush = "run --package upsilon-shell --bin upsilon-shell --"
 rustflags = [
     "--cfg", "uuid_unstable",
     "-Zshare-generics=y",
+    "-Zmacro-backtrace",
 ]
 
 [target.x86_64-unknown-linux-gnu]

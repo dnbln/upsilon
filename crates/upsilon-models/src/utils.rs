@@ -64,13 +64,13 @@ macro_rules! str_newtype {
                 S: juniper::ScalarValue,
         {
             fn resolve(&self) -> Value {
-                juniper::Value::scalar(self.0.to_string())
+                juniper::Value::scalar(self.0.to_owned())
             }
 
             fn from_input_value(value: &juniper::InputValue) -> Option<Self> {
                 value
                     .as_string_value()
-                    .map(|s| s.to_string())
+                    .map(|s| s.to_owned())
                     .map(Self)
             }
 
@@ -155,7 +155,7 @@ macro_rules! str_newtype {
 
         impl<'a> From<$name_ref<'a>> for $name {
             fn from(s: $name_ref<'a>) -> Self {
-                Self(s.0.to_string())
+                Self(s.0.to_owned())
             }
         }
 
@@ -190,7 +190,7 @@ macro_rules! str_newtype {
 
         impl<'a> From<$name_ref<'a>> for $name {
             fn from(s: $name_ref<'a>) -> Self {
-                Self(s.0.to_string())
+                Self(s.0.to_owned())
             }
         }
 
@@ -244,7 +244,7 @@ macro_rules! str_newtype {
 
         impl<'a> From<$name2<'a>> for $name1 {
             fn from(s: $name2<'a>) -> Self {
-                Self(s.0.to_string())
+                Self(s.0.to_owned())
             }
         }
     };

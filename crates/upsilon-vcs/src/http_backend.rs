@@ -263,11 +263,11 @@ pub async fn handle<B: AsyncRead>(
         .lines()
         .map(|line| {
             let (k, v) = line.split_once(": ").expect("Cannot split header");
-            (k.to_lowercase(), v.to_string())
+            (k.to_lowercase(), v.to_owned())
         })
         .collect::<Vec<_>>();
 
-    let mut status_line = "200 OK".to_string();
+    let mut status_line = "200 OK".to_owned();
     let mut content_length = None;
 
     for (k, v) in headers.drain_filter(|(k, _)| k == "status" || k == "content-length") {
