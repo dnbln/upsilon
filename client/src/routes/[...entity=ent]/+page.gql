@@ -52,6 +52,11 @@ query EntityPage($entity: String!) {
                 username
               }
             }
+            tree {
+              entries(wholeTree:true) {
+                name
+              }
+            }
           }
         }
       }

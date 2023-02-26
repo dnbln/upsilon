@@ -15,45 +15,65 @@
   -->
 
 <script lang="ts">
+    import RepoFileStructure from "$lib/reusable/RepoFileStructure.svelte";
+
     export let repo;
 
-    let repo_path = '/' + repo.path;
-    let commit = repo.git.branch.commit;
-    let author = commit.author;
-    let authorUser = author.user;
-    let committer = commit.committer;
-    let committerUser = committer.user;
+    import RepoTopControls from "../reusable/RepoTopControls.svelte";
 </script>
 
-<div class="repo-view-main">
-    <div class="repo-view-top-controls">
-        <a href={repo_path}>
-            {repo.name}
-        </a>
+<svelte:head>
+    <title>Upsilon | {repo.name}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</svelte:head>
 
-        <div>
-            <p>Commit {commit.sha}</p>
-            <p>Author: {author.name} &lt;{author.email}&gt;
-                {#if authorUser}
-                    <a href={'/' + authorUser.username}>{authorUser.username}</a>
-                {/if}
-            </p>
-            <p>Committer: {committer.name} &lt;{committer.email}&gt;
-                {#if committerUser}
-                    <a href={'/' + committerUser.username}>{committerUser.username}</a>
-                {/if}
-            </p>
+<div class="repo-view-main">
+    <RepoTopControls {repo}/>
+
+    <div class="repo-navigation">
+        <div class="repo-navigation-elements">
+            <button class="repo-navigation-element"><i class="fa fa-terminal repo-navigation-icon"></i>Code</button>
+            <button class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues</button>
+            <button class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests</button>
+            <button class="repo-navigation-element"><i class="fa fa-book repo-navigation-icon"></i>Wiki</button>
+            <button class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion</button>
+            <button class="repo-navigation-element"><i class="fa fa-gear repo-navigation-icon"></i>Settings</button>
         </div>
+        <hr>
     </div>
+
+    <RepoFileStructure {repo} />
 </div>
 
 <style>
     .repo-view-main {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
         width: 100%;
-        height: calc(100% - 50px);
+        display: flex;
+        flex-flow: column nowrap;
+        align-items: center;
+        background-color: #1f1f22;
+    }
+
+    .repo-navigation-icon {
+        margin-right: 10px;
+    }
+
+    .repo-navigation {
+        width: 70%;
+        margin-bottom: 10px;
+    }
+
+    .repo-navigation-element {
+        padding: 10px 20px;
+        background-color: hsla(180, 1%, 25%, 20%);
+        border-radius: 0.4em;
+        border: none;
+        color: whitesmoke;
+        font-size: 1.1em;
+    }
+
+    .repo-navigation-element:hover {
+        background-color: hsl(180, 1%, 25%);
+        cursor: pointer;
     }
 </style>

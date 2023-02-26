@@ -48,7 +48,7 @@
 
 <style>
     .nav-bar {
-        background-color: #333;
+        background-color: hsl(0, 0%, 11%);
         color: white;
         height: 50px;
         overflow: hidden;
