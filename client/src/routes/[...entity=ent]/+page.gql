@@ -30,6 +30,31 @@ query EntityPage($entity: String!) {
     entityRepo {
       id
       name
+      path
+      git {
+        branch(name: "trunk") {
+          commit {
+            sha
+            message
+            author {
+              name
+              email
+              user {
+                id
+                username
+              }
+            }
+            committer {
+              name
+              email
+              user {
+                id
+                username
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

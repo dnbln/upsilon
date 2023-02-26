@@ -368,7 +368,7 @@ fn main_impl() -> XtaskResult<()> {
             DOCS.build()?;
 
             copy(
-                ws_path!("docs" / "book"),
+                ws_path!("docs" / "build"),
                 ws_path!("client" / "static" / "docs"),
             )?;
 

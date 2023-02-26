@@ -17,6 +17,9 @@
 <script lang="ts" context="module">
     import NavBar from '$lib/components/NavBar.svelte';
     import UserView from '$lib/components/UserView.svelte';
+    import RepoView from '$lib/components/RepoView.svelte';
+    import OrganizationView from '$lib/components/OrganizationView.svelte';
+    import TeamView from '$lib/components/TeamView.svelte';
     import {error} from '@sveltejs/kit';
 </script>
 
@@ -47,4 +50,16 @@
 
 {#if user}
     <UserView {user}/>
+{/if}
+
+{#if repo}
+    <RepoView {repo}/>
+{/if}
+
+{#if organization}
+    <OrganizationView {organization}/>
+{/if}
+
+{#if team}
+    <TeamView {team}/>
 {/if}
