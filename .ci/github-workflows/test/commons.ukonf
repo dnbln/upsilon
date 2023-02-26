@@ -1,4 +1,4 @@
-let nightly: 'nightly-2023-02-03'
+let nightly: 'nightly'
 let ci_artifacts_dir: './ci-artifacts'
 ci_artifacts_dir: ci_artifacts_dir
 let bin_dir: './bin-dir'

@@ -36,7 +36,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Compile xtask
       run: cargo build -p upsilon-xtask --bin upsilon-xtask --verbose
     - name: Copy xtask to artifact
@@ -58,7 +58,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install rustfmt
       run: rustup component add rustfmt
     - name: Download xtask
@@ -91,7 +91,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
@@ -113,7 +113,7 @@ jobs:
     - name: Install lld
       run: sudo apt-get install -y lld
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Download xtask
       uses: actions/download-artifact@v3
       with:
@@ -137,7 +137,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install clippy
       run: rustup component add clippy
     - name: Download xtask
@@ -162,7 +162,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -190,7 +190,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -223,7 +223,7 @@ jobs:
     - name: Install openssl
       run: sudo apt-get install -y libssl-dev
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -288,7 +288,7 @@ jobs:
     - name: Set up openssl env
       run: echo "OPENSSL_DIR=$(Get-Location)\target-openssl\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Print environment
       shell: pwsh
       run: 'ls env:'
@@ -324,7 +324,7 @@ jobs:
     - name: Set up openssl env
       run: echo "OPENSSL_DIR=$(Get-Location)\target-openssl\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Print environment
@@ -362,7 +362,7 @@ jobs:
     - name: Set up openssl env
       run: echo "OPENSSL_DIR=$(Get-Location)\target-openssl\openssl" | Out-File -FilePath $env:GITHUB_ENV -Append
     - name: Install rust
-      run: rustup toolchain install nightly-2023-02-03 --no-self-update && rustup default nightly-2023-02-03
+      run: rustup toolchain install nightly --no-self-update && rustup default nightly
     - name: Print environment
       shell: pwsh
       run: 'ls env:'
