@@ -33,7 +33,7 @@
         "tslib": "^2.4.1",
         "typescript": "^4.9.3",
         "vite": "^4.0.0",
-        "vitest": "^0.25.3",
+        "vitest": "^0.29.2",
         "houdini": "^1.0.7",
         "houdini-svelte": "^1.0.7"
     },
