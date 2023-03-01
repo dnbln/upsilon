@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bcrypt = "0.13"
+bcrypt = "0.14"
 bitflags.workspace = true
 juniper.workspace = true
 russh-keys.workspace = true
