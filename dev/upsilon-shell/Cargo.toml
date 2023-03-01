@@ -13,7 +13,7 @@ log.workspace = true
 logos.workspace = true
 pretty_env_logger.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-rustyline = { version = "10.1.1", features = ["case_insensitive_history_search", "with-fuzzy"] }
+rustyline = { version = "11.0.0", features = ["case_insensitive_history_search", "with-fuzzy"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
