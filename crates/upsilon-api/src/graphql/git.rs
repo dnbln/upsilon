@@ -83,11 +83,18 @@ impl GitCommit {
         Ok(GitSignature(self.0.clone(), committer))
     }
 
-    // fn parents(&self) -> Vec<GitCommit<'r>> {
-    //     let parents = self.0.parents().map(|p| GitCommit(Arc::new(p))).collect();
-    //
-    //     parents
-    // }
+    async fn parents(&self) -> Vec<GitCommit> {
+        let parents = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitParentsQuery(self.1))
+            .await
+            .0;
+
+        parents
+            .into_iter()
+            .map(|c| GitCommit(self.0.clone(), c))
+            .collect()
+    }
 
     #[graphql(arguments(i(default = 0)))]
     async fn parent(&self, i: i32) -> FieldResult<GitCommit> {

@@ -196,3 +196,28 @@ impl FromFlatResponse for CommitParentResponse {
 }
 
 impl Response for CommitParentResponse {}
+
+pub struct CommitParentsQuery(pub CommitRef);
+
+impl ToFlatMessage for CommitParentsQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitParents(self.0)
+    }
+}
+
+impl Message for CommitParentsQuery {
+    type Res = CommitParentsResponse;
+}
+
+pub struct CommitParentsResponse(pub Vec<CommitRef>);
+
+impl FromFlatResponse for CommitParentsResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitParents(p) => Self(p),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitParentsResponse {}

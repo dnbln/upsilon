@@ -103,6 +103,7 @@ pub enum FlatMessage {
     SignatureEmail(SignatureRef),
     CommitTree(CommitRef),
     CommitParent(CommitRef, usize),
+    CommitParents(CommitRef),
     TreeEntries(TreeRef),
     WholeTreeEntries(TreeRef),
 
@@ -122,6 +123,7 @@ pub enum FlatResponse {
     CommitCommitter(SignatureRef),
     SignatureName(Option<String>),
     SignatureEmail(Option<String>),
+    CommitParents(Vec<CommitRef>),
     CommitTree(TreeRef),
     TreeEntries(Vec<(String, TreeEntryRef)>),
     Error(upsilon_vcs::Error),
@@ -460,6 +462,19 @@ impl Server {
                         Ok(c) => FlatResponse::Commit(store.push_commit(c)),
                         Err(e) => FlatResponse::Error(e),
                     }
+                }
+                FlatMessage::CommitParents(commit) => {
+                    let c = &store[commit];
+
+                    let parent_commits = c.parents().collect::<Vec<_>>();
+
+                    let mut parents = vec![];
+
+                    for parent in parent_commits {
+                        parents.push(store.push_commit(parent));
+                    }
+
+                    FlatResponse::CommitParents(parents)
                 }
                 FlatMessage::TreeEntries(tree) => {
                     let t = &store[tree];
