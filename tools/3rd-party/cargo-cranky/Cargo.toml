@@ -17,7 +17,7 @@ cargo.workspace = true
 clap.workspace = true
 serde = { workspace = true, features = ["derive"] }
 toml = "0.5.9"
-toml_edit = { version = "0.15.0", features = ["serde", "easy"] }
+toml_edit = { version = "0.17.1", features = ["serde", "easy"] }
 
 [package.metadata.release]
 dev-version = false

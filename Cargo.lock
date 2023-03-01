@@ -467,7 +467,7 @@ dependencies = [
  "clap 4.1.8",
  "serde",
  "toml",
- "toml_edit 0.15.0",
+ "toml_edit 0.17.1",
 ]
 
 [[package]]
@@ -4223,6 +4223,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "nom8",
+ "serde",
  "toml_datetime",
 ]
 
