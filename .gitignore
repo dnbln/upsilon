@@ -2,7 +2,9 @@
 /testenv/*
 !/testenv/.gitkeep
 /.fleet
-/.idea
+/.idea/*
+!/.idea/copyright
+!/.idea/scopes
 /.vscode
 .ush-history
 *.profraw

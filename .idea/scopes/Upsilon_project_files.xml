@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Upsilon project files" pattern="(file:*.rs||file:*.js||file:*.ts||file:*.svelte)&amp;&amp;!file[upsilon]:tools/3rd-party//*&amp;&amp;!file[upsilon]:ide-support/upsilon_ide_support/build//*&amp;&amp;!file[upsilon]:client/.svelte-kit//*&amp;&amp;!file[upsilon]:client/build//*&amp;&amp;!file[upsilon]:client/static/docs//*" />
+</component>
