@@ -136,9 +136,7 @@ impl CrankyConfig {
 
         const METADATA_KEY: &str = "lints";
 
-        fn get_from_custom_metadata(
-            value: Option<&toml::value::Value>,
-        ) -> Result<CrankyConfig> {
+        fn get_from_custom_metadata(value: Option<&toml::value::Value>) -> Result<CrankyConfig> {
             Ok(value
                 .and_then(|metadata| metadata.get(METADATA_KEY))
                 .map(get_from_custom_metadata_lints_table)
