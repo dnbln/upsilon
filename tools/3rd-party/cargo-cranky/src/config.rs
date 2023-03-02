@@ -129,7 +129,7 @@ impl CrankyConfig {
         let mut ws = arg_matches.workspace(&cargo_config)?;
 
         fn get_from_custom_metadata_lints_table(
-            value: &toml_edit::easy::Value,
+            value: &toml::value::Value,
         ) -> Result<CrankyConfig> {
             Ok(value.clone().try_into()?)
         }
@@ -137,7 +137,7 @@ impl CrankyConfig {
         const METADATA_KEY: &str = "lints";
 
         fn get_from_custom_metadata(
-            value: Option<&toml_edit::easy::Value>,
+            value: Option<&toml::value::Value>,
         ) -> Result<CrankyConfig> {
             Ok(value
                 .and_then(|metadata| metadata.get(METADATA_KEY))
@@ -193,11 +193,11 @@ mod test {
 
     #[test]
     fn parse_toml_1() {
-        let toml_bytes = br#"
+        let toml_bytes = r#"
             aaa = "warn"
             bbb = "warn"
             "#;
-        let config: CrankyConfig = toml::from_slice(toml_bytes).unwrap();
+        let config: CrankyConfig = toml::from_str(toml_bytes).unwrap();
 
         assert_eq!(
             config,
@@ -218,12 +218,12 @@ mod test {
 
     #[test]
     fn parse_toml_2() {
-        let toml_bytes = br#"
+        let toml_bytes = r#"
             aaa = "allow"
             bbb = "warn"
             ccc = "deny"
         "#;
-        let config: CrankyConfig = toml::from_slice(toml_bytes).unwrap();
+        let config: CrankyConfig = toml::from_str(toml_bytes).unwrap();
 
         assert_eq!(
             config,

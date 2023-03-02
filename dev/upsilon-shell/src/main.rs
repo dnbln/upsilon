@@ -210,7 +210,7 @@ query {
     let app = app; // remove mutability
     let client = Client::new(app.gql_endpoint.clone());
 
-    let mut editor = rustyline::Editor::<Helper>::with_config(
+    let mut editor = rustyline::Editor::<Helper, rustyline::history::DefaultHistory>::with_config(
         Config::builder()
             .auto_add_history(true)
             .completion_type(CompletionType::List)

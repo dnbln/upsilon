@@ -12,9 +12,9 @@ cargo-difftests-testclient.workspace = true
 futures.workspace = true
 git2.workspace = true
 log.workspace = true
-portpicker = "0.1.1"
+portpicker.workspace = true
 pretty_env_logger.workspace = true
-reqwest = { workspace = true, features = ["json"] }
+reqwest.workspace = true
 russh-keys.workspace = true
 serde.workspace = true
 serde_json.workspace = true

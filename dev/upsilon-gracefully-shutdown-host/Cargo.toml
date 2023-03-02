@@ -11,7 +11,7 @@ ctrlc.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
-procfs = "0.14"
+procfs.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-winapi = { workspace = true, features = ["processthreadsapi", "wincon"] }
+winapi.workspace = true

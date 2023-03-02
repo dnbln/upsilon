@@ -9,7 +9,7 @@ edition = "2021"
 futures.workspace = true
 humantime.workspace = true
 log.workspace = true
-russh = { version = "0.36.0", features = ["openssl"] }
+russh.workspace = true
 russh-keys.workspace = true
 serde.workspace = true
 serde_json.workspace = true

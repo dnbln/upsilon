@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-lalrpop-util = "0.19.8"
+lalrpop-util.workspace = true
 logos.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
@@ -17,4 +17,4 @@ thiserror.workspace = true
 upsilon-json-diff.workspace = true
 
 [build-dependencies]
-lalrpop = "0.19.8"
+lalrpop.workspace = true

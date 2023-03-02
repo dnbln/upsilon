@@ -8,14 +8,4 @@ edition = "2021"
 [dependencies]
 chrono.workspace = true
 serde.workspace = true
-
-[dependencies.uuid]
-version = "1.2.2"
-features = [
-    "v7",
-    "v4",
-    "std",
-    "fast-rng",
-    "serde",
-    "macro-diagnostics",
-]
+uuid.workspace = true
