@@ -280,6 +280,34 @@ impl<'r> Commit<'r> {
             tree: self.commit.tree()?,
         })
     }
+
+    pub fn blob(&self, repo: &'r Repository, path: &str) -> Result<Option<Blob>> {
+        let entry = self.commit.tree()?.get_path(Path::new(path))?;
+        let obj = entry.to_object(&repo.repo)?;
+
+        match obj.into_blob() {
+            Ok(blob) => Ok(Some(Blob { blob })),
+            Err(_) => Ok(None),
+        }
+    }
+}
+
+pub struct Blob<'r> {
+    blob: git2::Blob<'r>,
+}
+
+impl<'r> Blob<'r> {
+    pub fn to_string(&self) -> Result<String> {
+        Ok(String::from_utf8(self.to_bytes())?)
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.blob.content()
+    }
 }
 
 pub struct CommitParents<'c, 'r> {
@@ -438,6 +466,9 @@ pub enum Error {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("from utf8: {0}")]
+    Utf8(#[from] std::string::FromUtf8Error),
 
     #[error("unknown object")]
     Unknown,

@@ -221,3 +221,31 @@ impl FromFlatResponse for CommitParentsResponse {
 }
 
 impl Response for CommitParentsResponse {}
+
+pub struct BlobPath(pub String);
+
+pub struct CommitBlobStringQuery(pub CommitRef, pub BlobPath);
+
+impl ToFlatMessage for CommitBlobStringQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitBlobString(self.0, self.1 .0)
+    }
+}
+
+impl Message for CommitBlobStringQuery {
+    type Res = CommitBlobStringResponse;
+}
+
+pub struct CommitBlobStringResponse(pub upsilon_vcs::Result<Option<String>>);
+
+impl FromFlatResponse for CommitBlobStringResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitBlobString(s) => Self(Ok(s)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitBlobStringResponse {}

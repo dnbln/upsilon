@@ -16,11 +16,16 @@
 
 <script lang="ts">
     import RepoFileStructure from "$lib/reusable/RepoFileStructure.svelte";
+    import RepoFileView from "$lib/components/RepoFileView.svelte";
 
     export let repo;
     export let commit;
     export let tree;
-    export let dirPath: string;
+    export let dirPath: string | undefined;
+    export let filePath: string | undefined;
+    export let fileContents: string | undefined;
+
+    console.assert((!!dirPath) ^ (!!filePath && !!fileContents), "Either dirPath or (filePath and fileContents) must be defined");
 
     import RepoTopControls from "../reusable/RepoTopControls.svelte";
 </script>
@@ -36,16 +41,23 @@
     <div class="repo-navigation">
         <div class="repo-navigation-elements">
             <button class="repo-navigation-element"><i class="fa fa-terminal repo-navigation-icon"></i>Code</button>
-            <button class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues</button>
-            <button class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests</button>
+            <button class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues
+            </button>
+            <button class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests
+            </button>
             <button class="repo-navigation-element"><i class="fa fa-book repo-navigation-icon"></i>Wiki</button>
-            <button class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion</button>
+            <button class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion
+            </button>
             <button class="repo-navigation-element"><i class="fa fa-gear repo-navigation-icon"></i>Settings</button>
         </div>
         <hr>
     </div>
 
-    <RepoFileStructure {repo} tree={tree} {dirPath} />
+    {#if dirPath}
+        <RepoFileStructure {repo} tree={tree} {dirPath}/>
+    {:else if filePath}
+        <RepoFileView {repo} tree={tree} {filePath} {fileContents}/>
+    {/if}
 </div>
 
 <style>

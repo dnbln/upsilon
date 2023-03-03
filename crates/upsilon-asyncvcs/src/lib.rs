@@ -114,6 +114,7 @@ pub enum FlatMessage {
     CommitMessage(CommitRef),
     CommitAuthor(CommitRef),
     CommitCommitter(CommitRef),
+    CommitBlobString(CommitRef, String),
     SignatureName(SignatureRef),
     SignatureEmail(SignatureRef),
     CommitTree(CommitRef),
@@ -141,6 +142,7 @@ pub enum FlatResponse {
     SignatureEmail(Option<String>),
     CommitParents(Vec<CommitRef>),
     CommitTree(TreeRef),
+    CommitBlobString(Option<String>),
     TreeEntries(Vec<(String, TreeEntryRef)>),
     Error(upsilon_vcs::Error),
     None,
@@ -525,6 +527,23 @@ impl Server {
                     }
 
                     FlatResponse::CommitParents(parents)
+                }
+                FlatMessage::CommitBlobString(commit, blob_path) => {
+                    let c = &store[commit];
+
+                    match c.blob(&self.repo, &blob_path) {
+                        Ok(Some(blob)) => {
+                            let blob_string = blob.to_string();
+                            match blob_string {
+                                Ok(blob_string) => {
+                                    FlatResponse::CommitBlobString(Some(blob_string))
+                                }
+                                Err(e) => FlatResponse::Error(e),
+                            }
+                        }
+                        Ok(None) => FlatResponse::CommitBlobString(None),
+                        Err(e) => FlatResponse::Error(e),
+                    }
                 }
                 FlatMessage::TreeEntries(tree) => {
                     let t = &store[tree];

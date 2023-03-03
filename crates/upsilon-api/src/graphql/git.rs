@@ -163,6 +163,19 @@ impl GitCommit {
 
         Ok(GitTree(self.0.clone(), tree))
     }
+
+    async fn blob_string(&self, path: String) -> FieldResult<Option<String>> {
+        let blob = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitBlobStringQuery(
+                self.1,
+                upsilon_asyncvcs::commit::BlobPath(path),
+            ))
+            .await
+            .0?;
+
+        Ok(blob)
+    }
 }
 
 pub struct GitSignature(upsilon_asyncvcs::Client, SignatureRef);

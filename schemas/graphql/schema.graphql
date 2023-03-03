@@ -37,6 +37,7 @@ type GitCommit {
   parents: [GitCommit!]!
   parent(i: Int = 0): GitCommit!
   tree: GitTree!
+  blobString(path: String!): String
 }
 
 scalar TeamName
