@@ -69,6 +69,7 @@ scalar TeamDisplayName
 type RepoGit {
   commit(sha: String!): GitCommit!
   branch(name: String!): GitBranch!
+  revspec(revspec: String!): GitRevspec!
 }
 
 type GitBranch {
@@ -174,6 +175,11 @@ type GitSignatureContributions {
   email: String!
   user: User
   contributions: Int!
+}
+
+type GitRevspec {
+  commitFrom: GitCommit
+  commitTo: GitCommit
 }
 
 scalar TeamId

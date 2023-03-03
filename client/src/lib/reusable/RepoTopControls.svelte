@@ -1,8 +1,8 @@
 <script>
     export let repo;
+    export let commit;
 
     let repo_path = '/' + repo.path;
-    let commit = repo.git.branch.commit;
     let author = commit.author;
     let authorUser = author.user;
 </script>

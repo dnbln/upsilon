@@ -53,7 +53,7 @@
 {/if}
 
 {#if repo}
-    <RepoView {repo}/>
+    <RepoView {repo} commit={repo.git.branch.commit} tree={repo.git.branch.commit.tree} dirPath="/"/>
 {/if}
 
 {#if organization}

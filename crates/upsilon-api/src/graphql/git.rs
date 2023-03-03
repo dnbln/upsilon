@@ -43,6 +43,51 @@ impl RepoGit {
 
         Ok(GitBranch(self.0.clone(), branch))
     }
+
+    async fn revspec(&self, revspec: String) -> FieldResult<GitRevspec> {
+        let r = self
+            .0
+            .send(upsilon_asyncvcs::git_revspec::GitRevspecQuery(revspec))
+            .await
+            .0?;
+
+        Ok(GitRevspec(self.0.clone(), r))
+    }
+}
+
+pub struct GitRevspec(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::RevspecRef);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitRevspec {
+    async fn commit_from(&self) -> FieldResult<Option<GitCommit>> {
+        let commit = self
+            .0
+            .send(upsilon_asyncvcs::git_revspec::GitRevspecFromCommitQuery(
+                self.1,
+            ))
+            .await
+            .0?;
+
+        match commit {
+            Some(commit) => Ok(Some(GitCommit(self.0.clone(), commit))),
+            None => Ok(None),
+        }
+    }
+
+    async fn commit_to(&self) -> FieldResult<Option<GitCommit>> {
+        let commit = self
+            .0
+            .send(upsilon_asyncvcs::git_revspec::GitRevspecToCommitQuery(
+                self.1,
+            ))
+            .await
+            .0?;
+
+        match commit {
+            Some(commit) => Ok(Some(GitCommit(self.0.clone(), commit))),
+            None => Ok(None),
+        }
+    }
 }
 
 pub struct GitCommit(upsilon_asyncvcs::Client, upsilon_asyncvcs::refs::CommitRef);

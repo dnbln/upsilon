@@ -90,6 +90,56 @@ impl Repository {
             commit: self.repo.find_commit(oid)?,
         })
     }
+
+    pub fn find_reference(&self, name: &str) -> Result<Reference> {
+        Ok(Reference {
+            reference: self.repo.find_reference(name)?,
+        })
+    }
+
+    pub fn parse_revspec(&self, revspec: &str) -> Result<Revspec> {
+        Ok(Revspec {
+            revision: self.repo.revparse(revspec)?,
+        })
+    }
+}
+
+pub struct Revspec<'r> {
+    revision: git2::Revspec<'r>,
+}
+
+impl<'r> Revspec<'r> {
+    pub fn from<'revspec>(&'revspec self) -> Option<ObjectRef<'revspec, 'r>> {
+        self.revision.from().map(|o| ObjectRef { object: o })
+    }
+
+    pub fn to<'revspec>(&'revspec self) -> Option<ObjectRef<'revspec, 'r>> {
+        self.revision.to().map(|o| ObjectRef { object: o })
+    }
+}
+
+pub struct ObjectRef<'ref_lifetime, 'r> {
+    object: &'ref_lifetime git2::Object<'r>,
+}
+
+impl<'ref_lifetime, 'r> ObjectRef<'ref_lifetime, 'r> {
+    pub fn peel_to_commit(&self) -> Result<Commit<'r>> {
+        Ok(Commit {
+            commit: self.object.peel_to_commit()?,
+        })
+    }
+}
+
+pub struct Reference<'r> {
+    reference: git2::Reference<'r>,
+}
+
+impl<'r> Reference<'r> {
+    pub fn peel_to_commit(&self) -> Result<Commit<'r>> {
+        Ok(Commit {
+            commit: self.reference.peel_to_commit()?,
+        })
+    }
 }
 
 pub struct Branches<'r> {

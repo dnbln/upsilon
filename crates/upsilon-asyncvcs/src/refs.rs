@@ -45,3 +45,5 @@ pub struct TreeEntryRef {
     pub(crate) tree_id: TreeRef,
     pub(crate) name: String,
 }
+
+refty!(RevspecRef);

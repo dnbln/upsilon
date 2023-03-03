@@ -18,6 +18,9 @@
     import RepoFileStructure from "$lib/reusable/RepoFileStructure.svelte";
 
     export let repo;
+    export let commit;
+    export let tree;
+    export let dirPath: string;
 
     import RepoTopControls from "../reusable/RepoTopControls.svelte";
 </script>
@@ -28,7 +31,7 @@
 </svelte:head>
 
 <div class="repo-view-main">
-    <RepoTopControls {repo}/>
+    <RepoTopControls {repo} {commit}/>
 
     <div class="repo-navigation">
         <div class="repo-navigation-elements">
@@ -42,7 +45,7 @@
         <hr>
     </div>
 
-    <RepoFileStructure {repo} tree={repo.git.branch.commit.tree} dirPath="/" />
+    <RepoFileStructure {repo} tree={tree} {dirPath} />
 </div>
 
 <style>

@@ -24,12 +24,15 @@ use upsilon_vcs::{TreeWalkMode, TreeWalkResult};
 
 use crate::message::Message;
 use crate::private::FromFlatResponse;
-use crate::refs::{BranchRef, CommitRef, SignatureKind, SignatureRef, TreeEntryRef, TreeRef};
+use crate::refs::{
+    BranchRef, CommitRef, RevspecRef, SignatureKind, SignatureRef, TreeEntryRef, TreeRef
+};
 
 struct Store<'r> {
     branches: Vec<upsilon_vcs::Branch<'r>>,
     commits: Vec<upsilon_vcs::Commit<'r>>,
     trees: Vec<upsilon_vcs::Tree<'r>>,
+    revspecs: Vec<upsilon_vcs::Revspec<'r>>,
 }
 
 impl<'r> Index<CommitRef> for Store<'r> {
@@ -53,6 +56,14 @@ impl<'r> Index<TreeRef> for Store<'r> {
 
     fn index(&self, index: TreeRef) -> &Self::Output {
         &self.trees[index.id]
+    }
+}
+
+impl<'r> Index<RevspecRef> for Store<'r> {
+    type Output = upsilon_vcs::Revspec<'r>;
+
+    fn index(&self, index: RevspecRef) -> &Self::Output {
+        &self.revspecs[index.id]
     }
 }
 
@@ -82,6 +93,7 @@ impl<'r> Store<'r> {
 
 pub mod branch;
 pub mod commit;
+pub mod git_revspec;
 pub mod signature;
 pub mod tree;
 
@@ -90,6 +102,9 @@ pub mod refs;
 
 #[derive(Debug)]
 pub enum FlatMessage {
+    GitRevspec(String),
+    GitRevspecFromCommit(RevspecRef),
+    GitRevspecToCommit(RevspecRef),
     Branch(String),
     BranchName(BranchRef),
     BranchCommit(BranchRef),
@@ -113,6 +128,7 @@ pub enum FlatMessage {
 
 #[derive(Debug)]
 pub enum FlatResponse {
+    GitRevspec(RevspecRef),
     Branch(BranchRef),
     BranchName(Option<String>),
     BranchContributors(BTreeMap<String, usize>),
@@ -127,6 +143,7 @@ pub enum FlatResponse {
     CommitTree(TreeRef),
     TreeEntries(Vec<(String, TreeEntryRef)>),
     Error(upsilon_vcs::Error),
+    None,
 
     #[doc(hidden)]
     CloseRelay,
@@ -307,10 +324,43 @@ impl Server {
             branches: Vec::new(),
             commits: Vec::new(),
             trees: Vec::new(),
+            revspecs: Vec::new(),
         };
 
         while let Ok(FlatMessageAndId { id, message }) = self.channel_server.receiver.recv() {
             let response = match message {
+                FlatMessage::GitRevspec(revspec) => {
+                    let revspec = self.repo.parse_revspec(&revspec);
+
+                    match revspec {
+                        Ok(revspec) => {
+                            let id = store.revspecs.len();
+                            store.revspecs.push(revspec);
+                            FlatResponse::GitRevspec(RevspecRef { id })
+                        }
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
+                FlatMessage::GitRevspecFromCommit(git_revspec) => {
+                    let revspec = &store[git_revspec];
+                    match revspec.from() {
+                        Some(obj) => match obj.peel_to_commit() {
+                            Ok(commit) => FlatResponse::Commit(store.push_commit(commit)),
+                            Err(e) => FlatResponse::Error(e),
+                        },
+                        None => FlatResponse::None,
+                    }
+                }
+                FlatMessage::GitRevspecToCommit(git_revspec) => {
+                    let revspec = &store[git_revspec];
+                    match revspec.to() {
+                        Some(obj) => match obj.peel_to_commit() {
+                            Ok(commit) => FlatResponse::Commit(store.push_commit(commit)),
+                            Err(e) => FlatResponse::Error(e),
+                        },
+                        None => FlatResponse::None,
+                    }
+                }
                 FlatMessage::Branch(branch_name) => {
                     let branch = self.repo.find_branch(&branch_name);
                     match branch {
