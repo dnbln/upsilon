@@ -10,8 +10,10 @@
 
 <div class="repo-hero">
     <div class="repo-hero-title">
-        <a href="/{authorUser}" id="repo-view-top-controls-author">{authorUser.username}</a>
-        <p class="separating-dash"> / </p>
+        <!--{#if authorUser}-->
+        <!--    <a href="/{authorUser}" id="repo-view-top-controls-author">{authorUser.username}</a>-->
+        <!--    <p class="separating-dash"> / </p>-->
+        <!--{/if}-->
         <a href={repo_path} id="repo-view-top-controls-repository-name">{repo.name}</a>
     </div>
 </div>

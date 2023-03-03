@@ -1,13 +1,77 @@
 <script>
     export let repo;
+    /**
+     * @type {{entries: ({name: string})[]}}
+     */
+    export let tree;
+    /**
+     * @type {string}
+     */
+    export let dirPath;
 
-    let files = [
-        { icon: "fa fa-file-text file-icon", name: "testing.txt", commit: "Initial commit", upload: "3 years ago"},
-        { icon: "fa fa-html5 file-icon", name: "index.html", commit: "Update headings", upload: "15 seconds ago"},
-        { icon: "fa fa-html5 file-icon", name: "fonts.html", commit: "Update design of pages", upload: "4 minutes ago"},
-        { icon: "fa fa-css3 file-icon", name: "style.css", commit: "Update design of pages", upload: "4 minutes ago"},
-        { icon: "fa fa-css3 file-icon", name: "fonts.css", commit: "Update design of pages", upload: "4 minutes ago"}
-    ];
+    const compileView = (tree, dirPath) => {
+        let pathFilterPrefix;
+        if (dirPath === "/") {
+            pathFilterPrefix = "";
+        } else {
+            pathFilterPrefix = dirPath.endsWith("/") ? dirPath : dirPath + "/";
+        }
+
+        let displayedEntries = tree.entries.filter(entry => entry.name.startsWith(pathFilterPrefix));
+        // files = [
+        //     { icon: "fa fa-file-text file-icon", name: "testing.txt", commit: "Initial commit", upload: "3 years ago"},
+        //     { icon: "fa fa-html5 file-icon", name: "index.html", commit: "Update headings", upload: "15 seconds ago"},
+        //     { icon: "fa fa-html5 file-icon", name: "fonts.html", commit: "Update design of pages", upload: "4 minutes ago"},
+        //     { icon: "fa fa-css3 file-icon", name: "style.css", commit: "Update design of pages", upload: "4 minutes ago"},
+        //     { icon: "fa fa-css3 file-icon", name: "fonts.css", commit: "Update design of pages", upload: "4 minutes ago"}
+        // ];
+
+        let compiledEntries = [];
+
+        for (const entry of displayedEntries) {
+            let name = entry.name.substring(pathFilterPrefix.length);
+            let nameSplit = name.split("/");
+            let topName = nameSplit[0];
+
+            let index = compiledEntries.findIndex(entry => entry.name === topName);
+
+            if (index !== -1) {
+                compiledEntries[index].icon = "fa fa-folder file-icon";
+                compiledEntries[index].kind = "folder";
+                continue;
+            }
+
+            if (nameSplit.length > 1) {
+                compiledEntries.push({
+                    icon: "fa fa-folder file-icon", name: topName,
+                    kind: "folder",
+                    commit: "Initial commit", upload: "3 years ago"
+                });
+            } else {
+                compiledEntries.push({
+                    icon: "fa fa-file-text file-icon", name: topName,
+                    kind: "file",
+                    commit: "Initial commit", upload: "3 years ago"
+                });
+            }
+        }
+
+        const partition = (array, condition) => {
+            return array.reduce(([pass, fail], elem) => {
+                return condition(elem) ? [[...pass, elem], fail] : [pass, [...fail, elem]];
+            }, [[], []]);
+        }
+
+        const [folders, files] = partition(compiledEntries, entry => entry.kind === "folder");
+
+        return [...folders, ...files];
+    }
+
+    let files;
+
+    $: {
+        files = compileView(tree, dirPath);
+    }
 
     let branches = ["main", "testing", "wdadaw"];
 
@@ -17,6 +81,7 @@
 
     let fileButton;
     let cloneButton;
+
     function onWindowClick(e) {
         if (fileButton.contains(e.target) === false) {
             uploadFileDropdown = false;
@@ -28,7 +93,7 @@
     }
 </script>
 
-<svelte:window on:click={onWindowClick} />
+<svelte:window on:click={onWindowClick}/>
 
 <div class="repo-file-structure">
     <div class="repo-file-structure-controls">
@@ -72,20 +137,20 @@
     </div>
     <table class="repo-file-structure-block">
         <thead>
-            <tr id="files-heading">
-                <th class="files-columns files-columns-left">File</th>
-                <th class="files-columns files-columns-left">Last commit</th>
-                <th class="files-columns files-columns-right" id="files-columns-uploaded">Committed on</th>
-            </tr>
+        <tr id="files-heading">
+            <th class="files-columns files-columns-left">File</th>
+            <th class="files-columns files-columns-left">Last commit</th>
+            <th class="files-columns files-columns-right" id="files-columns-uploaded">Committed on</th>
+        </tr>
         </thead>
         <tbody class="repo-file-structure-block-files">
-            {#each files as file}
-                <tr class="files-rows">
-                    <td class="files-rows-el files-name"><i class={file.icon}></i>{file.name}</td>
-                    <td class="files-rows-el files-commit">{file.commit}</td>
-                    <td class="files-rows-el files-date">{file.upload}</td>
-                </tr>
-            {/each}
+        {#each files as file}
+            <tr class="files-rows">
+                <td class="files-rows-el files-name"><i class={file.icon}></i>{file.name}</td>
+                <td class="files-rows-el files-commit">{file.commit}</td>
+                <td class="files-rows-el files-date">{file.upload}</td>
+            </tr>
+        {/each}
         </tbody>
     </table>
     <div class="repo-file-structure-readme">
@@ -95,7 +160,13 @@
             <p>Amazing project.</p>
             <p>A self-hosted git server.</p>
             <h2>Dependencies</h2>
-            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad architecto blanditiis deserunt dolore enim eos esse, ex, excepturi fugiat inventore iure libero necessitatibus nisi nobis odit perspiciatis repellat rerum saepe. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ab dignissimos esse inventore minus? A ad fuga fugiat molestiae provident temporibus voluptatibus? Alias dolorem incidunt, odio quasi ratione suscipit tempora vero! Lorem ipsum dolor sit amet, consectetur adipisicing elit. Aliquid architecto error quo vitae voluptatem? Aliquam aliquid amet cum doloremque, dolores eaque enim impedit maiores minima nobis quisquam veniam veritatis, voluptates!</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad architecto blanditiis deserunt dolore enim
+                eos esse, ex, excepturi fugiat inventore iure libero necessitatibus nisi nobis odit perspiciatis
+                repellat rerum saepe. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ab dignissimos esse
+                inventore minus? A ad fuga fugiat molestiae provident temporibus voluptatibus? Alias dolorem incidunt,
+                odio quasi ratione suscipit tempora vero! Lorem ipsum dolor sit amet, consectetur adipisicing elit.
+                Aliquid architecto error quo vitae voluptatem? Aliquam aliquid amet cum doloremque, dolores eaque enim
+                impedit maiores minima nobis quisquam veniam veritatis, voluptates!</p>
         </div>
     </div>
 </div>
@@ -161,7 +232,7 @@
         background-color: hsl(180, 1%, 19%);
         color: whitesmoke;
         padding: 10px 30px;
-        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
         z-index: 1;
     }
 

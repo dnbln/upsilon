@@ -42,7 +42,7 @@
         <hr>
     </div>
 
-    <RepoFileStructure {repo} />
+    <RepoFileStructure {repo} tree={repo.git.branch.commit.tree} dirPath="/" />
 </div>
 
 <style>
