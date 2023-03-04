@@ -45,7 +45,7 @@
 	try {
 		html = hljs.highlight(fileContents.toString(), {language: getFileType(filePath)}).value;
 	} catch (e) {
-		html = fileContents;
+		html = hljs.highlight(fileContents.toString(), {language: 'Plaintext'}).value;
 	}
 
 
