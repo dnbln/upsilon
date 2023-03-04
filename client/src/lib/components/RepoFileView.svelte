@@ -31,29 +31,72 @@
 	function shortenPath(path) {
 		if (path.length > 40) {
 			let patharr = path.split('/');
-
-			// TODO: Improve this algorithm to not delete all folders
 			let file = patharr.pop();
 			return patharr[0] + '/.../' + file;
 		} else {
 			return path;
 		}
 	}
+
+	let showContents = false;
 </script>
 
 <div class="repo-file-view">
 	<RepoVersionControls {activeBranch} {branches}/>
 	<div class="repo-file-view-content">
 		<h2>{shortenPath(filePath)}</h2>
-		<div class="repo-file-view-content-code">
-			<HighlightAuto code={fileContents} let:highlighted>
-				<LineNumbers {highlighted} />
-			</HighlightAuto>
-		</div>
+		{#if fileContents.length < 3000}
+			<div class="repo-file-view-content-code">
+				<HighlightAuto code={fileContents} let:highlighted>
+					<LineNumbers {highlighted} />
+				</HighlightAuto>
+			</div>
+		{:else}
+			{#if showContents}
+				<div class="repo-file-view-content-code">
+					<HighlightAuto code={fileContents} let:highlighted>
+						<LineNumbers {highlighted} />
+					</HighlightAuto>
+				</div>
+			{:else}
+				<div class="repo-file-view-warning">
+					<p>This file contains a lot of data. Loading it may be heavy for the browser</p>
+					<button on:click={() => {showContents = !showContents}}>Show contents</button>
+				</div>
+			{/if}
+		{/if}
 	</div>
 </div>
 
 <style lang="scss">
+	.repo-file-view-warning {
+		width: 100%;
+		display: flex;
+		flex-flow: column;
+		align-items: center;
+		justify-content: center;
+		background-color: #1a1b26;
+		padding: 60px 0;
+
+		p {
+			font-family: monospace;
+		}
+
+		button {
+			padding: 10px 20px;
+			background-color: hsla(180, 1%, 25%, 20%);
+			border-radius: 0.4em;
+			border: none;
+			color: whitesmoke;
+			font-size: 0.95em;
+
+			&:hover {
+				background-color: hsl(180, 1%, 25%);
+				cursor: pointer;
+			}
+		}
+	}
+
 	.repo-file-view {
 		font-family: 'DejaVu Sans', sans-serif;
 		width: 100%;

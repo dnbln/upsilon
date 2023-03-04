@@ -35,13 +35,4 @@
 		color: hsl(120, 42%, 46%);
 		text-decoration: none;
 	}
-
-	#repo-view-top-controls-author {
-		color: #f1f1f6;
-	}
-
-	.separating-dash {
-		margin: 10px;
-		font-size: 2rem;
-	}
 </style>
