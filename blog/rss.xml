@@ -4,7 +4,7 @@
         <title>Upsilon Docs Blog</title>
         <link>https://upsilon-docs.dnbln.dev/blog</link>
         <description>Upsilon Docs Blog</description>
-        <lastBuildDate>Wed, 01 Mar 2023 20:27:37 GMT</lastBuildDate>
+        <lastBuildDate>Sat, 04 Mar 2023 12:10:28 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <language>en</language>
@@ -12,7 +12,7 @@
             <title><![CDATA[Welcome to the upsilon blog]]></title>
             <link>https://upsilon-docs.dnbln.dev/blog/welcome</link>
             <guid>https://upsilon-docs.dnbln.dev/blog/welcome</guid>
-            <pubDate>Wed, 01 Mar 2023 20:27:37 GMT</pubDate>
+            <pubDate>Sat, 04 Mar 2023 12:10:28 GMT</pubDate>
             <category>upsilon</category>
         </item>
     </channel>
