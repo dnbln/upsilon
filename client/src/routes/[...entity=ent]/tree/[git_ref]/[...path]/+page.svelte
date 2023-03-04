@@ -44,4 +44,5 @@
 	commit={repo.git.revspec.commitFrom}
 	tree={repo.git.revspec.commitFrom.tree}
 	dirPath={path}
+	readme={repo.git.revspec.commitFrom.readme}
 />

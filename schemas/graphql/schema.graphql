@@ -38,6 +38,7 @@ type GitCommit {
   parent(i: Int = 0): GitCommit!
   tree: GitTree!
   blobString(path: String!): String
+  readmeBlob(dirPath: String!): GitReadmeBlob
 }
 
 scalar TeamName
@@ -89,6 +90,7 @@ scalar Username
 
 type GitTreeEntry {
   name: String!
+  kind: String
 }
 
 interface Entity {
@@ -118,10 +120,10 @@ type GitSignature {
   user: User
 }
 
-type GitDiffFile {
-  oldPath: String!
-  newPath: String!
-  hunks: [GitDiffHunk!]!
+type GitReadmeBlob {
+  kind: String!
+  path: String!
+  content: String!
 }
 
 scalar OrganizationDisplayName
@@ -131,12 +133,10 @@ type GitDiff {
   files: [GitDiffFile!]!
 }
 
-type GitDiffHunk {
-  oldStart: Int!
-  oldLines: Int!
-  newStart: Int!
-  newLines: Int!
-  lines: [GitDiffLine!]!
+type GitDiffFile {
+  oldPath: String!
+  newPath: String!
+  hunks: [GitDiffHunk!]!
 }
 
 scalar OrganizationId
@@ -160,6 +160,14 @@ scalar OrganizationName
 
 type GitTree {
   entries(wholeTree: Boolean = false): [GitTreeEntry!]!
+}
+
+type GitDiffHunk {
+  oldStart: Int!
+  oldLines: Int!
+  newStart: Int!
+  newLines: Int!
+  lines: [GitDiffLine!]!
 }
 
 type GitDiffLine {

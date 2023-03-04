@@ -57,6 +57,11 @@ query EntityPage($entity: String!) {
 								name
 							}
 						}
+						readme: readmeBlob(dirPath: "") {
+							kind
+							path
+							content
+						}
 					}
 				}
 			}

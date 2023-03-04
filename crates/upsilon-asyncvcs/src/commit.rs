@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+use upsilon_vcs::ReadmeKind;
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
 use crate::refs::{CommitRef, SignatureRef, TreeRef};
@@ -249,3 +250,30 @@ impl FromFlatResponse for CommitBlobStringResponse {
 }
 
 impl Response for CommitBlobStringResponse {}
+
+pub struct CommitReadmeBlobStringQuery(pub CommitRef, pub String);
+
+impl ToFlatMessage for CommitReadmeBlobStringQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::CommitReadmeBlobString(self.0, self.1)
+    }
+}
+
+impl Message for CommitReadmeBlobStringQuery {
+    type Res = CommitReadmeBlobStringResponse;
+}
+
+pub struct CommitReadmeBlobStringResponse(pub upsilon_vcs::Result<Option<(ReadmeKind, String, String)>>);
+
+impl FromFlatResponse for CommitReadmeBlobStringResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::CommitReadmeBlobString(k, p, s) => Self(Ok(Some((k, p, s)))),
+            FlatResponse::None => Self(Ok(None)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for CommitReadmeBlobStringResponse {}

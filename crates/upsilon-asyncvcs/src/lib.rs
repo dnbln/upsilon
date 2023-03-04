@@ -20,7 +20,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
-use upsilon_vcs::{DiffRepr, TreeWalkMode, TreeWalkResult};
+use upsilon_vcs::{DiffRepr, ReadmeKind, TreeWalkMode, TreeWalkResult};
+use upsilon_vcs::git2::ObjectType;
 
 use crate::message::Message;
 use crate::private::FromFlatResponse;
@@ -116,6 +117,7 @@ pub enum FlatMessage {
     CommitAuthor(CommitRef),
     CommitCommitter(CommitRef),
     CommitBlobString(CommitRef, String),
+    CommitReadmeBlobString(CommitRef, String),
     SignatureName(SignatureRef),
     SignatureEmail(SignatureRef),
     CommitTree(CommitRef),
@@ -144,7 +146,8 @@ pub enum FlatResponse {
     CommitParents(Vec<CommitRef>),
     CommitTree(TreeRef),
     CommitBlobString(Option<String>),
-    TreeEntries(Vec<(String, TreeEntryRef)>),
+    CommitReadmeBlobString(ReadmeKind, String, String),
+    TreeEntries(Vec<(String, Option<ObjectType>, TreeEntryRef)>),
 
     Diff(DiffRepr),
 
@@ -557,6 +560,20 @@ impl Server {
                         Err(e) => FlatResponse::Error(e),
                     }
                 }
+                FlatMessage::CommitReadmeBlobString(commit, dir_path) => {
+                    let c = &store[commit];
+
+                    match c.readme_blob(&self.repo, &dir_path) {
+                        Ok(Some(blob)) => {
+                            match blob.blob.to_string() {
+                                Ok(s) => FlatResponse::CommitReadmeBlobString(blob.readme_kind, blob.path, s),
+                                Err(e) => FlatResponse::Error(e),
+                            }
+                        }
+                        Ok(None) => FlatResponse::None,
+                        Err(e) => FlatResponse::Error(e),
+                    }
+                }
                 FlatMessage::TreeEntries(tree) => {
                     let t = &store[tree];
 
@@ -564,10 +581,12 @@ impl Server {
 
                     for entry in t.iter() {
                         let name = entry.name().to_owned();
+                        let kind = entry.kind();
                         let name_clone = name.clone();
 
                         entries.push((
                             name_clone,
+                            kind,
                             TreeEntryRef {
                                 tree_id: tree,
                                 name,
@@ -585,10 +604,12 @@ impl Server {
                     match t.walk(TreeWalkMode::PreOrder, |name, entry| {
                         let e = entry.name();
                         let name = format!("{name}{e}");
+                        let kind = entry.kind();
                         let name_clone = name.clone();
 
                         entries.push((
                             name_clone,
+                            kind,
                             TreeEntryRef {
                                 tree_id: tree,
                                 name,

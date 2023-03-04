@@ -17,7 +17,7 @@
 import { graphql } from '$houdini';
 
 export const _houdini_load = graphql`
-	query RepoTreeViewPage($entity: String!, $git_ref: String!) {
+	query RepoTreeViewPage($entity: String!, $git_ref: String!, $path: String!) {
 		viewer {
 			...NavBar_viewer
 			displayName
@@ -53,6 +53,11 @@ export const _houdini_load = graphql`
 								name
 							}
 						}
+						readme: readmeBlob(dirPath: $path) {
+							kind
+							path
+							content
+						}
 					}
 				}
 			}
@@ -64,7 +69,8 @@ export const _houdini_load = graphql`
 export const _RepoTreeViewPageVariables = ({ params }) => {
 	return {
 		entity: params.entity,
-		git_ref: params.git_ref
+		git_ref: params.git_ref,
+		path: params.path
 	};
 };
 

@@ -20,10 +20,14 @@
 	export let repo;
 	export let commit;
 	export let tree;
+
+	export let readme;
 	export let currentRev = commit.sha;
 	export let dirPath: string | undefined;
 	export let filePath: string | undefined;
 	export let fileContents: string | undefined;
+
+	console.log(readme);
 
 	console.assert(
 		!!dirPath ^ (!!filePath && !!fileContents),
@@ -69,7 +73,7 @@
 	</div>
 
 	{#if dirPath}
-		<RepoFileStructure {repo} {currentRev} {tree} {dirPath} />
+		<RepoFileStructure {repo} {currentRev} {tree} {dirPath} {readme} />
 	{:else if filePath}
 		<RepoFileView {repo} {tree} {filePath} {fileContents} />
 	{/if}

@@ -29,7 +29,7 @@ use std::rc::Rc;
 use std::result::Result as StdResult;
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
-use git2::{ConfigLevel, DiffDelta, DiffHunk, DiffLine, DiffLineType, Oid};
+use git2::{ConfigLevel, DiffDelta, DiffHunk, DiffLine, DiffLineType, ErrorCode, Oid};
 pub use http_backend::{
     handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
@@ -292,6 +292,80 @@ impl<'r> Commit<'r> {
             Err(_) => Ok(None),
         }
     }
+
+    pub fn readme_blob(&self, repo: &'r Repository, dir: &str) -> Result<Option<ReadmeBlob>> {
+        let t = self.commit.tree()?;
+
+        let join_root = if dir.is_empty() {
+            "".to_owned()
+        } else if dir.ends_with('/') {
+            dir.to_owned()
+        } else {
+            format!("{dir}/")
+        };
+
+        for readme_kind in ReadmeKind::variants() {
+            for ext in readme_kind.extensions() {
+                let readme_path = format!("{join_root}README{ext}");
+                let r = t.get_path(Path::new(&readme_path));
+                let entry = match r {
+                    Ok(entry) => {entry}
+                    Err(e) => {
+                        if e.code() == ErrorCode::NotFound {
+                            continue;
+                        } else {
+                            return Err(e.into());
+                        }
+                    }
+                };
+                let blob = entry.to_object(&repo.repo)?.into_blob().unwrap();
+                {
+                    return Ok(Some(ReadmeBlob {
+                        blob: Blob { blob },
+                        path: readme_path,
+                        readme_kind: *readme_kind,
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ReadmeKind {
+    Markdown,
+    Text,
+    RST,
+}
+
+impl ReadmeKind {
+    pub fn variants() -> &'static [ReadmeKind] {
+        &[ReadmeKind::Markdown, ReadmeKind::Text, ReadmeKind::RST]
+    }
+
+    pub fn extensions(&self) -> &'static [&'static str] {
+        match self {
+            ReadmeKind::Markdown => &[
+                ".md",
+                ".mkd",
+                ".mdwn",
+                ".mdown",
+                ".mdtxt",
+                ".mdtext",
+                ".markdown",
+            ],
+            ReadmeKind::Text => &[".txt", ""],
+            ReadmeKind::RST => &[".rst"],
+        }
+    }
+}
+
+pub struct ReadmeBlob<'r> {
+    pub readme_kind: ReadmeKind,
+    pub path: String,
+    pub blob: Blob<'r>,
 }
 
 pub struct Blob<'r> {
@@ -400,11 +474,19 @@ impl<'tree, 'r> TreeEntryRef<'tree, 'r> {
     pub fn name(&self) -> &str {
         self.entry.name().unwrap_or("<invalid UTF-8>")
     }
+
+    pub fn kind(&self) -> Option<git2::ObjectType> {
+        self.entry.kind()
+    }
 }
 
 impl<'tree> TreeEntry<'tree> {
     pub fn name(&self) -> &str {
         self.entry.name().unwrap_or("<invalid UTF-8>")
+    }
+
+    pub fn kind(&self) -> Option<git2::ObjectType> {
+        self.entry.kind()
     }
 }
 

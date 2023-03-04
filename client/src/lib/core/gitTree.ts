@@ -26,7 +26,6 @@ const splitPath = (path: string): string[] => {
 };
 
 const removeDuplicateFilesAndDirs = (tree: GitTree): GitTree => {
-	console.log(tree);
 	const result: GitTree = { dirs: {}, files: [] };
 	for (const file of tree.files) {
 		if (!(file in tree.dirs)) {
@@ -38,7 +37,6 @@ const removeDuplicateFilesAndDirs = (tree: GitTree): GitTree => {
 			result.dirs[dir] = removeDuplicateFilesAndDirs(tree.dirs[dir]);
 		}
 	}
-	console.log(result);
 	return result;
 };
 

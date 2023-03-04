@@ -51,7 +51,13 @@
 {/if}
 
 {#if repo}
-	<RepoView {repo} commit={repo.git.branch.commit} tree={repo.git.branch.commit.tree} dirPath="/" />
+	<RepoView
+		{repo}
+		commit={repo.git.branch.commit}
+		tree={repo.git.branch.commit.tree}
+		dirPath="/"
+		readme={repo.git.branch.commit.readme}
+	/>
 {/if}
 
 {#if organization}

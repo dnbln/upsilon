@@ -14,6 +14,7 @@
 	 * @type {string}
 	 */
 	export let dirPath;
+	export let readme;
 
 	let parsedTree;
 
@@ -149,25 +150,14 @@
 			{/each}
 		</tbody>
 	</table>
-	<div class="repo-file-structure-readme">
-		<h2>README.md</h2>
-		<div class="repo-file-structure-readme-file">
-			<h1>Upsilon</h1>
-			<p>Amazing project.</p>
-			<p>A self-hosted git server.</p>
-			<h2>Dependencies</h2>
-			<p>
-				Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad architecto blanditiis deserunt
-				dolore enim eos esse, ex, excepturi fugiat inventore iure libero necessitatibus nisi nobis
-				odit perspiciatis repellat rerum saepe. Lorem ipsum dolor sit amet, consectetur adipisicing
-				elit. Ab dignissimos esse inventore minus? A ad fuga fugiat molestiae provident temporibus
-				voluptatibus? Alias dolorem incidunt, odio quasi ratione suscipit tempora vero! Lorem ipsum
-				dolor sit amet, consectetur adipisicing elit. Aliquid architecto error quo vitae voluptatem?
-				Aliquam aliquid amet cum doloremque, dolores eaque enim impedit maiores minima nobis
-				quisquam veniam veritatis, voluptates!
-			</p>
+	{#if readme}
+		<div class="repo-file-structure-readme">
+			<h2>{readme.path}</h2>
+			<div class="repo-file-structure-readme-file">
+				<pre><code>{readme.content}</code></pre>
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <style>

@@ -16,8 +16,8 @@
 
 use juniper::{graphql_object, FieldResult};
 use upsilon_asyncvcs::refs::SignatureRef;
-use upsilon_vcs::git2::DiffLineType;
-use upsilon_vcs::DiffRepr;
+use upsilon_vcs::git2::{DiffLineType, ObjectType};
+use upsilon_vcs::{DiffRepr, ReadmeKind};
 
 use super::GraphQLContext;
 use crate::graphql::UserRef;
@@ -315,6 +315,40 @@ impl GitCommit {
 
         Ok(blob)
     }
+
+    async fn readme_blob(&self, dir_path: String) -> FieldResult<Option<GitReadmeBlob>> {
+        let blob = self
+            .0
+            .send(upsilon_asyncvcs::commit::CommitReadmeBlobStringQuery(
+                self.1, dir_path,
+            ))
+            .await
+            .0?;
+
+        Ok(blob.map(|(kind, path, content)| GitReadmeBlob(self.0.clone(), kind, path, content)))
+    }
+}
+
+pub struct GitReadmeBlob(upsilon_asyncvcs::Client, ReadmeKind, String, String);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitReadmeBlob {
+    fn kind(&self) -> String {
+        match self.1 {
+            ReadmeKind::Markdown => "markdown",
+            ReadmeKind::RST => "rst",
+            ReadmeKind::Text => "text",
+        }
+        .to_owned()
+    }
+
+    fn path(&self) -> &str {
+        &self.2
+    }
+
+    fn content(&self) -> &str {
+        &self.3
+    }
 }
 
 pub struct GitSignature(upsilon_asyncvcs::Client, SignatureRef);
@@ -386,7 +420,7 @@ impl GitTree {
 
         Ok(entries
             .into_iter()
-            .map(|(name, entry)| GitTreeEntry(self.0.clone(), name, entry))
+            .map(|(name, kind, entry)| GitTreeEntry(self.0.clone(), name, kind, entry))
             .collect())
     }
 }
@@ -394,6 +428,7 @@ impl GitTree {
 pub struct GitTreeEntry(
     upsilon_asyncvcs::Client,
     String,
+    Option<ObjectType>,
     upsilon_asyncvcs::refs::TreeEntryRef,
 );
 
@@ -401,6 +436,22 @@ pub struct GitTreeEntry(
 impl GitTreeEntry {
     fn name(&self) -> String {
         self.1.clone()
+    }
+
+    fn kind(&self) -> Option<&'static str> {
+        let Some(kind) = self.2 else {
+            return None;
+        };
+
+        let kind_str = match kind {
+            ObjectType::Any => "any",
+            ObjectType::Commit => "commit",
+            ObjectType::Tree => "tree",
+            ObjectType::Blob => "blob",
+            ObjectType::Tag => "tag",
+        };
+
+        Some(kind_str)
     }
 }
 
