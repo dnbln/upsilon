@@ -63,7 +63,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
 	.repo-view-main {
 		width: 100%;
 		display: flex;
@@ -87,11 +87,11 @@
 		border-radius: 0.4em;
 		border: none;
 		color: whitesmoke;
-		font-size: 1.1em;
-	}
+		font-size: 1.05em;
 
-	.repo-navigation-element:hover {
-		background-color: hsl(180, 1%, 25%);
-		cursor: pointer;
+		&:hover {
+			background-color: hsl(180, 1%, 25%);
+			cursor: pointer;
+		}
 	}
 </style>
