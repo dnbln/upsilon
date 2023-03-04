@@ -740,7 +740,7 @@ pub fn run_test_support_examples_cmd(examples: Vec<String>, profile: Profile) ->
 
     fs::create_dir_all(&tmpdir_root)?;
 
-    let setup_testenv = tmpdir_root.join("../../../../../testenv");
+    let setup_testenv = tmpdir_root.join("testenv");
 
     fs::create_dir_all(&setup_testenv)?;
 
