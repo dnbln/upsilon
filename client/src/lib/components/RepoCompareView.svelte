@@ -13,44 +13,44 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script>
-    import RepoTopControls from '$lib/reusable/RepoTopControls.svelte';
+	import RepoTopControls from '$lib/reusable/RepoTopControls.svelte';
 
-    export let repo;
-    export let diff;
+	export let repo;
+	export let diff;
 </script>
 
-<RepoTopControls {repo}/>
+<RepoTopControls {repo} />
 
 <div>
-    <p>Files changed: {diff.stats.filesChanged}</p>
-    <p>Insertions: {diff.stats.insertions}</p>
-    <p>Deletions: {diff.stats.deletions}</p>
+	<p>Files changed: {diff.stats.filesChanged}</p>
+	<p>Insertions: {diff.stats.insertions}</p>
+	<p>Deletions: {diff.stats.deletions}</p>
 </div>
 
-{#each diff.files as {oldPath, newPath, hunks} }
-    <p>
-        {#if oldPath == null}
-            Created file: {newPath}
-        {:else if newPath == null}
-            Deleted file: {oldPath}
-        {:else}
-            {#if oldPath !== newPath}
-                Renamed {oldPath} -> {newPath}
-            {:else}
-                Modified {oldPath}
-            {/if}
-        {/if}
-    </p>
+{#each diff.files as { oldPath, newPath, hunks }}
+	<p>
+		{#if oldPath == null}
+			Created file: {newPath}
+		{:else if newPath == null}
+			Deleted file: {oldPath}
+		{:else if oldPath !== newPath}
+			Renamed {oldPath} -> {newPath}
+		{:else}
+			Modified {oldPath}
+		{/if}
+	</p>
 
-    {#each hunks as {oldStart, oldLines, newStart, newLines, lines} }
-        <p>
-            {oldStart} {oldLines} {newStart} {newLines}
-        </p>
+	{#each hunks as { oldStart, oldLines, newStart, newLines, lines }}
+		<p>
+			{oldStart}
+			{oldLines}
+			{newStart}
+			{newLines}
+		</p>
 
-        {#each lines as {content, lineType} }
-            <pre><code>{lineType}{content}</code></pre>
-        {/each}
-    {/each}
+		{#each lines as { content, lineType }}
+			<pre><code>{lineType}{content}</code></pre>
+		{/each}
+	{/each}
 {/each}

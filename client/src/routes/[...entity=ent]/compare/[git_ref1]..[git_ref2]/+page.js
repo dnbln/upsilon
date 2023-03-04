@@ -17,52 +17,51 @@
 import { graphql } from '$houdini';
 
 export const _houdini_load = graphql`
-  query RepoCompareViewPage($entity: String!, $git_revspec: String!) {
-    viewer {
-      ...NavBar_viewer
-      displayName
-    }
+	query RepoCompareViewPage($entity: String!, $git_revspec: String!) {
+		viewer {
+			...NavBar_viewer
+			displayName
+		}
 
-    repo: lookupRepo(path: $entity) {
-      id
-      name
-      path
-      git {
-        revspec(revspec: $git_revspec) {
-          diff {
-            files {
-              oldPath
-              newPath
-              hunks {
-                oldStart
-                oldLines
-                newStart
-                newLines
-                lines {
-                  oldLineno
-                  newLineno
-                  content
-                  lineType
-                }
-              }
-            }
-            stats {
-              insertions
-              deletions
-              filesChanged
-            }
-          }
-        }
-      }
-    }
-  }
+		repo: lookupRepo(path: $entity) {
+			id
+			name
+			path
+			git {
+				revspec(revspec: $git_revspec) {
+					diff {
+						files {
+							oldPath
+							newPath
+							hunks {
+								oldStart
+								oldLines
+								newStart
+								newLines
+								lines {
+									oldLineno
+									newLineno
+									content
+									lineType
+								}
+							}
+						}
+						stats {
+							insertions
+							deletions
+							filesChanged
+						}
+					}
+				}
+			}
+		}
+	}
 `;
 
 /* @type { import('./$houdini').RepoCompareViewPageVariables } */
 export const _RepoCompareViewPageVariables = ({ params }) => {
-    return {
-        entity: params.entity,
-        git_revspec: params.git_ref1 + '..' + params.git_ref2,
-    };
+	return {
+		entity: params.entity,
+		git_revspec: params.git_ref1 + '..' + params.git_ref2
+	};
 };
-

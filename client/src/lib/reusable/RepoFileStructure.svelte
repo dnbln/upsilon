@@ -1,5 +1,6 @@
 <script lang="ts" context="module">
 	import { dev } from '$app/environment';
+	import * as GitTree from '$lib/core/gitTree';
 </script>
 
 <script>
@@ -14,75 +15,44 @@
 	 */
 	export let dirPath;
 
-	const compileView = (tree, dirPath) => {
-		let pathFilterPrefix;
-		if (dirPath === '/') {
-			pathFilterPrefix = '';
-		} else {
-			pathFilterPrefix = dirPath.endsWith('/') ? dirPath : dirPath + '/';
-		}
+	let parsedTree;
 
-		let displayedEntries = tree.entries.filter((entry) => entry.name.startsWith(pathFilterPrefix));
-		// files = [
-		//     { icon: "fa fa-file-text file-icon", name: "testing.txt", commit: "Initial commit", upload: "3 years ago"},
-		//     { icon: "fa fa-html5 file-icon", name: "index.html", commit: "Update headings", upload: "15 seconds ago"},
-		//     { icon: "fa fa-html5 file-icon", name: "fonts.html", commit: "Update design of pages", upload: "4 minutes ago"},
-		//     { icon: "fa fa-css3 file-icon", name: "style.css", commit: "Update design of pages", upload: "4 minutes ago"},
-		//     { icon: "fa fa-css3 file-icon", name: "fonts.css", commit: "Update design of pages", upload: "4 minutes ago"}
-		// ];
+	$: {
+		parsedTree = GitTree.makeGitTree(tree);
+	}
+
+	const compileView = (tree, dirPath) => {
+		let t = GitTree.getGitTreeAtPath(tree, dirPath);
 
 		let compiledEntries = [];
 
-		for (const entry of displayedEntries) {
-			let name = entry.name.substring(pathFilterPrefix.length);
-			let nameSplit = name.split('/');
-			let topName = nameSplit[0];
-
-			let index = compiledEntries.findIndex((entry) => entry.name === topName);
-
-			if (index !== -1) {
-				compiledEntries[index].icon = 'fa fa-folder file-icon';
-				compiledEntries[index].kind = 'folder';
-				continue;
-			}
-
-			if (nameSplit.length > 1) {
-				compiledEntries.push({
-					icon: 'fa fa-folder file-icon',
-					name: topName,
-					kind: 'folder',
-					commit: 'Initial commit',
-					upload: '3 years ago'
-				});
-			} else {
-				compiledEntries.push({
-					icon: 'fa fa-file-text file-icon',
-					name: topName,
-					kind: 'file',
-					commit: 'Initial commit',
-					upload: '3 years ago'
-				});
-			}
+		for (const [name, _subtree] of Object.entries(t.dirs)) {
+			compiledEntries.push({
+				icon: 'fa fa-folder file-icon',
+				name: name,
+				kind: 'folder',
+				commit: 'Initial commit',
+				upload: '3 years ago'
+			});
 		}
 
-		const partition = (array, condition) => {
-			return array.reduce(
-				([pass, fail], elem) => {
-					return condition(elem) ? [[...pass, elem], fail] : [pass, [...fail, elem]];
-				},
-				[[], []]
-			);
-		};
+		for (const name of t.files) {
+			compiledEntries.push({
+				icon: 'fa fa-file-text file-icon',
+				name: name,
+				kind: 'file',
+				commit: 'Initial commit',
+				upload: '3 years ago'
+			});
+		}
 
-		const [folders, files] = partition(compiledEntries, (entry) => entry.kind === 'folder');
-
-		return [...folders, ...files];
+		return compiledEntries;
 	};
 
 	let files;
 
 	$: {
-		files = compileView(tree, dirPath);
+		files = compileView(parsedTree, dirPath);
 	}
 
 	let branches = ['main', 'testing', 'wdadaw'];
