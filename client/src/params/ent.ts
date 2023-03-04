@@ -15,7 +15,7 @@
  */
 
 export function match(value: string): boolean {
-    let count = value.split('/').length;
+	const count = value.split('/').length;
 
-    return count >= 1 && count <= 3;
+	return count >= 1 && count <= 3;
 }

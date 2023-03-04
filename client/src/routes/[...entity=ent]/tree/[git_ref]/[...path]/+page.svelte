@@ -13,28 +13,32 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    import RepoView from '$lib/components/RepoView.svelte';
+	import RepoView from '$lib/components/RepoView.svelte';
 
-    export let data: import('./$houdini').PageData;
+	export let data: import('./$houdini').PageData;
 
-    let path = '';
+	let path = '';
 
-    $: ({RepoTreeViewPage} = data)
+	$: ({ RepoTreeViewPage } = data);
 
-    $: {
-        path = data.path;
-        if (path == "") path = "/";
-    }
+	$: {
+		path = data.path;
+		if (path == '') path = '/';
+	}
 
-    let viewer;
-    let repo;
+	let viewer;
+	let repo;
 
-    $: {
-        viewer = $RepoTreeViewPage.data.viewer;
-        repo = $RepoTreeViewPage.data.repo;
-    }
+	$: {
+		viewer = $RepoTreeViewPage.data.viewer;
+		repo = $RepoTreeViewPage.data.repo;
+	}
 </script>
 
-<RepoView {repo} commit={repo.git.revspec.commitFrom} tree={repo.git.revspec.commitFrom.tree} dirPath={path}/>
+<RepoView
+	{repo}
+	commit={repo.git.revspec.commitFrom}
+	tree={repo.git.revspec.commitFrom.tree}
+	dirPath={path}
+/>

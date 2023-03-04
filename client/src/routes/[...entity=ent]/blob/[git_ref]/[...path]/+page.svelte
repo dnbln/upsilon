@@ -13,33 +13,32 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    import RepoView from '$lib/components/RepoView.svelte';
+	import RepoView from '$lib/components/RepoView.svelte';
 
-    export let data: import('./$houdini').PageData;
+	export let data: import('./$houdini').PageData;
 
-    let path = '';
+	let path = '';
 
-    $: ({RepoBlobViewPage} = data)
+	$: ({ RepoBlobViewPage } = data);
 
-    $: {
-        path = data.path;
-    }
+	$: {
+		path = data.path;
+	}
 
-    let viewer;
-    let repo;
+	let viewer;
+	let repo;
 
-    $: {
-        viewer = $RepoBlobViewPage.data.viewer;
-        repo = $RepoBlobViewPage.data.repo;
-    }
+	$: {
+		viewer = $RepoBlobViewPage.data.viewer;
+		repo = $RepoBlobViewPage.data.repo;
+	}
 
-    let commit;
+	let commit;
 
-    $: {
-        commit = repo.git.revspec.commitFrom;
-    }
+	$: {
+		commit = repo.git.revspec.commitFrom;
+	}
 </script>
 
-<RepoView {repo} {commit} tree={commit.tree} filePath={path} fileContents={commit.fileContents}/>
+<RepoView {repo} {commit} tree={commit.tree} filePath={path} fileContents={commit.fileContents} />

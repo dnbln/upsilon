@@ -13,10 +13,9 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts" context="module">
-    import { page } from '$app/stores';
-    import ErrorView from "$lib/components/ErrorView.svelte";
+	import { page } from '$app/stores';
+	import ErrorView from '$lib/components/ErrorView.svelte';
 </script>
 
 <ErrorView status={$page.error.code || $page.status} message={$page.error.message} />

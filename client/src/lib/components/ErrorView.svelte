@@ -13,45 +13,44 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    export let status: string | number;
-    export let message: string;
+	export let status: string | number;
+	export let message: string;
 </script>
 
 <div class="error-container">
-    <h1 class="error-status">{status}</h1>
-    <span class="error-status-slash">/</span>
-    <p class="error-message">{message}</p>
+	<h1 class="error-status">{status}</h1>
+	<span class="error-status-slash">/</span>
+	<p class="error-message">{message}</p>
 </div>
 
 <style>
-    .error-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        width: 100%;
-        margin: 0;
-    }
+	.error-container {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		width: 100%;
+		margin: 0;
+	}
 
-    .error-status {
-        padding: 0 10px;
-        color: orange;
-    }
+	.error-status {
+		padding: 0 10px;
+		color: orange;
+	}
 
-    .error-status-slash {
-        user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-user-select: none;
-        color: black;
-        font-size: 4rem;
-    }
+	.error-status-slash {
+		user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+		-webkit-user-select: none;
+		color: black;
+		font-size: 4rem;
+	}
 
-    .error-message {
-        padding: 0 15px;
-        font-size: 2em;
-    }
+	.error-message {
+		padding: 0 15px;
+		font-size: 2em;
+	}
 </style>

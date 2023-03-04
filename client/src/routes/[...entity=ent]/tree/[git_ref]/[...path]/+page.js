@@ -14,65 +14,65 @@
  *    limitations under the License.
  */
 
-import {graphql} from '$houdini';
+import { graphql } from '$houdini';
 
 export const _houdini_load = graphql`
-query RepoTreeViewPage($entity: String!, $git_ref: String!) {
-  viewer {
-    ...NavBar_viewer
-    displayName
-  }
+	query RepoTreeViewPage($entity: String!, $git_ref: String!) {
+		viewer {
+			...NavBar_viewer
+			displayName
+		}
 
-  repo: lookupRepo(path: $entity) {
-    id
-    name
-    path
-    git {
-      revspec(revspec: $git_ref) {
-        commitFrom {
-          sha
-          message
-          author {
-            name
-            email
-            user {
-              id
-              username
-            }
-          }
-          committer {
-            name
-            email
-            user {
-              id
-              username
-            }
-          }
-          tree {
-            entries(wholeTree:true) {
-              name
-            }
-          }
-        }
-      }
-    }
-  }
-}
+		repo: lookupRepo(path: $entity) {
+			id
+			name
+			path
+			git {
+				revspec(revspec: $git_ref) {
+					commitFrom {
+						sha
+						message
+						author {
+							name
+							email
+							user {
+								id
+								username
+							}
+						}
+						committer {
+							name
+							email
+							user {
+								id
+								username
+							}
+						}
+						tree {
+							entries(wholeTree: true) {
+								name
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 `;
 
 /* @type { import('./$houdini').RepoTreeViewPageVariables } */
-export const _RepoTreeViewPageVariables = ({params}) => {
-  return {
-    entity: params.entity,
-    git_ref: params.git_ref,
-  }
-}
+export const _RepoTreeViewPageVariables = ({ params }) => {
+	return {
+		entity: params.entity,
+		git_ref: params.git_ref
+	};
+};
 
 /**
  * @param { import('./$houdini').AfterLoadEvent }
  */
-export function _houdini_afterLoad({ data, event }) {
-  return {
-    path: event.params.path,
-  }
+export function _houdini_afterLoad({ event }) {
+	return {
+		path: event.params.path
+	};
 }

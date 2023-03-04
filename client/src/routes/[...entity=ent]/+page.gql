@@ -1,65 +1,65 @@
 query EntityPage($entity: String!) {
-  viewer {
-    ...NavBar_viewer
-    displayName
-  }
+	viewer {
+		...NavBar_viewer
+		displayName
+	}
 
-  entity: lookupEntity(path: $entity) {
-    entityOrganization {
-      id
-      name
-      displayName
-      teams {
-        id
-        name
-        displayName
-        members {
-          user {
-            id
-            username
-            displayName
-          }
-        }
-      }
-    }
-    entityUser {
-      id
-      username
-      displayName
-    }
-    entityRepo {
-      id
-      name
-      path
-      git {
-        branch(name: "trunk") {
-          commit {
-            sha
-            message
-            author {
-              name
-              email
-              user {
-                id
-                username
-              }
-            }
-            committer {
-              name
-              email
-              user {
-                id
-                username
-              }
-            }
-            tree {
-              entries(wholeTree:true) {
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+	entity: lookupEntity(path: $entity) {
+		entityOrganization {
+			id
+			name
+			displayName
+			teams {
+				id
+				name
+				displayName
+				members {
+					user {
+						id
+						username
+						displayName
+					}
+				}
+			}
+		}
+		entityUser {
+			id
+			username
+			displayName
+		}
+		entityRepo {
+			id
+			name
+			path
+			git {
+				branch(name: "trunk") {
+					commit {
+						sha
+						message
+						author {
+							name
+							email
+							user {
+								id
+								username
+							}
+						}
+						committer {
+							name
+							email
+							user {
+								id
+								username
+							}
+						}
+						tree {
+							entries(wholeTree: true) {
+								name
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }

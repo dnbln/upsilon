@@ -14,21 +14,21 @@
  *    limitations under the License.
  */
 
-import {HoudiniClient, type RequestHandler} from '$houdini';
-import {dev} from '$app/environment';
+import { HoudiniClient } from '$houdini';
+import { dev } from '$app/environment';
 
 const url = dev ? 'http://127.0.0.1:8000/graphql' : 'http://localhost:8000/graphql';
 
 export default new HoudiniClient({
-    url,
+	url,
 
-    // uncomment this to configure the network call (for things like authentication)
-    // for more information, please visit here: https://www.houdinigraphql.com/guides/authentication
-    fetchParams({session}) {
-        return {
-            headers: {
-                Authentication: `Bearer ${session.token}`,
-            }
-        }
-    },
-})
+	// uncomment this to configure the network call (for things like authentication)
+	// for more information, please visit here: https://www.houdinigraphql.com/guides/authentication
+	fetchParams({ session }) {
+		return {
+			headers: {
+				Authentication: `Bearer ${session.token}`
+			}
+		};
+	}
+});

@@ -13,15 +13,14 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts" context="module">
-    import ErrorView from '$lib/components/ErrorView.svelte';
+	import ErrorView from '$lib/components/ErrorView.svelte';
 </script>
 
 <script lang="ts">
-    export let data;
+	export let data;
 
-    let {status, message} = data;
+	let { status, message } = data;
 </script>
 
 <ErrorView {status} {message} />

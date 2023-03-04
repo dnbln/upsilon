@@ -3,7 +3,7 @@ import houdini from 'houdini/vite';
 
 /** @type {import('vite').UserConfig} */
 const config = {
-	plugins: [houdini(), sveltekit()],
-}
+	plugins: [houdini(), sveltekit()]
+};
 
 export default config;

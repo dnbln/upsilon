@@ -14,12 +14,12 @@
  *    limitations under the License.
  */
 
-export function load({url}) {
-    const status = url.searchParams.get('status');
-    const message = url.searchParams.get('message');
+export function load({ url }) {
+	const status = url.searchParams.get('status');
+	const message = url.searchParams.get('message');
 
-    return {
-        status,
-        message,
-    }
+	return {
+		status,
+		message
+	};
 }

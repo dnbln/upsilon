@@ -13,53 +13,51 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts" context="module">
-    import NavBar from '$lib/components/NavBar.svelte';
-    import UserView from '$lib/components/UserView.svelte';
-    import RepoView from '$lib/components/RepoView.svelte';
-    import OrganizationView from '$lib/components/OrganizationView.svelte';
-    import TeamView from '$lib/components/TeamView.svelte';
-    import {error} from '@sveltejs/kit';
+	import NavBar from '$lib/components/NavBar.svelte';
+	import UserView from '$lib/components/UserView.svelte';
+	import RepoView from '$lib/components/RepoView.svelte';
+	import OrganizationView from '$lib/components/OrganizationView.svelte';
+	import TeamView from '$lib/components/TeamView.svelte';
 </script>
 
 <script lang="ts">
-    export let data: import('./$houdini').PageData;
-    $: ({EntityPage} = data)
+	export let data: import('./$houdini').PageData;
+	$: ({ EntityPage } = data);
 
-    let viewer;
-    let user;
-    let organization;
-    let team;
-    let repo;
+	let viewer;
+	let user;
+	let organization;
+	let team;
+	let repo;
 
-    $: {
-        viewer = $EntityPage.data.viewer;
-        user = $EntityPage.data.entity?.entityUser;
-        organization = $EntityPage.data.entity?.entityOrganization;
-        team = $EntityPage.data.entity?.entityTeam;
-        repo = $EntityPage.data.entity?.entityRepo;
+	$: {
+		viewer = $EntityPage.data.viewer;
+		user = $EntityPage.data.entity?.entityUser;
+		organization = $EntityPage.data.entity?.entityOrganization;
+		team = $EntityPage.data.entity?.entityTeam;
+		repo = $EntityPage.data.entity?.entityRepo;
 
-        if (!user && !organization && !team && !repo) {
-            throw {message: 'Not found', code: 404};
-        }
-    }
+		if (!user && !organization && !team && !repo) {
+			throw { message: 'Not found', code: 404 };
+		}
+	}
 </script>
 
-<NavBar {viewer}/>
+<NavBar {viewer} />
 
 {#if user}
-    <UserView {user}/>
+	<UserView {user} />
 {/if}
 
 {#if repo}
-    <RepoView {repo} commit={repo.git.branch.commit} tree={repo.git.branch.commit.tree} dirPath="/"/>
+	<RepoView {repo} commit={repo.git.branch.commit} tree={repo.git.branch.commit.tree} dirPath="/" />
 {/if}
 
 {#if organization}
-    <OrganizationView {organization}/>
+	<OrganizationView {organization} />
 {/if}
 
 {#if team}
-    <TeamView {team}/>
+	<TeamView {team} />
 {/if}

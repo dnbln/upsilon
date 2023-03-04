@@ -13,79 +13,78 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    export let user;
+	export let user;
 </script>
 
 <svelte:head>
-    <title>User {user.displayName || user.username}</title>
+	<title>User {user.displayName || user.username}</title>
 </svelte:head>
 
 <div class="user-view-container">
-    <div class="user-view-container-left">
-        {#if user.displayName}
-            <h1>{user.displayName}</h1>
+	<div class="user-view-container-left">
+		{#if user.displayName}
+			<h1>{user.displayName}</h1>
 
-            <h3>{user.username}</h3>
-        {:else}
-            <h1>{user.username}</h1>
-        {/if}
+			<h3>{user.username}</h3>
+		{:else}
+			<h1>{user.username}</h1>
+		{/if}
 
-        <div class="single-info-container">
-            <h4>User ID</h4>
-            <p>{user.id}</p>
-        </div>
-    </div>
+		<div class="single-info-container">
+			<h4>User ID</h4>
+			<p>{user.id}</p>
+		</div>
+	</div>
 
-    <div class="user-view-container-right">
-        <h1>Right</h1>
-    </div>
+	<div class="user-view-container-right">
+		<h1>Right</h1>
+	</div>
 </div>
 
 <style>
-    .user-view-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        height: calc(100% - 50px);
-        width: 100%;
-    }
+	.user-view-container {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		height: calc(100% - 50px);
+		width: 100%;
+	}
 
-    .user-view-container-left {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        width: 30%;
-    }
+	.user-view-container-left {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		width: 30%;
+	}
 
-    .user-view-container-right {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        width: 70%;
-    }
+	.user-view-container-right {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		width: 70%;
+	}
 
-    .single-info-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
+	.single-info-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
 
-        height: 50px;
-    }
+		height: 50px;
+	}
 
-    .single-info-container h4 {
-        font-size: 1.3rem;
-    }
+	.single-info-container h4 {
+		font-size: 1.3rem;
+	}
 
-    .single-info-container p {
-        font-size: 1.2rem;
-    }
+	.single-info-container p {
+		font-size: 1.2rem;
+	}
 </style>

@@ -13,11 +13,7 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    
 </script>
 
-<h1>
-    Hello there
-</h1>
+<h1>Hello there</h1>

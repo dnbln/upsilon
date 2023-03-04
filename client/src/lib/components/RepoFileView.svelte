@@ -13,15 +13,14 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-
 <script lang="ts">
-    export let repo;
-    export let tree;
-    export let filePath;
-    export let fileContents;
+	export let repo;
+	export let tree;
+	export let filePath;
+	export let fileContents;
 </script>
 
 <div>
-    <p>{filePath}</p>
-    <pre><code>{fileContents}</code></pre>
+	<p>{filePath}</p>
+	<pre><code>{fileContents}</code></pre>
 </div>

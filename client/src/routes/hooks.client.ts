@@ -14,14 +14,13 @@
  *    limitations under the License.
  */
 
-import {goto} from "$app/navigation";
-import type {NavigationEvent} from "@sveltejs/kit";
+import { goto } from '$app/navigation';
 
-export function handleError({error, event}: { error: unknown; event: NavigationEvent }): void {
-    let {message, status} = error;
+export function handleError({ error }: { error: unknown }): void {
+	const { message, status } = error;
 
-    let m = message || 'Whoops!';
-    let s = status || 500;
+	const m = message || 'Whoops!';
+	const s = status || 500;
 
-    goto('/error?status=' + encodeURIComponent(s) + '&message=' + encodeURIComponent(m));
+	goto('/error?status=' + encodeURIComponent(s) + '&message=' + encodeURIComponent(m));
 }
