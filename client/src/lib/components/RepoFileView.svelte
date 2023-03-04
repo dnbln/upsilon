@@ -13,7 +13,7 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-<script lang="ts">
+<script>
 	import {HighlightAuto, LineNumbers} from "svelte-highlight";
 	import 'highlight.js/styles/tokyo-night-dark.css';
 	import RepoVersionControls from "$lib/reusable/RepoVersionControls.svelte";
@@ -69,7 +69,6 @@
 
 	.repo-file-view-content-code {
 		border-radius: 1em;
-		padding: 10px;
 		background-color: #1a1b26;
 		border: hsl(180, 1%, 19%) solid 1px;
 		overflow-x: scroll;
