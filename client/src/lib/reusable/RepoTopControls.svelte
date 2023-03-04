@@ -1,18 +1,11 @@
 <script>
 	export let repo;
-	export let commit;
 
 	let repo_path = '/' + repo.path;
-	let author = commit.author;
-	let authorUser = author.user;
 </script>
 
 <div class="repo-hero">
 	<div class="repo-hero-title">
-		<!--{#if authorUser}-->
-		<!--    <a href="/{authorUser.username}" id="repo-view-top-controls-author">{authorUser.username}</a>-->
-		<!--    <p class="separating-dash"> / </p>-->
-		<!--{/if}-->
 		<a href={repo_path} id="repo-view-top-controls-repository-name">{repo.name}</a>
 	</div>
 </div>

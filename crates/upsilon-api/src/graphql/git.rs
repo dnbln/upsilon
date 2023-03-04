@@ -16,6 +16,8 @@
 
 use juniper::{graphql_object, FieldResult};
 use upsilon_asyncvcs::refs::SignatureRef;
+use upsilon_vcs::git2::DiffLineType;
+use upsilon_vcs::DiffRepr;
 
 use super::GraphQLContext;
 use crate::graphql::UserRef;
@@ -87,6 +89,143 @@ impl GitRevspec {
             Some(commit) => Ok(Some(GitCommit(self.0.clone(), commit))),
             None => Ok(None),
         }
+    }
+
+    async fn diff(&self) -> FieldResult<Option<GitDiff>> {
+        let diff = self
+            .0
+            .send(upsilon_asyncvcs::git_revspec::GitRevspecDiffQuery(self.1))
+            .await
+            .0?;
+
+        match diff {
+            Some(diff) => Ok(Some(GitDiff(self.0.clone(), diff))),
+            None => Ok(None),
+        }
+    }
+}
+
+pub struct GitDiff(upsilon_asyncvcs::Client, DiffRepr);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitDiff {
+    fn stats(&self) -> GitDiffStats {
+        GitDiffStats {
+            files_changed: self.1.files_changed,
+            insertions: self.1.insertions,
+            deletions: self.1.deletions,
+        }
+    }
+
+    fn files(&self) -> Vec<GitDiffFile> {
+        self.1
+            .files
+            .iter()
+            .map(|f| GitDiffFile(self.0.clone(), f.clone()))
+            .collect()
+    }
+}
+
+pub struct GitDiffFile(upsilon_asyncvcs::Client, upsilon_vcs::DiffFileRepr);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitDiffFile {
+    fn old_path(&self) -> &str {
+        self.1.from_path.to_str().unwrap()
+    }
+
+    fn new_path(&self) -> &str {
+        self.1.to_path.to_str().unwrap()
+    }
+
+    fn hunks(&self) -> Vec<GitDiffHunk> {
+        self.1
+            .hunks
+            .iter()
+            .map(|h| GitDiffHunk(self.0.clone(), h.clone()))
+            .collect()
+    }
+}
+
+pub struct GitDiffStats {
+    files_changed: usize,
+    insertions: usize,
+    deletions: usize,
+}
+
+#[graphql_object(context = GraphQLContext)]
+impl GitDiffStats {
+    fn files_changed(&self) -> i32 {
+        i32::try_from(self.files_changed).unwrap()
+    }
+
+    fn insertions(&self) -> i32 {
+        i32::try_from(self.insertions).unwrap()
+    }
+
+    fn deletions(&self) -> i32 {
+        i32::try_from(self.deletions).unwrap()
+    }
+}
+
+pub struct GitDiffHunk(upsilon_asyncvcs::Client, upsilon_vcs::DiffHunkRepr);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitDiffHunk {
+    fn old_start(&self) -> i32 {
+        i32::try_from(self.1.from_start).unwrap()
+    }
+
+    fn old_lines(&self) -> i32 {
+        i32::try_from(self.1.from_lines).unwrap()
+    }
+
+    fn new_start(&self) -> i32 {
+        i32::try_from(self.1.to_start).unwrap()
+    }
+
+    fn new_lines(&self) -> i32 {
+        i32::try_from(self.1.to_lines).unwrap()
+    }
+
+    fn lines(&self) -> Vec<GitDiffLine> {
+        self.1
+            .lines
+            .iter()
+            .map(|l| GitDiffLine(self.0.clone(), l.clone()))
+            .collect()
+    }
+}
+
+pub struct GitDiffLine(upsilon_asyncvcs::Client, upsilon_vcs::DiffLineRepr);
+
+#[graphql_object(context = GraphQLContext)]
+impl GitDiffLine {
+    fn old_lineno(&self) -> Option<i32> {
+        self.1.old_line_no.map(|n| i32::try_from(n).unwrap())
+    }
+
+    fn new_lineno(&self) -> Option<i32> {
+        self.1.new_line_no.map(|n| i32::try_from(n).unwrap())
+    }
+
+    fn content(&self) -> &str {
+        self.1.line.as_str()
+    }
+
+    fn line_type(&self) -> String {
+        match self.1.diff_type {
+            DiffLineType::Context => " ",
+            DiffLineType::Addition => "+",
+            DiffLineType::Deletion => "-",
+            DiffLineType::ContextEOFNL => " ",
+            DiffLineType::AddEOFNL => ">",
+            DiffLineType::DeleteEOFNL => "<",
+            DiffLineType::FileHeader => " ",
+            DiffLineType::HunkHeader => " ",
+            DiffLineType::Binary => " ",
+        }
+        .to_owned()
     }
 }
 

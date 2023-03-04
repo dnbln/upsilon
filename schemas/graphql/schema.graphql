@@ -61,6 +61,12 @@ type MutationRoot {
   addUserSshKey(key: String!): Boolean!
 }
 
+type GitDiffStats {
+  filesChanged: Int!
+  insertions: Int!
+  deletions: Int!
+}
+
 scalar UserDisplayName
 
 scalar RepoPermissions
@@ -112,7 +118,26 @@ type GitSignature {
   user: User
 }
 
+type GitDiffFile {
+  oldPath: String!
+  newPath: String!
+  hunks: [GitDiffHunk!]!
+}
+
 scalar OrganizationDisplayName
+
+type GitDiff {
+  stats: GitDiffStats!
+  files: [GitDiffFile!]!
+}
+
+type GitDiffHunk {
+  oldStart: Int!
+  oldLines: Int!
+  newStart: Int!
+  newLines: Int!
+  lines: [GitDiffLine!]!
+}
 
 scalar OrganizationId
 
@@ -135,6 +160,13 @@ scalar OrganizationName
 
 type GitTree {
   entries(wholeTree: Boolean = false): [GitTreeEntry!]!
+}
+
+type GitDiffLine {
+  oldLineno: Int
+  newLineno: Int
+  content: String!
+  lineType: String!
 }
 
 type Organization implements Entity {
@@ -181,6 +213,7 @@ type GitSignatureContributions {
 type GitRevspec {
   commitFrom: GitCommit
   commitTo: GitCommit
+  diff: GitDiff
 }
 
 scalar TeamId

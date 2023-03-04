@@ -13,35 +13,26 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
+
 <script lang="ts">
-	import RepoView from '$lib/components/RepoView.svelte';
-	import NavBar from '$lib/components/NavBar.svelte';
+    import NavBar from '$lib/components/NavBar.svelte';
+    import RepoCompareView from '$lib/components/RepoCompareView.svelte';
 
-	export let data: import('./$houdini').PageData;
+    export let data: import('./$houdini').PageData;
 
-	let path = '';
+    let path = '';
 
-	$: ({ RepoTreeViewPage } = data);
+    $: ({ RepoCompareViewPage } = data);
 
-	$: {
-		path = data.path;
-		if (path == '') path = '/';
-	}
+    let viewer;
+    let repo;
 
-	let viewer;
-	let repo;
-
-	$: {
-		viewer = $RepoTreeViewPage.data.viewer;
-		repo = $RepoTreeViewPage.data.repo;
-	}
+    $: {
+        viewer = $RepoCompareViewPage.data.viewer;
+        repo = $RepoCompareViewPage.data.repo;
+    }
 </script>
 
 <NavBar {viewer} />
 
-<RepoView
-	{repo}
-	commit={repo.git.revspec.commitFrom}
-	tree={repo.git.revspec.commitFrom.tree}
-	dirPath={path}
-/>
+<RepoCompareView {repo} diff={repo.git.revspec.diff}/>

@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
-use upsilon_vcs::{TreeWalkMode, TreeWalkResult};
+use upsilon_vcs::{DiffRepr, TreeWalkMode, TreeWalkResult};
 
 use crate::message::Message;
 use crate::private::FromFlatResponse;
@@ -105,6 +105,7 @@ pub enum FlatMessage {
     GitRevspec(String),
     GitRevspecFromCommit(RevspecRef),
     GitRevspecToCommit(RevspecRef),
+    GitRevspecDiff(RevspecRef),
     Branch(String),
     BranchName(BranchRef),
     BranchCommit(BranchRef),
@@ -144,6 +145,9 @@ pub enum FlatResponse {
     CommitTree(TreeRef),
     CommitBlobString(Option<String>),
     TreeEntries(Vec<(String, TreeEntryRef)>),
+
+    Diff(DiffRepr),
+
     Error(upsilon_vcs::Error),
     None,
 
@@ -361,6 +365,14 @@ impl Server {
                             Err(e) => FlatResponse::Error(e),
                         },
                         None => FlatResponse::None,
+                    }
+                }
+                FlatMessage::GitRevspecDiff(git_revspec) => {
+                    let revspec = &store[git_revspec];
+                    match revspec.diff(&self.repo) {
+                        Ok(Some(diff)) => FlatResponse::Diff(diff),
+                        Ok(None) => FlatResponse::None,
+                        Err(e) => FlatResponse::Error(e),
                     }
                 }
                 FlatMessage::Branch(branch_name) => {

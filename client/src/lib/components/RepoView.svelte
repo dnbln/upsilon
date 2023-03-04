@@ -42,7 +42,7 @@
 </svelte:head>
 
 <div class="repo-view-main">
-	<RepoTopControls {repo} {commit} />
+	<RepoTopControls {repo} />
 
 	<div class="repo-navigation">
 		<div class="repo-navigation-elements">

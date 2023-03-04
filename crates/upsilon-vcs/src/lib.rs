@@ -23,11 +23,13 @@ mod config;
 mod daemon;
 mod http_backend;
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::result::Result as StdResult;
 
 pub use git2::{BranchType, TreeWalkMode, TreeWalkResult};
-use git2::{ConfigLevel, Oid};
+use git2::{ConfigLevel, DiffDelta, DiffHunk, DiffLine, DiffLineType, Oid};
 pub use http_backend::{
     handle as http_backend_handle, GitBackendCgiRequest, GitBackendCgiRequestMethod, GitBackendCgiResponse, HandleError as HttpBackendHandleError
 };
@@ -704,4 +706,164 @@ impl RepoConfig {
 pub enum RepoVisibility {
     Public,
     Private,
+}
+
+impl<'r> Revspec<'r> {
+    pub fn diff(&self, repo: &'r Repository) -> Result<Option<DiffRepr>> {
+        let (Some(from), Some(to)) = (self.from(), self.to()) else {
+            return Ok(None);
+        };
+
+        let from_commit = from.peel_to_commit()?;
+        let to_commit = to.peel_to_commit()?;
+
+        let mut diff_opts = git2::DiffOptions::new();
+
+        diff_opts.context_lines(30);
+
+        let diff = repo.repo.diff_tree_to_tree(
+            Some(&from_commit.tree()?.tree),
+            Some(&to_commit.tree()?.tree),
+            Some(&mut diff_opts),
+        )?;
+
+        let stats = diff.stats()?;
+
+        let files_changed = stats.files_changed();
+        let insertions = stats.insertions();
+        let deletions = stats.deletions();
+
+        let diff_repr = Rc::new(RefCell::new(DiffRepr {
+            files_changed,
+            insertions,
+            deletions,
+            files: Vec::new(),
+        }));
+
+        {
+            let mut file_cb = {
+                let diff_repr = Rc::clone(&diff_repr);
+
+                move |delta: DiffDelta, _progress: f32| {
+                    let from_path = delta.old_file().path().unwrap().to_path_buf();
+                    let to_path = delta.new_file().path().unwrap().to_path_buf();
+
+                    let mut diff_file = DiffFileRepr {
+                        from_path,
+                        to_path,
+                        hunks: Vec::new(),
+                    };
+
+                    diff_repr.borrow_mut().files.push(diff_file);
+
+                    true
+                }
+            };
+
+            let mut hunk_cb = {
+                let diff_repr = Rc::clone(&diff_repr);
+
+                move |delta: DiffDelta, hunk: DiffHunk| {
+                    let from_start = hunk.old_start();
+                    let from_lines = hunk.old_lines();
+                    let to_start = hunk.new_start();
+                    let to_lines = hunk.new_lines();
+
+                    let diff_hunk = DiffHunkRepr {
+                        from_start: from_start as usize,
+                        from_lines: from_lines as usize,
+                        to_start: to_start as usize,
+                        to_lines: to_lines as usize,
+                        lines: Vec::new(),
+                    };
+
+                    let mut dr = diff_repr.borrow_mut();
+
+                    let Some(f) = dr.files.last_mut() else {
+                        return false;
+                    };
+
+                    f.hunks.push(diff_hunk);
+
+                    true
+                }
+            };
+
+            let mut line_cb = {
+                let diff_repr = Rc::clone(&diff_repr);
+
+                move |delta: DiffDelta, hunk: Option<DiffHunk>, line: DiffLine| {
+                    let l = std::str::from_utf8(line.content()).unwrap().to_owned();
+
+                    let old_line_no = line.old_lineno();
+                    let new_line_no = line.new_lineno();
+
+                    let line = DiffLineRepr {
+                        line: l,
+                        old_line_no: old_line_no.map(|it| it as usize),
+                        new_line_no: new_line_no.map(|it| it as usize),
+                        diff_type: line.origin_value(),
+                    };
+
+                    let mut dr = diff_repr.borrow_mut();
+
+                    let Some(f) = dr.files.last_mut() else {
+                        return false;
+                    };
+
+                    debug_assert_eq!(f.from_path, delta.old_file().path().unwrap());
+
+                    let Some(h) = f.hunks.last_mut() else {
+                        return false;
+                    };
+
+                    debug_assert_eq!(h.from_start, hunk.unwrap().old_start() as usize);
+
+                    h.lines.push(line);
+
+                    true
+                }
+            };
+
+            diff.foreach(&mut file_cb, None, Some(&mut hunk_cb), Some(&mut line_cb))?;
+        }
+
+        let diff_repr = Rc::try_unwrap(diff_repr).unwrap().into_inner();
+
+        Ok(Some(diff_repr))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DiffRepr {
+    pub files_changed: usize,
+    pub insertions: usize,
+    pub deletions: usize,
+    pub files: Vec<DiffFileRepr>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DiffFileRepr {
+    pub from_path: PathBuf,
+    pub to_path: PathBuf,
+
+    pub hunks: Vec<DiffHunkRepr>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DiffHunkRepr {
+    pub from_start: usize,
+    pub from_lines: usize,
+    pub to_start: usize,
+    pub to_lines: usize,
+
+    pub lines: Vec<DiffLineRepr>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DiffLineRepr {
+    pub line: String,
+    pub old_line_no: Option<usize>,
+    pub new_line_no: Option<usize>,
+    pub diff_type: DiffLineType,
 }

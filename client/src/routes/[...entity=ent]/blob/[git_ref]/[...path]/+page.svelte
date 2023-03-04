@@ -15,6 +15,7 @@
   -->
 <script lang="ts">
 	import RepoView from '$lib/components/RepoView.svelte';
+    import NavBar from '$lib/components/NavBar.svelte';
 
 	export let data: import('./$houdini').PageData;
 
@@ -40,5 +41,7 @@
 		commit = repo.git.revspec.commitFrom;
 	}
 </script>
+
+<NavBar {viewer} />
 
 <RepoView {repo} {commit} tree={commit.tree} filePath={path} fileContents={commit.fileContents} />

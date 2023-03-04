@@ -83,3 +83,30 @@ impl ToFlatMessage for GitRevspecToCommitQuery {
 impl Message for GitRevspecToCommitQuery {
     type Res = GitRevspecCommitQueryResponse;
 }
+
+pub struct GitRevspecDiffQuery(pub RevspecRef);
+
+impl ToFlatMessage for GitRevspecDiffQuery {
+    fn to_flat_message(self) -> FlatMessage {
+        FlatMessage::GitRevspecDiff(self.0)
+    }
+}
+
+impl Message for GitRevspecDiffQuery {
+    type Res = GitRevspecDiffQueryResponse;
+}
+
+pub struct GitRevspecDiffQueryResponse(pub upsilon_vcs::Result<Option<upsilon_vcs::DiffRepr>>);
+
+impl FromFlatResponse for GitRevspecDiffQueryResponse {
+    fn from_flat_response(flat_response: FlatResponse) -> Self {
+        match flat_response {
+            FlatResponse::Diff(c) => Self(Ok(Some(c))),
+            FlatResponse::None => Self(Ok(None)),
+            FlatResponse::Error(e) => Self(Err(e)),
+            _ => panic!("Invalid response type"),
+        }
+    }
+}
+
+impl Response for GitRevspecDiffQueryResponse {}
