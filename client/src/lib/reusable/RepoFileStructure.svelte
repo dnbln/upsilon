@@ -22,6 +22,12 @@
 		parsedTree = GitTree.makeGitTree(tree);
 	}
 
+	/**
+	 * A function to compile the file view
+	 * @param tree the file tree of the repo
+	 * @param dirPath directory path
+	 * @returns The file structure ready to be read
+	 */
 	const compileView = (tree, dirPath) => {
 		let t = GitTree.getGitTreeAtPath(tree, dirPath);
 
@@ -50,6 +56,9 @@
 		return compiledEntries;
 	};
 
+	/**
+	 * A reactive variable for the files
+	 */
 	let files;
 
 	$: {
@@ -65,6 +74,10 @@
 	let fileButton;
 	let cloneButton;
 
+	/**
+	 * Function to close the modals of Add File and Clone.
+	 * @param e event
+	 */
 	function onWindowClick(e) {
 		if (fileButton.contains(e.target) === false) {
 			uploadFileDropdown = false;
@@ -75,6 +88,11 @@
 		}
 	}
 
+	/**
+	 * Function to give the link for a specific file
+	 * @param file the file for which the link will be returned
+	 * @returns the link of the file
+	 */
 	const linkFor = (file) => {
 		let dp = dirPath === '/' ? '' : dirPath.endsWith('/') ? dirPath : dirPath + '/';
 
@@ -99,16 +117,16 @@
 				</select>
 			</div>
 			<div class="repo-file-structure-controls-branches-count">
-				<i class="fa fa-code-fork" />
+				<i class="fa fa-code-fork"></i>
 				<p>{branches.length} Branches</p>
 			</div>
 		</div>
 		<div class="repo-file-structure-group-right">
 			<div bind:this={fileButton} class="repo-file-structure-controls-clone">
 				<button on:click={() => (uploadFileDropdown = !uploadFileDropdown)} id="button-add">
-					<i class="fa fa-file" style="margin-right: 7px;" />
+					<i class="fa fa-file" style="margin-right: 7px;"></i>
 					Add file
-					<i class="fa fa-angle-down" style="margin-left: 10px; font-size: 1.1rem" />
+					<i class="fa fa-angle-down" style="margin-left: 10px; font-size: 1.1rem"></i>
 				</button>
 				{#if uploadFileDropdown}
 					<div class="clone-dropdown">
@@ -118,7 +136,7 @@
 			</div>
 			<div bind:this={cloneButton} class="repo-file-structure-controls-clone">
 				<button on:click={() => (showCloneDropdown = !showCloneDropdown)} id="button-clone">
-					Clone <i class="fa fa-angle-down" style="margin-left: 10px; font-size: 1.1rem" />
+					Clone <i class="fa fa-angle-down" style="margin-left: 10px; font-size: 1.1rem"></i>
 				</button>
 				{#if showCloneDropdown}
 					<div class="clone-dropdown">
@@ -139,11 +157,9 @@
 		<tbody class="repo-file-structure-block-files">
 			{#each files as file}
 				<tr class="files-rows">
-					<td class="files-rows-el files-name"
-						><a href={linkFor(file)} data-sveltekit-reload={dev ? '' : 'off'}
-							><i class={file.icon} />{file.name}</a
-						></td
-					>
+					<td class="files-rows-el files-name">
+						<a class="files-rows-el-link" href={linkFor(file)} data-sveltekit-reload={dev ? '' : 'off'}><i class={file.icon}></i>{file.name}</a>
+					</td>
 					<td class="files-rows-el files-commit">{file.commit}</td>
 					<td class="files-rows-el files-date">{file.upload}</td>
 				</tr>
@@ -277,6 +293,12 @@
 	/*This appears as unused. It is indeed used so do not remove it*/
 	.file-icon {
 		width: 20px;
+	}
+
+	.files-rows-el-link {
+		color: #ffffff;
+		text-decoration: none;
+		font-weight: bolder;
 	}
 
 	table {
