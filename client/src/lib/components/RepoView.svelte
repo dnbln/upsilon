@@ -31,6 +31,8 @@
 	);
 
 	import RepoTopControls from '../reusable/RepoTopControls.svelte';
+
+	let activeTab = "repo";
 </script>
 
 <svelte:head>
@@ -46,20 +48,42 @@
 
 	<div class="repo-navigation">
 		<div class="repo-navigation-elements">
-			<button class="repo-navigation-element"><i class="fa fa-terminal repo-navigation-icon"></i>Code</button>
-			<button class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues</button>
-			<button class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests</button>
-			<button class="repo-navigation-element"><i class="fa fa-book repo-navigation-icon"></i>Wiki</button>
-			<button class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion</button>
-			<button class="repo-navigation-element"><i class="fa fa-gear repo-navigation-icon"></i>Settings</button>
+			<button on:click={() => activeTab = "repo"} class="repo-navigation-element"><i class="fa fa-terminal repo-navigation-icon"></i>Code</button>
+			<button on:click={() => activeTab = "issues"} class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues</button>
+			<button on:click={() => activeTab = "merge"} class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests</button>
+			<button on:click={() => activeTab = "wiki"} class="repo-navigation-element"><i class="fa fa-book repo-navigation-icon"></i>Wiki</button>
+			<button on:click={() => activeTab = "disc"} class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion</button>
+			<button on:click={() => activeTab = "set"} class="repo-navigation-element"><i class="fa fa-gear repo-navigation-icon"></i>Settings</button>
 		</div>
 		<hr />
 	</div>
 
-	{#if dirPath}
-		<RepoFileStructure {repo} {currentRev} {tree} {dirPath} />
-	{:else if filePath}
-		<RepoFileView {repo} {tree} {filePath} {fileContents} />
+	{#if activeTab === "repo"}
+		{#if dirPath}
+			<RepoFileStructure {repo} {currentRev} {tree} {dirPath} />
+		{:else if filePath}
+			<RepoFileView {repo} {tree} {filePath} {fileContents} />
+		{/if}
+	{/if}
+
+	{#if activeTab === "issues"}
+		<h1>skill issue</h1>
+	{/if}
+
+	{#if activeTab === "merge"}
+		<h1>merge issue</h1>
+	{/if}
+
+	{#if activeTab === "wiki"}
+		<h1>wiki issue</h1>
+	{/if}
+
+	{#if activeTab === "disc"}
+		<h1>disc issue</h1>
+	{/if}
+
+	{#if activeTab === "set"}
+		<h1>set issue</h1>
 	{/if}
 </div>
 
