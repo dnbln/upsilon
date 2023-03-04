@@ -27,8 +27,6 @@
 	export let filePath: string | undefined;
 	export let fileContents: string | undefined;
 
-	console.log(readme);
-
 	console.assert(
 		!!dirPath ^ (!!filePath && !!fileContents),
 		'Either dirPath or (filePath and fileContents) must be defined'
