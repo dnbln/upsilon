@@ -1,5 +1,10 @@
+<script lang="ts" context="module">
+    import {dev} from '$app/environment';
+</script>
+
 <script>
     export let repo;
+    export let currentRev;
     /**
      * @type {{entries: ({name: string})[]}}
      */
@@ -91,6 +96,16 @@
             showCloneDropdown = false;
         }
     }
+
+    const linkFor = (file) => {
+        let dp = dirPath === "/" ? '' : (dirPath.endsWith("/") ? dirPath : dirPath + "/");
+
+        if (file.kind === "folder") {
+            return `/${repo.path}/tree/${currentRev}/${dp}${file.name}`;
+        } else {
+            return `/${repo.path}/blob/${currentRev}/${dp}${file.name}`;
+        }
+    }
 </script>
 
 <svelte:window on:click={onWindowClick}/>
@@ -146,7 +161,7 @@
         <tbody class="repo-file-structure-block-files">
         {#each files as file}
             <tr class="files-rows">
-                <td class="files-rows-el files-name"><i class={file.icon}></i>{file.name}</td>
+                <td class="files-rows-el files-name"><a href={linkFor(file)} data-sveltekit-reload={dev ? '' : 'off'}><i class={file.icon}></i>{file.name}</a></td>
                 <td class="files-rows-el files-commit">{file.commit}</td>
                 <td class="files-rows-el files-date">{file.upload}</td>
             </tr>

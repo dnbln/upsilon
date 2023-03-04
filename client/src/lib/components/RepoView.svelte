@@ -21,6 +21,7 @@
     export let repo;
     export let commit;
     export let tree;
+    export let currentRev = commit.sha;
     export let dirPath: string | undefined;
     export let filePath: string | undefined;
     export let fileContents: string | undefined;
@@ -54,7 +55,7 @@
     </div>
 
     {#if dirPath}
-        <RepoFileStructure {repo} tree={tree} {dirPath}/>
+        <RepoFileStructure {repo} {currentRev} tree={tree} {dirPath}/>
     {:else if filePath}
         <RepoFileView {repo} tree={tree} {filePath} {fileContents}/>
     {/if}

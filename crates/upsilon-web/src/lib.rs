@@ -23,7 +23,7 @@ mod plugins;
 use config::Config;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{async_trait, error, Build, Orbit, Rocket, Shutdown};
-use rocket_cors::{AllowedHeaders, AllowedOrigins, Cors, CorsOptions};
+use rocket_cors::{AllowedHeaders, AllowedMethods, AllowedOrigins, Cors, CorsOptions, Method};
 use upsilon_api::{GraphQLApiConfigurator, UshArgs};
 use upsilon_core::config::Cfg;
 use upsilon_vcs::{SpawnDaemonError, UpsilonVcsConfig};
@@ -152,10 +152,18 @@ impl Fairing for ConfigManager {
                     "Accept",
                     "Content-Type",
                 ]))
+                .allowed_methods(AllowedMethods::from([
+                    Method::from(rocket::http::Method::Get),
+                    Method::from(rocket::http::Method::Post),
+                    Method::from(rocket::http::Method::Options),
+                ]))
+                // .send_wildcard(true)
                 .allow_credentials(true)
                 .allowed_origins(AllowedOrigins::some_exact(&[
                     "http://localhost:5173",
+                    "http://127.0.0.1:5173",
                     "http://localhost:8000",
+                    "http://[::1]:5173",
                 ])),
         );
 
