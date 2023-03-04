@@ -74,6 +74,7 @@
 		flex-flow: column nowrap;
 		align-items: center;
 		background-color: #1f1f22;
+		min-height: calc(100vh - 50px);
 	}
 
 	.repo-navigation-icon {

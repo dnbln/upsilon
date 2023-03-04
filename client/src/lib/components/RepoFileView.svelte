@@ -16,6 +16,7 @@
 <script lang="ts">
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/tokyo-night-dark.css';
+	import RepoVersionControls from "$lib/reusable/RepoVersionControls.svelte";
 
 
 	export let repo;
@@ -48,27 +49,51 @@
 		html = hljs.highlight(fileContents.toString(), {language: 'Plaintext'}).value;
 	}
 
+	let branches = ['main', 'testing', 'wdadaw'];
+	let activeBranch = branches[0];
 
 
+	function shortenPath(path) {
+		if (path.length > 40) {
+			let patharr = path.split('/');
+
+			// TODO: Improve this algorithm to not delete all folders
+			let file = patharr.pop();
+			return patharr[0] + '/.../' + file;
+		} else {
+			return path;
+		}
+	}
 </script>
 
 <div class="repo-file-view">
-	<h2>{filePath}</h2>
+	<RepoVersionControls {activeBranch} {branches}/>
 	<div class="repo-file-view-content">
-		<pre><code class={classType(filePath)}>{@html html}</code></pre>
+		<h2>{shortenPath(filePath)}</h2>
+		<div class="repo-file-view-content-code">
+			<pre><code class={classType(filePath)}>{@html html}</code></pre>
+		</div>
 	</div>
 </div>
 
 <style lang="scss">
 	.repo-file-view {
-		margin-top: 50px;
-		width: 70%;
+		font-family: 'DejaVu Sans', sans-serif;
+		width: 100%;
 		color: whitesmoke;
+		display: flex;
+		flex-flow: column nowrap;
+		align-items: center;
 	}
 
 	.repo-file-view-content {
+		width: 70%;
+	}
+
+	.repo-file-view-content-code {
 		border-radius: 1em;
 		padding: 10px 40px;
 		border: hsl(180, 1%, 19%) solid 1px;
+		overflow-x: scroll;
 	}
 </style>
