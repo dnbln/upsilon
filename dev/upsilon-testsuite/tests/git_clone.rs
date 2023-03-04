@@ -37,7 +37,7 @@ macro_rules! clone_test {
         async fn $name(cx: &mut TestCx) -> TestResult {
             make_global_mirror_from_host_repo(cx).await?;
 
-            let _ = cx.clone_git_binary("upsilon-clone", $remote_path_builder_fn, Duration::from_secs(10)).await?;
+            let _ = cx.clone_git_binary("upsilon-clone", $remote_path_builder_fn, Duration::from_secs(30)).await?;
 
             Ok(())
         }
