@@ -20,8 +20,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
-use upsilon_vcs::{DiffRepr, ReadmeKind, TreeWalkMode, TreeWalkResult};
 use upsilon_vcs::git2::ObjectType;
+use upsilon_vcs::{DiffRepr, ReadmeKind, TreeWalkMode, TreeWalkResult};
 
 use crate::message::Message;
 use crate::private::FromFlatResponse;
@@ -564,12 +564,12 @@ impl Server {
                     let c = &store[commit];
 
                     match c.readme_blob(&self.repo, &dir_path) {
-                        Ok(Some(blob)) => {
-                            match blob.blob.to_string() {
-                                Ok(s) => FlatResponse::CommitReadmeBlobString(blob.readme_kind, blob.path, s),
-                                Err(e) => FlatResponse::Error(e),
+                        Ok(Some(blob)) => match blob.blob.to_string() {
+                            Ok(s) => {
+                                FlatResponse::CommitReadmeBlobString(blob.readme_kind, blob.path, s)
                             }
-                        }
+                            Err(e) => FlatResponse::Error(e),
+                        },
                         Ok(None) => FlatResponse::None,
                         Err(e) => FlatResponse::Error(e),
                     }

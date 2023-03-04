@@ -309,7 +309,7 @@ impl<'r> Commit<'r> {
                 let readme_path = format!("{join_root}README{ext}");
                 let r = t.get_path(Path::new(&readme_path));
                 let entry = match r {
-                    Ok(entry) => {entry}
+                    Ok(entry) => entry,
                     Err(e) => {
                         if e.code() == ErrorCode::NotFound {
                             continue;

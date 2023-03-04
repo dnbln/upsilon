@@ -15,6 +15,7 @@
  */
 
 use upsilon_vcs::git2::ObjectType;
+
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
 use crate::refs::{TreeEntryRef, TreeRef};
@@ -57,7 +58,9 @@ impl Message for WholeTreeEntriesQuery {
     type Res = WholeTreeEntriesQueryResponse;
 }
 
-pub struct WholeTreeEntriesQueryResponse(pub upsilon_vcs::Result<Vec<(String, Option<ObjectType>, TreeEntryRef)>>);
+pub struct WholeTreeEntriesQueryResponse(
+    pub upsilon_vcs::Result<Vec<(String, Option<ObjectType>, TreeEntryRef)>>,
+);
 
 impl FromFlatResponse for WholeTreeEntriesQueryResponse {
     fn from_flat_response(flat_response: FlatResponse) -> Self {

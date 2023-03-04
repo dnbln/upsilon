@@ -15,6 +15,7 @@
  */
 
 use upsilon_vcs::ReadmeKind;
+
 use crate::message::{Message, Response};
 use crate::private::{FromFlatResponse, ToFlatMessage};
 use crate::refs::{CommitRef, SignatureRef, TreeRef};
@@ -263,7 +264,9 @@ impl Message for CommitReadmeBlobStringQuery {
     type Res = CommitReadmeBlobStringResponse;
 }
 
-pub struct CommitReadmeBlobStringResponse(pub upsilon_vcs::Result<Option<(ReadmeKind, String, String)>>);
+pub struct CommitReadmeBlobStringResponse(
+    pub upsilon_vcs::Result<Option<(ReadmeKind, String, String)>>,
+);
 
 impl FromFlatResponse for CommitReadmeBlobStringResponse {
     fn from_flat_response(flat_response: FlatResponse) -> Self {
