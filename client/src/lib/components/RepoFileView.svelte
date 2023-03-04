@@ -14,7 +14,7 @@
   -    limitations under the License.
   -->
 <script lang="ts">
-	import hljs from 'highlight.js';
+	import {HighlightAuto, LineNumbers} from "svelte-highlight";
 	import 'highlight.js/styles/tokyo-night-dark.css';
 	import RepoVersionControls from "$lib/reusable/RepoVersionControls.svelte";
 
@@ -23,31 +23,6 @@
 	export let tree;
 	export let filePath;
 	export let fileContents;
-
-	/**
-	 * A fool-proof function to extract the file type
-	 * @param file
-	 */
-	function getFileType(file) {
-		let result = file.trim().toString().toLowerCase().split('.').pop();
-		return result ? result : 'Plaintext';
-	}
-
-	/**
-	 * A function to select the correct class for highlighting
-	 * @param file
-	 */
-	function classType(file) {
-		return 'language-' + getFileType(file).toString().toLowerCase();
-	}
-
-	let html;
-
-	try {
-		html = hljs.highlight(fileContents.toString(), {language: getFileType(filePath)}).value;
-	} catch (e) {
-		html = hljs.highlight(fileContents.toString(), {language: 'Plaintext'}).value;
-	}
 
 	let branches = ['main', 'testing', 'wdadaw'];
 	let activeBranch = branches[0];
@@ -71,7 +46,9 @@
 	<div class="repo-file-view-content">
 		<h2>{shortenPath(filePath)}</h2>
 		<div class="repo-file-view-content-code">
-			<pre><code class={classType(filePath)}>{@html html}</code></pre>
+			<HighlightAuto code={fileContents} let:highlighted>
+				<LineNumbers {highlighted} />
+			</HighlightAuto>
 		</div>
 	</div>
 </div>
@@ -92,7 +69,8 @@
 
 	.repo-file-view-content-code {
 		border-radius: 1em;
-		padding: 10px 40px;
+		padding: 10px;
+		background-color: #1a1b26;
 		border: hsl(180, 1%, 19%) solid 1px;
 		overflow-x: scroll;
 	}
