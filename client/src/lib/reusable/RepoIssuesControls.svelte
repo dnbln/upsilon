@@ -14,20 +14,14 @@
   -    limitations under the License.
   -->
 <script>
-    let fileButton;
     let cloneButton;
     let showAddDropdown = false;
-    let uploadFileDropdown = false;
 
     /**
      * Function to close the modals of Add File and Clone.
      * @param e event
      */
     function onWindowClick(e) {
-        if (fileButton.contains(e.target) === false) {
-            uploadFileDropdown = false;
-        }
-
         if (cloneButton.contains(e.target) === false) {
             showAddDropdown = false;
         }
