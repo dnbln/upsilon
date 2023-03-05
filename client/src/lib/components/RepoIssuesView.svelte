@@ -19,9 +19,9 @@
     import RepoIssuesControls from "$lib/reusable/RepoIssuesControls.svelte";
 
     let issues = [
-        {name: 'Unoptimized loading', author: 'Dinu', assignee: 'Ecstasy', labels: [{title: 'new', color: 'hsl(186,68%,22%)'}]},
-        {name: 'Bad design', author: 'Ecstasy', assignee: 'Ecstasy', labels: [{title: 'needs attention', color: 'hsl(337,62%,26%)'}]},
-        {name: 'Stuff', author: 'Ecstasy', assignee: 'dinu', labels: [{title: 'bad', color: 'hsl(20,77%,24%)'}]}
+        {id: 1, name: 'Unoptimized loading', author: 'Dinu', labels: [{title: 'new', color: 'hsl(186,68%,22%)'},{title: 'important', color: 'hsl(301,57%,42%)'}], date: new Date('December 17, 2020 03:24:00'), status: {message: 'OPEN', date: ''}},
+        {id: 2, name: 'Bad design', author: 'Ecstasy', labels: [{title: 'needs attention', color: 'hsl(337,62%,26%)'}], date: new Date('September 1, 2021 03:24:00'), status: {message: 'CLOSED', date: new Date('March 1, 2023 03:23:23')}},
+        {id: 3, name: 'Stuff', author: 'Ecstasy', labels: [{title: 'bad', color: 'hsl(20,77%,24%)'}], date: new Date('December 1, 2022 03:24:00'), status: {message: 'OPEN', date: ''}}
     ]
 </script>
 
@@ -32,8 +32,7 @@
         <div class="repo-view-issues-top">
             <span class="repo-view-issues-top-name">Issue</span>
             <span>Labels</span>
-            <span>Author</span>
-            <span>Assignee</span>
+            <span class="repo-view-issues-top-status">Status</span>
         </div>
         {#each issues as issue}
             <div class="repo-view-issues-el">
@@ -51,26 +50,21 @@
       font-family: "DejaVu Sans", sans-serif;
     }
 
-    .repo-view-issues {
-      display: grid;
-      grid-template-columns: 1fr 2fr 1fr 1fr;
-    }
-
-    .repo-view-issues-el {
-      grid-column: 1 / span 4;
-    }
-
     .repo-view-issues-top {
-      grid-column: 1 / span 4;
       display: grid;
-      grid-template-columns: 1fr 2fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       align-items: center;
       background-color: hsl(240, 5%, 19%);
 
       span {
-        font-size: 1.1rem;
+        font-size: 1rem;
         color: whitesmoke;
       }
+    }
+
+    .repo-view-issues-top-status {
+      text-align: right;
+      padding: 0 15px;
     }
 
     .repo-view-issues-top-name {
