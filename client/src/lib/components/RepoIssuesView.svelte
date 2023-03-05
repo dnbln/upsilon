@@ -16,6 +16,7 @@
 
 <script>
     import RepoIssue from "$lib/reusable/RepoIssue.svelte";
+    import RepoIssuesControls from "$lib/reusable/RepoIssuesControls.svelte";
 
     let issues = [
         {name: 'Unoptimized loading', author: 'Dinu', assignee: 'Ecstasy', labels: [{title: 'new', color: 'hsl(186,68%,22%)'}]},
@@ -24,6 +25,8 @@
     ]
 </script>
 
+
+<RepoIssuesControls />
 <div class="repo-view-issues-main">
     <div class="repo-view-issues">
         <div class="repo-view-issues-top">
