@@ -68,14 +68,14 @@
     min-width: 300px;
   }
 
-  .repo-file-structure-controls {
+  .repo-mrs-controls {
     margin-bottom: 10px;
     width: 70%;
     display: flex;
     justify-content: space-between;
   }
 
-  .repo-file-structure-group-left {
+  .repo-mrs-controls-group-left {
     display: flex;
     gap: 10px;
   }
