@@ -52,7 +52,7 @@
             {/if}
         </div>
         <div bind:this={cloneButton} class="repo-file-structure-controls-clone">
-            <button on:click={() => (showCloneDropdown = !showCloneDropdown)} id="button-add">
+            <button on:click={() => (showCloneDropdown = !showCloneDropdown)} id="button-clone">
                 Clone <i class="fa fa-angle-down" style="margin-left: 10px; font-size: 1.1rem"></i>
             </button>
             {#if showCloneDropdown}
@@ -129,7 +129,7 @@
     cursor: pointer;
   }
 
-  #button-add {
+  #button-clone {
     padding: 10px 15px;
     border-radius: 0.4em;
     border: #3cad6e solid 1px;
@@ -137,7 +137,7 @@
     color: whitesmoke;
   }
 
-  #button-add:hover {
+  #button-clone:hover {
     border: hsl(147, 48%, 30%) solid 1px;
     background-color: hsl(147, 48%, 30%);
     cursor: pointer;
