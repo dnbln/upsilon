@@ -31,6 +31,7 @@
 	);
 
 	import RepoTopControls from '../reusable/RepoTopControls.svelte';
+	import RepoIssuesView from "$lib/components/RepoIssuesView.svelte";
 
 	let activeTab = "repo";
 </script>
@@ -67,7 +68,7 @@
 	{/if}
 
 	{#if activeTab === "issues"}
-		<h1>skill issue</h1>
+		<RepoIssuesView />
 	{/if}
 
 	{#if activeTab === "merge"}
