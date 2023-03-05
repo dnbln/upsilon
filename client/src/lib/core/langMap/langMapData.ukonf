@@ -1,0 +1,87 @@
+let text_id: 'text'
+
+let rust_category: 'rust'
+
+rust: lang({
+  name: 'Rust'
+  parent: text_id
+  icon: 'rust'
+  category: rust_category
+  hljs: 'rust'
+  rule {
+    file_ext ['.rs']
+  }
+})
+
+cargo_toml: lang({
+  name: 'Cargo.toml'
+  parent: 'toml'
+  icon: 'cargo-toml'
+  category: rust_category
+  rule {
+    file_name ['Cargo.toml']
+  }
+})
+
+cargo_lock: lang({
+  name: 'Cargo.lock'
+  parent: 'toml'
+  icon: 'cargo-lock'
+  category: rust_category
+  rule {
+    file_name ['Cargo.lock']
+  }
+})
+
+markdown: lang({
+  name: 'Markdown'
+  parent: text_id
+  icon: 'markdown'
+  hljs: 'markdown'
+  rule {
+    file_ext [
+      '.md'
+      '.markdown'
+    ]
+  }
+})
+
+javascript: lang({
+  name: 'JavaScript'
+  parent: text_id
+  icon: 'javascript'
+  hljs: 'javascript'
+  rule {
+    file_ext ['.js']
+  }
+})
+
+typescript: lang({
+  name: 'TypeScript'
+  parent: text_id
+  icon: 'typescript'
+  hljs: 'typescript'
+  rule {
+    file_ext ['.ts']
+  }
+})
+
+toml: lang({
+  name: 'TOML'
+  parent: text_id
+  icon: 'toml'
+  hljs: 'ini'
+  rule {
+    file_ext ['.toml']
+  }
+})
+
+${text_id}: lang({
+  name: 'Text'
+  icon: 'text'
+  parent: null
+  hljs: 'plaintext'
+  rule {
+    all: []
+  }
+})

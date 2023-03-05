@@ -163,7 +163,7 @@ impl UkonfParser {
 pub struct UkonfFunctions {
     functions: BTreeMap<
         String,
-        fn(&Rc<RefCell<Scope>>, &[UkonfValue]) -> Result<UkonfValue, UkonfFnError>,
+        fn(&Rc<RefCell<Scope>>, Vec<UkonfValue>) -> Result<UkonfValue, UkonfFnError>,
     >,
     compiler_functions: BTreeMap<String, UkonfContextualValueCompiler>,
 }
@@ -178,7 +178,7 @@ impl UkonfFunctions {
     pub fn with_fn(
         mut self,
         name: impl Into<String>,
-        f: fn(&Rc<RefCell<Scope>>, &[UkonfValue]) -> Result<UkonfValue, UkonfFnError>,
+        f: fn(&Rc<RefCell<Scope>>, Vec<UkonfValue>) -> Result<UkonfValue, UkonfFnError>,
     ) -> Self {
         self.functions.insert(name.into(), f);
         self
@@ -187,7 +187,7 @@ impl UkonfFunctions {
     pub fn add_fn(
         &mut self,
         name: impl Into<String>,
-        f: fn(&Rc<RefCell<Scope>>, &[UkonfValue]) -> Result<UkonfValue, UkonfFnError>,
+        f: fn(&Rc<RefCell<Scope>>, Vec<UkonfValue>) -> Result<UkonfValue, UkonfFnError>,
     ) -> &mut Self {
         self.functions.insert(name.into(), f);
         self
@@ -401,7 +401,7 @@ impl UkonfRunner {
                     .flatten()
                     .collect::<Vec<_>>();
 
-                TempValue::RealValue(f(scope, &args).fn_error(&call.span())?)
+                TempValue::RealValue(f(scope, args).fn_error(&call.span())?)
             }
             AstVal::Dot(base, _, k) => {
                 let base_value = Scope::resolve(scope, &base.0 .0)
@@ -416,7 +416,7 @@ impl UkonfRunner {
                         ._expect_string(&span)?;
                 }
 
-                let obj = base_value.expect_object(&span)?;
+                let obj = base_value._expect_object(&span)?;
 
                 TempValue::RealValue(
                     obj.get(&name)

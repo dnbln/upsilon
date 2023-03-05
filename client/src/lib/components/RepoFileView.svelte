@@ -13,11 +13,12 @@
   -    See the License for the specific language governing permissions and
   -    limitations under the License.
   -->
-<script>
-	import {HighlightAuto, LineNumbers} from "svelte-highlight";
+<script lang="ts">
+	import { Highlight, LineNumbers } from 'svelte-highlight';
 	import 'highlight.js/styles/tokyo-night-dark.css';
-	import RepoVersionControls from "$lib/reusable/RepoVersionControls.svelte";
-
+	import RepoVersionControls from '$lib/reusable/RepoVersionControls.svelte';
+	import { getLang, lookupHljsLang } from '$lib/core/langMap/langMap';
+	import type { Lang } from '$lib/core/langMap/langMap';
 
 	export let repo;
 	export let tree;
@@ -27,6 +28,13 @@
 	let branches = ['main', 'testing', 'wdadaw'];
 	let activeBranch = branches[0];
 
+	let fileLang: Lang;
+	let hljsLang;
+
+	$: {
+		fileLang = getLang(filePath);
+		hljsLang = lookupHljsLang(fileLang);
+	}
 
 	function shortenPath(path) {
 		if (path.length > 40) {
@@ -42,28 +50,30 @@
 </script>
 
 <div class="repo-file-view">
-	<RepoVersionControls {activeBranch} {branches}/>
+	<RepoVersionControls {activeBranch} {branches} />
 	<div class="repo-file-view-content">
 		<h2>{shortenPath(filePath)}</h2>
 		{#if fileContents.length < 3000}
 			<div class="repo-file-view-content-code">
-				<HighlightAuto code={fileContents} let:highlighted>
+				<Highlight code={fileContents} language={hljsLang} let:highlighted>
 					<LineNumbers {highlighted} />
-				</HighlightAuto>
+				</Highlight>
+			</div>
+		{:else if showContents}
+			<div class="repo-file-view-content-code">
+				<Highlight code={fileContents} language={hljsLang} let:highlighted>
+					<LineNumbers {highlighted} />
+				</Highlight>
 			</div>
 		{:else}
-			{#if showContents}
-				<div class="repo-file-view-content-code">
-					<HighlightAuto code={fileContents} let:highlighted>
-						<LineNumbers {highlighted} />
-					</HighlightAuto>
-				</div>
-			{:else}
-				<div class="repo-file-view-warning">
-					<p>This file contains a lot of data. Loading it may be heavy for the browser</p>
-					<button on:click={() => {showContents = !showContents}}>Show contents</button>
-				</div>
-			{/if}
+			<div class="repo-file-view-warning">
+				<p>This file contains a lot of data. Loading it may be heavy for the browser</p>
+				<button
+					on:click={() => {
+						showContents = !showContents;
+					}}>Show contents</button
+				>
+			</div>
 		{/if}
 	</div>
 </div>

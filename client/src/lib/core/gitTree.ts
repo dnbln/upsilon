@@ -41,7 +41,7 @@ const removeDuplicateFilesAndDirs = (tree: GitTree): GitTree => {
 };
 
 export const makeGitTree = (tree: { entries: [{ name: string }] }): GitTree => {
-	let root: GitTree = { dirs: {}, files: [] };
+	const root: GitTree = { dirs: {}, files: [] };
 
 	for (let i = 0; i < tree.entries.length; i++) {
 		const path = splitPath(tree.entries[i].name);

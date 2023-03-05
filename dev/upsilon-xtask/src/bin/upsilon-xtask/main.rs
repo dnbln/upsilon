@@ -37,6 +37,7 @@ use crate::ws_layout::{DOCS, WS_BIN_LAYOUT, WS_PKG_LAYOUT};
 mod cargo_toml_style;
 mod difftests;
 mod dist;
+mod langmap;
 mod test;
 mod ukonf_ci;
 mod utils;
@@ -230,6 +231,9 @@ enum App {
     /// Publishes the `cargo-difftests*` crates to crates.io.
     #[clap(name = "publish-difftests-crates")]
     PublishDifftestsCrates,
+
+    #[clap(name = "compile-langmap")]
+    CompileLangmap,
 }
 
 fn copy_test_artifact(bin: &BinTarget, profile: Profile, custom_bin_dir: &Path) -> XtaskResult<()> {
@@ -498,6 +502,9 @@ fn main_impl() -> XtaskResult<()> {
             WS_PKG_LAYOUT.cargo_difftests_core.publish()?;
             WS_PKG_LAYOUT.cargo_difftests_testclient.publish()?;
             WS_PKG_LAYOUT.cargo_difftests.publish()?;
+        }
+        App::CompileLangmap => {
+            langmap::run_compile_langmap_cmd()?;
         }
     }
 

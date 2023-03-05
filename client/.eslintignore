@@ -8,6 +8,7 @@ node_modules
 .env
 .env.*
 !.env.example
+/src/lib/core/langMap/langMapImpl.ts
 
 # Ignore files for PNPM, NPM and YARN
 pnpm-lock.yaml

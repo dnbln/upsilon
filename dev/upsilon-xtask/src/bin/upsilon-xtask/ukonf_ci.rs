@@ -50,7 +50,7 @@ fn ukonf_concat_strings(strings: &[UkonfValue]) -> Result<UkonfValue, UkonfFnErr
 }
 
 pub fn add_concat(fns: &mut UkonfFunctions) {
-    fns.add_fn("concat", |_scope, args| ukonf_concat_strings(args));
+    fns.add_fn("concat", |_scope, args| ukonf_concat_strings(&args));
 }
 
 pub fn add_parent_dir(fns: &mut UkonfFunctions) {

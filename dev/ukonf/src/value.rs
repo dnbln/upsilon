@@ -69,6 +69,13 @@ impl UkonfValue {
         }
     }
 
+    pub fn expect_object(self) -> Result<UkonfObject, UkonfFnError> {
+        match self {
+            UkonfValue::Object(o) => Ok(o),
+            v => Err(format_err!("Expected object, got: {v:?}")),
+        }
+    }
+
     pub fn clone_to_string(&self) -> Result<String, UkonfFnError> {
         match self {
             UkonfValue::Str(s) => Ok(s.clone()),
@@ -97,7 +104,7 @@ impl UkonfValue {
         }
     }
 
-    pub(crate) fn expect_object(self, span: &Span) -> Result<UkonfObject, UkonfRunError> {
+    pub(crate) fn _expect_object(self, span: &Span) -> Result<UkonfObject, UkonfRunError> {
         match self {
             UkonfValue::Object(obj) => Ok(obj),
             v => Err(UkonfRunError::ExpectedObject(v, span.clone())),

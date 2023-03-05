@@ -48,12 +48,24 @@
 
 	<div class="repo-navigation">
 		<div class="repo-navigation-elements">
-			<button class="repo-navigation-element"><i class="fa fa-terminal repo-navigation-icon"></i>Code</button>
-			<button class="repo-navigation-element"><i class="fa fa-check-circle-o repo-navigation-icon"></i>Issues</button>
-			<button class="repo-navigation-element"><i class="fa fa-random repo-navigation-icon"></i>Merge Requests</button>
-			<button class="repo-navigation-element"><i class="fa fa-book repo-navigation-icon"></i>Wiki</button>
-			<button class="repo-navigation-element"><i class="fa fa-comments repo-navigation-icon"></i>Discussion</button>
-			<button class="repo-navigation-element"><i class="fa fa-gear repo-navigation-icon"></i>Settings</button>
+			<button class="repo-navigation-element"
+				><i class="fa fa-terminal repo-navigation-icon" />Code</button
+			>
+			<button class="repo-navigation-element"
+				><i class="fa fa-check-circle-o repo-navigation-icon" />Issues</button
+			>
+			<button class="repo-navigation-element"
+				><i class="fa fa-random repo-navigation-icon" />Merge Requests</button
+			>
+			<button class="repo-navigation-element"
+				><i class="fa fa-book repo-navigation-icon" />Wiki</button
+			>
+			<button class="repo-navigation-element"
+				><i class="fa fa-comments repo-navigation-icon" />Discussion</button
+			>
+			<button class="repo-navigation-element"
+				><i class="fa fa-gear repo-navigation-icon" />Settings</button
+			>
 		</div>
 		<hr />
 	</div>

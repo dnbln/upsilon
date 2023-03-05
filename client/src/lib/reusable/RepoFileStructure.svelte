@@ -4,8 +4,8 @@
 </script>
 
 <script>
-	import RepoFileView from "$lib/components/RepoFileView.svelte";
-	import RepoVersionControls from "$lib/reusable/RepoVersionControls.svelte";
+	import RepoFileView from '$lib/components/RepoFileView.svelte';
+	import RepoVersionControls from '$lib/reusable/RepoVersionControls.svelte';
 
 	export let repo;
 	export let currentRev;
@@ -88,20 +88,27 @@
 </script>
 
 <div class="repo-file-structure">
-	<RepoVersionControls {activeBranch} {branches}/>
+	<RepoVersionControls {activeBranch} {branches} />
 	<table class="repo-file-structure-block">
 		<thead>
 			<tr id="files-heading">
 				<th class="files-columns files-columns-left">File</th>
 				<th class="files-columns files-columns-left">Last commit</th>
-				<th class="files-columns files-columns-right" id="files-columns-uploaded">Committed on</th>
+				<th class="files-columns files-columns-right" id="files-columns-uploaded"
+					>Committed on</th
+				>
 			</tr>
 		</thead>
 		<tbody class="repo-file-structure-block-files">
 			{#each files as file}
 				<tr class="files-rows">
 					<td class="files-rows-el files-name">
-						<a class="files-rows-el-link" href={linkFor(file)} data-sveltekit-reload={dev ? '' : 'off'}><i class={file.icon}></i>{file.name}</a>
+						<a
+							class="files-rows-el-link"
+							href={linkFor(file)}
+							data-sveltekit-reload={dev ? '' : 'off'}
+							><i class={file.icon} />{file.name}</a
+						>
 					</td>
 					<td class="files-rows-el files-commit">{file.commit}</td>
 					<td class="files-rows-el files-date">{file.upload}</td>
