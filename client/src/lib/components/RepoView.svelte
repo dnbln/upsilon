@@ -32,8 +32,20 @@
 
 	import RepoTopControls from '../reusable/RepoTopControls.svelte';
 	import RepoIssuesView from "$lib/components/RepoIssuesView.svelte";
+	import RepoMRsView from "./RepoMRsView.svelte";
 
 	let activeTab = "repo";
+
+	let issues = [
+		{id: 1, name: 'Unoptimized loading', author: 'Dinu', labels: [{title: 'new', color: 'hsl(186,68%,22%)'},{title: 'important', color: 'hsl(301,57%,42%)'}], date: new Date('December 17, 2020 03:24:00'), status: {message: 'OPEN', date: ''}},
+		{id: 2, name: 'Bad design', author: 'ecstasy', labels: [{title: 'needs attention', color: 'hsl(337,62%,26%)'}], date: new Date('September 1, 2021 03:24:00'), status: {message: 'CLOSED', date: new Date('March 1, 2023 03:23:23')}},
+		{id: 3, name: 'Stuff', author: 'ecstasy', labels: [{title: 'bad', color: 'hsl(20,77%,24%)'}], date: new Date('December 1, 2022 03:24:00'), status: {message: 'OPEN', date: ''}}
+	]
+
+	let requests = [
+		{id: 1, name: 'Update website', author: 'ecstasy', labels: [{title: 'attention', color: 'hsl(0,70%,23%)'},{title: 'update', color: 'hsl(43,72%,30%)'}], from: 'front-end', to: 'trunk', date: new Date('September 1, 2021 03:24:00'), status: {message: 'MERGED', date: new Date('March 1, 2023 03:23:23')}},
+		{id: 2, name: 'Cargo', author: 'dinu', labels: [{title: 'new', color: 'hsl(186,68%,22%)'}], from: 'cargo', to: 'trunk', date: new Date('September 1, 2021 03:24:00'), status: {message: 'OPEN', date: new Date('March 1, 2023 03:23:23')}}
+	]
 </script>
 
 <svelte:head>
@@ -68,11 +80,11 @@
 	{/if}
 
 	{#if activeTab === "issues"}
-		<RepoIssuesView />
+		<RepoIssuesView {issues} />
 	{/if}
 
 	{#if activeTab === "merge"}
-		<h1>merge issue</h1>
+		<RepoMRsView {requests} />
 	{/if}
 
 	{#if activeTab === "wiki"}

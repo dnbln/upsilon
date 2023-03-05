@@ -18,11 +18,7 @@
     import RepoIssue from "$lib/reusable/RepoIssue.svelte";
     import RepoIssuesControls from "$lib/reusable/RepoIssuesControls.svelte";
 
-    let issues = [
-        {id: 1, name: 'Unoptimized loading', author: 'Dinu', labels: [{title: 'new', color: 'hsl(186,68%,22%)'},{title: 'important', color: 'hsl(301,57%,42%)'}], date: new Date('December 17, 2020 03:24:00'), status: {message: 'OPEN', date: ''}},
-        {id: 2, name: 'Bad design', author: 'Ecstasy', labels: [{title: 'needs attention', color: 'hsl(337,62%,26%)'}], date: new Date('September 1, 2021 03:24:00'), status: {message: 'CLOSED', date: new Date('March 1, 2023 03:23:23')}},
-        {id: 3, name: 'Stuff', author: 'Ecstasy', labels: [{title: 'bad', color: 'hsl(20,77%,24%)'}], date: new Date('December 1, 2022 03:24:00'), status: {message: 'OPEN', date: ''}}
-    ]
+    export let issues;
 </script>
 
 

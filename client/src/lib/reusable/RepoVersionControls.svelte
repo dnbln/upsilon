@@ -24,7 +24,7 @@
 
 <svelte:window on:click={onWindowClick} />
 
-<div class="repo-issues-controls">
+<div class="repo-file-structure-controls">
     <div class="repo-file-structure-group-left">
         <div class="repo-file-structure-controls-branches">
             <select bind:value={activeBranch} id="button-branch">
@@ -38,7 +38,7 @@
             <p>{branches.length} Branches</p>
         </div>
     </div>
-    <div class="repo-issues-controls-group-right">
+    <div class="repo-file-structure-controls-group-right">
         <div bind:this={fileButton} class="repo-file-structure-controls-clone">
             <button on:click={() => (uploadFileDropdown = !uploadFileDropdown)} id="button-add">
                 <i class="fa fa-file" style="margin-right: 7px;"></i>
@@ -71,7 +71,7 @@
     border: hsl(180, 1%, 19%) solid 1px;
   }
 
-  .repo-issues-controls {
+  .repo-file-structure-controls {
     height: 50px;
     width: 70%;
     display: flex;
@@ -83,7 +83,7 @@
     gap: 10px;
   }
 
-  .repo-issues-controls-group-right {
+  .repo-file-structure-controls-group-right {
     display: flex;
     justify-content: end;
     gap: 10px;
