@@ -22,8 +22,8 @@
         if(re.test(hsl)) hsl = 'hsl(0,0%,0%)';
         let hslArray = hsl.toString().slice(4).slice(0, -1).split(',');
         let h = hslArray[0];
-        let s = Math.min(100, parseInt(hslArray[1].slice(0, -1)) + 1);
-        let l = Math.min(100, parseInt(hslArray[2].slice(0, -1)) + 40);
+        let s = (parseInt(hslArray[1].slice(0, -1)) + 1) % 100;
+        let l = (parseInt(hslArray[2].slice(0, -1)) + 40) % 100;
 
 
         return 'hsl(' + h + ',' + s + '%,' + l + '%)';
@@ -33,14 +33,14 @@
         if (re.test(hsl)) hsl = 'hsl(0,0%,0%)';
         let hslArray = hsl.toString().slice(4).slice(0, -1).split(',');
         let h = hslArray[0];
-        let s = Math.max(0, parseInt(hslArray[1].slice(0, -1)) - 20);
+        let s = Math.max(0, parseInt(hslArray[1].slice(0, -1)) - 40);
         let l = Math.max(0, parseInt(hslArray[2].slice(0, -1)) - 12);
 
         return 'hsl(' + h + ',' + s + '%,' + l + '%)';
     }
 </script>
 
-<div class="label" style="background-color: {darken(label.color)}; border: 1px solid {label.color}">
+<div class="label" style="background-color: {darken(label.color)}; border: 1px solid {lighten(label.color)}">
     <span style="color: {lighten(label.color)}">{label.title}</span>
 </div>
 
