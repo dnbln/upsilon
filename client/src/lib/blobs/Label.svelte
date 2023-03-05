@@ -15,10 +15,33 @@
   -->
 <script>
     export let label;
+
+    let re = new RegExp('(#([\\\\da-f]{3}){1,2}|(rgb|hsl)a\\\\((\\\\d{1,3}%?,\\\\s?){3}(1|0?\\\\.\\\\d+)\\\\)|(rgb|hsl)\\\\(\\\\d{1,3}%?(,\\\\s?\\\\d{1,3}%?){2}\\\\))');
+
+    function lighten(hsl) {
+        if(re.test(hsl)) hsl = 'hsl(0,0%,0%)';
+        let hslArray = hsl.toString().slice(4).slice(0, -1).split(',');
+        let h = hslArray[0];
+        let s = Math.min(100, parseInt(hslArray[1].slice(0, -1)) + 1);
+        let l = Math.min(100, parseInt(hslArray[2].slice(0, -1)) + 40);
+
+
+        return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+    }
+
+    function darken(hsl) {
+        if (re.test(hsl)) hsl = 'hsl(0,0%,0%)';
+        let hslArray = hsl.toString().slice(4).slice(0, -1).split(',');
+        let h = hslArray[0];
+        let s = Math.max(0, parseInt(hslArray[1].slice(0, -1)) - 20);
+        let l = Math.max(0, parseInt(hslArray[2].slice(0, -1)) - 12);
+
+        return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+    }
 </script>
 
-<div class="label" style="background-color: {label.color}">
-    <span>{label.title}</span>
+<div class="label" style="background-color: {darken(label.color)}; border: 1px solid {label.color}">
+    <span style="color: {lighten(label.color)}">{label.title}</span>
 </div>
 
 <style lang="scss">
