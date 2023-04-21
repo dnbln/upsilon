@@ -8,6 +8,11 @@ import CrateSourceLink from '@site/src/components/CrateSourceLink';
 Cargo workflows, to automate some tasks, are written in Rust.
 The <CrateSourceLink kind="dev" crate="upsilon-xtask"/> crate is the entry point
 for these workflows.
+To invoke them, run:
+
+```bash
+cargo xtask <xtask> <args>
+```
 
 ## Logging
 
@@ -21,11 +26,11 @@ most important are:
 
 ### `run-dev`
 
-Runs the backend development server.
+Run the backend development server.
 
 ### `frontend-run-dev`
 
-Runs the frontend development server.
+Run the frontend development server.
 
 ### `test`
 
@@ -37,7 +42,7 @@ Builds the docs.
 
 ### `serve-docs`
 
-Runs a local dev server to serve the docs.
+Run a local dev server to serve the docs.
 
 ### `lint`
 

@@ -21,12 +21,21 @@ concerned happens through this crate, including set-up of repos.
 It is also responsible for spawning `git` processes, like `git-http-backend`
 and `git-daemon` to handle incoming requests, when necessary.
 
+## `upsilon-asyncvcs`
+
+Now because we need our GraphQL types to implement `Send + Sync`, they cannot
+hold references to `libgit2` objects, so what happens is that they are loaded
+in a separate `tokio::spawn_blocking` task, and then that task communicates
+through channels with the normal graphql code.
+
+All of this logic is handled by the <CrateSourceLink kind="crates" crate="upsilon-asyncvcs"/> crate.
+
 ## `upsilon-git-hooks`
 
 This is a binary crate, which is invoked by the various hooks in
 `git-http-backend` and/or `git-daemon`, and is responsible for telling the
 webserver what is actually happening in the repository. It also has the job of
-rejecting specific actions, for example GitHub has protected branches, and won't
+rejecting specific actions, for example, GitHub has protected branches, and will not
 allow certain actions on them. This is done by passing the repo config from
 the webserver to the hook, through the `UPSILON_REPO_CONFIG`
 environment variable, which is then read by the hook (serialized JSON).
